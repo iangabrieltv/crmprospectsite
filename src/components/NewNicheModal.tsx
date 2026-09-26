@@ -1,0 +1,162 @@
+import React, { useState } from 'react';
+import { NicheCampaign } from '../types/crm';
+import { DEFAULT_SCRIPTS } from '../utils/initialData';
+import { X, Plus, Sparkles } from 'lucide-react';
+
+interface NewNicheModalProps {
+  onClose: () => void;
+  onCreateNiche: (niche: NicheCampaign) => void;
+}
+
+const EMOJI_SUGGESTIONS = ['🦷', '🔑', '💅', '⚖️', '🍕', '🚗', '🏗️', '🐾', '💈', '🏡', '🏋️', '🩺'];
+
+export const NewNicheModal: React.FC<NewNicheModalProps> = ({ onClose, onCreateNiche }) => {
+  const [name, setName] = useState('');
+  const [segment, setSegment] = useState('');
+  const [city, setCity] = useState('');
+  const [emoji, setEmoji] = useState('💼');
+  const [targetMrr, setTargetMrr] = useState('5000');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+
+    const newNiche: NicheCampaign = {
+      id: 'niche-' + Date.now(),
+      name: name.trim(),
+      segment: segment.trim() || name.trim(),
+      city: city.trim() || 'Brasil',
+      emoji: emoji || '💼',
+      targetMrr: targetMrr ? parseFloat(targetMrr) : 5000,
+      createdAt: new Date().toISOString(),
+      scripts: { ...DEFAULT_SCRIPTS },
+    };
+
+    onCreateNiche(newNiche);
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl max-w-md w-full border border-slate-200 overflow-hidden">
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+          <h3 className="text-sm font-bold text-slate-900">
+            + Novo Nicho / Campanha de Venda
+          </h3>
+          <button
+            onClick={onClose}
+            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Emoji do Nicho
+            </label>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {EMOJI_SUGGESTIONS.map((em) => (
+                <button
+                  type="button"
+                  key={em}
+                  onClick={() => setEmoji(em)}
+                  className={`w-8 h-8 rounded-lg text-base flex items-center justify-center border transition-all cursor-pointer ${
+                    emoji === em
+                      ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-300'
+                      : 'border-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  {em}
+                </button>
+              ))}
+              <input
+                type="text"
+                value={emoji}
+                onChange={(e) => setEmoji(e.target.value)}
+                maxLength={2}
+                className="w-9 h-8 text-center text-sm border border-slate-300 rounded-lg"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Nome da Campanha *
+            </label>
+            <input
+              type="text"
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Ex: ⚖️ Advogados - Belo Horizonte"
+              className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900"
+              autoFocus
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Segmento de Atuação
+            </label>
+            <input
+              type="text"
+              value={segment}
+              onChange={(e) => setSegment(e.target.value)}
+              placeholder="Ex: Escritórios de Advocacia Previdenciária"
+              className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Cidade / Região Padrão
+            </label>
+            <input
+              type="text"
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              placeholder="Ex: Belo Horizonte - MG"
+              className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Meta de Faturamento MRR (R$/mês)
+            </label>
+            <div className="relative">
+              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-mono">
+                R$
+              </span>
+              <input
+                type="number"
+                value={targetMrr}
+                onChange={(e) => setTargetMrr(e.target.value)}
+                placeholder="5000"
+                className="w-full text-xs pl-8 pr-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono tabular-nums text-slate-900"
+              />
+            </div>
+          </div>
+
+          <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-3.5 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-xs cursor-pointer"
+            >
+              Criar Campanha
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};

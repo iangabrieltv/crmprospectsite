@@ -1,0 +1,6 @@
+{
+  "name": "ProspectFlow - CRM de Vendas de Sites",
+  "description": "CRM minimalista multi-nicho (Linear/Notion style) para prospecção ativa de venda de sites e serviços digitais com Kanban, automação WhatsApp e análise inteligente de leads.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
