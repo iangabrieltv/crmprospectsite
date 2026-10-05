@@ -24,7 +24,8 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({
   const [googleRating, setGoogleRating] = useState('');
   const [mockupUrl, setMockupUrl] = useState('');
   const [stage, setStage] = useState<FunnelStageId>(defaultStage);
-  const [scriptUsed, setScriptUsed] = useState<ScriptId>('script1');
+  const defaultScriptKey = Object.keys(niche.scripts)[0] || 'script1';
+  const [scriptUsed, setScriptUsed] = useState<ScriptId>(defaultScriptKey);
   const [creationValue, setCreationValue] = useState('');
   const [monthlyMrr, setMonthlyMrr] = useState('');
 

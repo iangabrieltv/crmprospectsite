@@ -1,5 +1,11 @@
 import { NicheCampaign, Lead } from '../types/crm';
-import { INITIAL_NICHES, INITIAL_LEADS, DEFAULT_SCRIPTS } from './initialData';
+import {
+  INITIAL_NICHES,
+  INITIAL_LEADS,
+  DEFAULT_SCRIPTS,
+  SCRIPT_NUTRICIONISTA,
+  SCRIPT_NUTRICIONISTA_MENSAGENS
+} from './initialData';
 
 const NICHES_STORAGE_KEY = 'prospectflow_crm_niches_clean_v2';
 const LEADS_STORAGE_KEY = 'prospectflow_crm_leads_clean_v2';
@@ -15,18 +21,107 @@ export function loadStoredNiches(): NicheCampaign[] {
     }
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed) && parsed.length > 0) {
-      // Auto-migrate: ensure default scripts like script3 are populated in niches if missing
-      const upgraded = parsed.map((niche: NicheCampaign) => {
-        const mergedScripts = { ...DEFAULT_SCRIPTS, ...(niche.scripts || {}) };
+      // Auto-migrate: ensure default scripts and new objections are populated in niches if missing
+      let upgraded = parsed.map((niche: NicheCampaign) => {
+        const isNutri =
+          niche.name.toLowerCase().includes('nutri') ||
+          niche.segment.toLowerCase().includes('nutri');
+
+        const mergedScripts: Record<string, any> = isNutri
+          ? {
+              script_nutri: SCRIPT_NUTRICIONISTA,
+              script_nutri_mensagens: SCRIPT_NUTRICIONISTA_MENSAGENS,
+              ...(niche.scripts || {}),
+              ...DEFAULT_SCRIPTS,
+            }
+          : { ...DEFAULT_SCRIPTS, ...(niche.scripts || {}) };
+
+        // Ensure both nutri scripts are always present and up to date
+        mergedScripts.script_nutri = SCRIPT_NUTRICIONISTA;
+        mergedScripts.script_nutri_mensagens = SCRIPT_NUTRICIONISTA_MENSAGENS;
+
         // If script3 is not yet in niche.scripts, add it
         if (!mergedScripts.script3) {
           mergedScripts.script3 = DEFAULT_SCRIPTS.script3;
         }
+
+        // Ensure script1 has the new objection 'obj-ja-tem-equipe'
+        if (mergedScripts.script1) {
+          const objections = mergedScripts.script1.objections || [];
+          const hasEquipeObj = objections.some((o: any) => o.id === 'obj-ja-tem-equipe');
+          if (!hasEquipeObj) {
+            const defaultEquipeObj = DEFAULT_SCRIPTS.script1?.objections?.find(
+              (o) => o.id === 'obj-ja-tem-equipe'
+            );
+            if (defaultEquipeObj) {
+              mergedScripts.script1 = {
+                ...mergedScripts.script1,
+                objections: [defaultEquipeObj, ...objections],
+              };
+            }
+          }
+
+          // Ensure etapa-1 and etapa-2 steps
+          if (mergedScripts.script1.stages?.[0]) {
+            const st1Steps = mergedScripts.script1.stages[0].steps || [];
+            if (!st1Steps.some((s: any) => s.id === 'etapa-1-ja-tem-equipe')) {
+              const defaultStep1 = DEFAULT_SCRIPTS.script1?.stages?.[0]?.steps?.find(
+                (s) => s.id === 'etapa-1-ja-tem-equipe'
+              );
+              if (defaultStep1) {
+                mergedScripts.script1.stages[0].steps = [...st1Steps, defaultStep1];
+              }
+            }
+          }
+          if (mergedScripts.script1.stages?.[1]) {
+            const st2Steps = mergedScripts.script1.stages[1].steps || [];
+            if (!st2Steps.some((s: any) => s.id === 'etapa-2-envio-pos-equipe')) {
+              const defaultStep2 = DEFAULT_SCRIPTS.script1?.stages?.[1]?.steps?.find(
+                (s) => s.id === 'etapa-2-envio-pos-equipe'
+              );
+              if (defaultStep2) {
+                mergedScripts.script1.stages[1].steps = [...st2Steps, defaultStep2];
+              }
+            }
+          }
+
+          // Ensure follow-ups 1, 2, and 3 are updated
+          mergedScripts.script1.followUp1 = DEFAULT_SCRIPTS.script1.followUp1;
+          mergedScripts.script1.followUp2 = DEFAULT_SCRIPTS.script1.followUp2;
+          mergedScripts.script1.followUp3 = DEFAULT_SCRIPTS.script1.followUp3;
+
+          // Ensure etapa-followup-mockup is present in stages
+          const stages = mergedScripts.script1.stages || [];
+          if (!stages.some((st: any) => st.id === 'etapa-followup-mockup')) {
+            const defaultFuStage = DEFAULT_SCRIPTS.script1?.stages?.find(
+              (st) => st.id === 'etapa-followup-mockup'
+            );
+            if (defaultFuStage) {
+              const etapa2Idx = stages.findIndex((st: any) => st.id === 'etapa-2');
+              if (etapa2Idx >= 0) {
+                stages.splice(etapa2Idx + 1, 0, defaultFuStage);
+              } else {
+                stages.push(defaultFuStage);
+              }
+              mergedScripts.script1.stages = [...stages];
+            }
+          }
+        }
+
         return {
           ...niche,
           scripts: mergedScripts,
         };
       });
+
+      // If user doesn't have a Nutricionista niche yet, add it to their campaigns list
+      const hasNutriNiche = upgraded.some(
+        (n) => n.id === 'niche-nutricionistas' || n.name.toLowerCase().includes('nutri')
+      );
+      if (!hasNutriNiche && INITIAL_NICHES[0]) {
+        upgraded.push(INITIAL_NICHES[0]);
+      }
+
       return upgraded;
     }
     return INITIAL_NICHES;

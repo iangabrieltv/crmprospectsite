@@ -61,11 +61,11 @@ export const Header: React.FC<HeaderProps> = ({
   }, []);
 
   const navItems: { tab: AppTab; label: string; icon: React.ReactNode }[] = [
-    { tab: 'kanban', label: 'Kanban & Pipeline', icon: <Kanban className="w-4 h-4" /> },
-    { tab: 'dashboard', label: 'Dashboard & Funil', icon: <BarChart3 className="w-4 h-4" /> },
-    { tab: 'scripts', label: 'Scripts & Prospecção', icon: <FileText className="w-4 h-4" /> },
-    { tab: 'importer', label: 'Importador Inteligente', icon: <Upload className="w-4 h-4" /> },
-    { tab: 'global', label: 'Visão Global da Agência', icon: <Globe className="w-4 h-4" /> },
+    { tab: 'kanban', label: 'Pipeline', icon: <Kanban className="w-4 h-4 shrink-0" /> },
+    { tab: 'dashboard', label: 'Dashboard', icon: <BarChart3 className="w-4 h-4 shrink-0" /> },
+    { tab: 'scripts', label: 'Scripts', icon: <FileText className="w-4 h-4 shrink-0" /> },
+    { tab: 'importer', label: 'Importador', icon: <Upload className="w-4 h-4 shrink-0" /> },
+    { tab: 'global', label: 'Visão Geral', icon: <Globe className="w-4 h-4 shrink-0" /> },
   ];
 
   const handleSaveUserName = (e: React.FormEvent) => {
@@ -77,40 +77,20 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-40 bg-white border-b border-slate-200/80 shadow-xs">
+    <header className="sticky top-0 z-40 bg-white border-b border-slate-200/80 shadow-xs w-full max-w-full">
       {/* Top Bar Contract: 3 zones */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+      <div className="w-full px-3 sm:px-6 h-16 flex items-center justify-between gap-2 sm:gap-4">
         
-        {/* ZONE 1: Single text element wordmark + subtle breadcrumb */}
-        <div className="flex items-center gap-3 shrink-0">
-          <button
-            onClick={() => onSelectTab('kanban')}
-            className="flex items-center gap-2 group text-left cursor-pointer focus:outline-none"
-          >
-            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-sm shadow-xs transition-transform group-hover:scale-105">
-              PF
-            </div>
-            <div className="flex flex-col">
-              <span className="text-base font-bold tracking-tight text-slate-900 group-hover:text-blue-600 transition-colors">
-                ProspectFlow
-              </span>
-              <span className="text-[11px] text-slate-500 font-normal">
-                CRM de Venda de Sites
-              </span>
-            </div>
-          </button>
-
-          <span className="text-slate-300 hidden md:inline">/</span>
-
-          {/* Active Niche Selector Dropdown */}
+        {/* ZONE 1: Active Niche Selector Dropdown */}
+        <div className="flex items-center gap-2 shrink-0">
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setIsNicheDropdownOpen(!isNicheDropdownOpen)}
-              className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 hover:border-slate-300 text-slate-800 text-xs sm:text-sm font-medium transition-all cursor-pointer"
+              className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 hover:border-slate-300 text-slate-800 text-xs sm:text-sm font-semibold transition-all cursor-pointer shadow-2xs"
               title="Alternar nicho ou criar nova campanha"
             >
               <span className="text-base leading-none">{activeNiche.emoji}</span>
-              <span className="max-w-[130px] sm:max-w-[200px] truncate text-slate-900 font-semibold">
+              <span className="max-w-[120px] sm:max-w-[200px] truncate text-slate-900 font-bold">
                 {activeNiche.name}
               </span>
               <ChevronDown className="w-3.5 h-3.5 text-slate-500 shrink-0" />
@@ -175,19 +155,20 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* ZONE 2: 4-5 Clean Nav Tabs */}
-        <nav className="hidden lg:flex items-center gap-1">
+        {/* ZONE 2: Clean Nav Tabs */}
+        <nav className="hidden md:flex items-center gap-1 shrink-0">
           {navItems.map((item) => {
             const isActive = activeTab === item.tab;
             return (
               <button
                 key={item.tab}
                 onClick={() => onSelectTab(item.tab)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all whitespace-nowrap cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap cursor-pointer shrink-0 ${
                   isActive
                     ? 'bg-slate-900 text-white shadow-xs'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                 }`}
+                title={item.label}
               >
                 {item.icon}
                 <span>{item.label}</span>
@@ -196,12 +177,12 @@ export const Header: React.FC<HeaderProps> = ({
           })}
         </nav>
 
-        {/* ZONE 3: 1-2 Primary Actions & User Identity */}
-        <div className="flex items-center gap-2">
+        {/* ZONE 3: Primary Actions & User Identity */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {/* Quick Add Lead Button */}
           <button
             onClick={onOpenNewLeadModal}
-            className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-lg shadow-xs transition-colors cursor-pointer whitespace-nowrap"
+            className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-lg shadow-xs transition-colors cursor-pointer whitespace-nowrap shrink-0"
             title="Cadastrar novo lead manualmente"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -215,26 +196,26 @@ export const Header: React.FC<HeaderProps> = ({
               setTempUserName(userName);
               setIsUserModalOpen(true);
             }}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-100 text-xs font-medium transition-colors cursor-pointer"
+            className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-100 text-xs font-medium transition-colors cursor-pointer shrink-0"
             title="Nome usado para personalizar os scripts de WhatsApp"
           >
             <User className="w-3 h-3 text-slate-500" />
-            <span className="max-w-[70px] truncate hidden sm:inline">{userName}</span>
+            <span className="max-w-[50px] sm:max-w-[70px] truncate hidden sm:inline">{userName}</span>
           </button>
         </div>
       </div>
 
       {/* Mobile Nav Links bar */}
-      <div className="lg:hidden px-4 py-2 border-t border-slate-100 flex items-center gap-1 overflow-x-auto">
+      <div className="md:hidden px-3 sm:px-4 py-2 border-t border-slate-100 flex items-center gap-1 overflow-x-auto no-scrollbar">
         {navItems.map((item) => {
           const isActive = activeTab === item.tab;
           return (
             <button
               key={item.tab}
               onClick={() => onSelectTab(item.tab)}
-              className={`flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-md whitespace-nowrap cursor-pointer transition-colors ${
+              className={`flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-md whitespace-nowrap cursor-pointer transition-colors shrink-0 ${
                 isActive
-                  ? 'bg-slate-900 text-white'
+                  ? 'bg-slate-900 text-white font-semibold'
                   : 'text-slate-600 hover:bg-slate-100'
               }`}
             >

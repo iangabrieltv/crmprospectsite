@@ -17,7 +17,11 @@ import {
   BarChart3,
   Percent,
   Clock,
-  Sparkles
+  Sparkles,
+  Send,
+  PhoneOff,
+  Layers,
+  HelpCircle
 } from 'lucide-react';
 
 interface DashboardViewProps {
@@ -39,11 +43,25 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ niche, leads }) =>
   const followUpLeads = leads.filter(
     (l) => l.stage === 'follow_up_1' || l.stage === 'follow_up_2'
   );
+
+  // ALL leads where contact has been initiated (including mockup, follow-up, interested, closed, etc.)
   const contactedLeads = leads.filter(
-    (l) => l.stage !== 'nao_iniciada'
+    (l) => l.stage !== 'nao_iniciada' || Boolean(l.lastContactDate)
   );
+
+  const mockupSentLeads = leads.filter((l) => l.stage === 'mockup_enviado');
+  const noContactLeads = leads.filter((l) => l.stage === 'nao_tem_contato');
+  const uncontactedLeads = leads.filter(
+    (l) => l.stage === 'nao_iniciada' && !l.lastContactDate
+  );
+
+  const contactPercentage = totalLeads > 0
+    ? ((contactedLeads.length / totalLeads) * 100).toFixed(0)
+    : '0';
+
   const respondedLeads = leads.filter(
     (l) =>
+      l.stage === 'mockup_enviado' ||
       l.stage === 'follow_up_1' ||
       l.stage === 'follow_up_2' ||
       l.stage === 'interessado' ||
@@ -155,7 +173,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ niche, leads }) =>
       </div>
 
       {/* KPI Stat Cards (Single-Elevation, Tabular figures) */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
         {/* Card 1: Total Leads */}
         <div className="bg-white p-4 rounded-xl border border-slate-200/90 shadow-2xs flex flex-col justify-between">
           <div className="text-[11px] font-medium text-slate-500 flex items-center justify-between">
@@ -166,17 +184,59 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ niche, leads }) =>
             {totalLeads}
           </div>
           <div className="mt-1 text-[11px] text-slate-500 truncate">
-            {contactedLeads.length} já contatados
+            {uncontactedLeads.length} ainda sem contato
           </div>
         </div>
 
-        {/* Card 2: Response Rate */}
+        {/* Card 2: Já Contatados */}
+        <div className="bg-white p-4 rounded-xl border border-blue-200/80 shadow-2xs flex flex-col justify-between bg-blue-50/20">
+          <div className="text-[11px] font-semibold text-blue-900 flex items-center justify-between">
+            <span>Já Contatados</span>
+            <Send className="w-3.5 h-3.5 text-blue-600" />
+          </div>
+          <div className="mt-2 text-2xl font-bold font-mono tabular-nums text-blue-700">
+            {contactedLeads.length}
+          </div>
+          <div className="mt-1 text-[11px] text-blue-600 font-medium truncate">
+            {contactPercentage}% da sua base abordada
+          </div>
+        </div>
+
+        {/* Card 3: Mockups Enviados */}
+        <div className="bg-white p-4 rounded-xl border border-violet-200/80 shadow-2xs flex flex-col justify-between bg-violet-50/20">
+          <div className="text-[11px] font-semibold text-violet-900 flex items-center justify-between">
+            <span>Mockups Enviados</span>
+            <Sparkles className="w-3.5 h-3.5 text-violet-600" />
+          </div>
+          <div className="mt-2 text-2xl font-bold font-mono tabular-nums text-violet-700">
+            {mockupSentLeads.length}
+          </div>
+          <div className="mt-1 text-[11px] text-violet-600 font-medium truncate">
+            Prévia interativa entregue
+          </div>
+        </div>
+
+        {/* Card 4: Sem Contato / Inacessíveis */}
+        <div className="bg-white p-4 rounded-xl border border-zinc-200 shadow-2xs flex flex-col justify-between bg-zinc-50/40">
+          <div className="text-[11px] font-medium text-zinc-700 flex items-center justify-between">
+            <span>Sem Contato</span>
+            <PhoneOff className="w-3.5 h-3.5 text-zinc-500" />
+          </div>
+          <div className="mt-2 text-2xl font-bold font-mono tabular-nums text-zinc-700">
+            {noContactLeads.length}
+          </div>
+          <div className="mt-1 text-[11px] text-zinc-500 truncate">
+            Números sem retorno/inválidos
+          </div>
+        </div>
+
+        {/* Card 5: Response Rate */}
         <div className="bg-white p-4 rounded-xl border border-slate-200/90 shadow-2xs flex flex-col justify-between">
           <div className="text-[11px] font-medium text-slate-500 flex items-center justify-between">
             <span>Taxa de Resposta</span>
-            <Percent className="w-3.5 h-3.5 text-blue-500" />
+            <Percent className="w-3.5 h-3.5 text-indigo-500" />
           </div>
-          <div className="mt-2 text-2xl font-bold font-mono tabular-nums text-blue-700">
+          <div className="mt-2 text-2xl font-bold font-mono tabular-nums text-indigo-700">
             {responseRate}%
           </div>
           <div className="mt-1 text-[11px] text-slate-500 truncate">
@@ -184,21 +244,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ niche, leads }) =>
           </div>
         </div>
 
-        {/* Card 3: In Follow-up */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200/90 shadow-2xs flex flex-col justify-between">
-          <div className="text-[11px] font-medium text-slate-500 flex items-center justify-between">
-            <span>Em Follow-up</span>
-            <Clock className="w-3.5 h-3.5 text-purple-500" />
-          </div>
-          <div className="mt-2 text-2xl font-bold font-mono tabular-nums text-purple-700">
-            {followUpLeads.length}
-          </div>
-          <div className="mt-1 text-[11px] text-slate-500 truncate">
-            Toques 1 e 2 ativos
-          </div>
-        </div>
-
-        {/* Card 4: Interested Leads */}
+        {/* Card 6: Interested Leads */}
         <div className="bg-white p-4 rounded-xl border border-slate-200/90 shadow-2xs flex flex-col justify-between">
           <div className="text-[11px] font-medium text-slate-500 flex items-center justify-between">
             <span>Interessados na Mesa</span>
@@ -212,7 +258,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ niche, leads }) =>
           </div>
         </div>
 
-        {/* Card 5: Closed Leads */}
+        {/* Card 7: Closed Leads */}
         <div className="bg-white p-4 rounded-xl border border-slate-200/90 shadow-2xs flex flex-col justify-between">
           <div className="text-[11px] font-medium text-slate-500 flex items-center justify-between">
             <span>Vendas Fechadas</span>
@@ -226,7 +272,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ niche, leads }) =>
           </div>
         </div>
 
-        {/* Card 6: MRR Recurring */}
+        {/* Card 8: MRR Recurring */}
         <div className="bg-white p-4 rounded-xl border border-slate-200/90 shadow-2xs flex flex-col justify-between ring-1 ring-emerald-500/20 bg-emerald-50/20">
           <div className="text-[11px] font-medium text-emerald-800 flex items-center justify-between">
             <span>MRR Recorrente</span>
@@ -249,11 +295,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ niche, leads }) =>
               Funil Sequencial de Vendas de Sites
             </h3>
             <p className="text-xs text-slate-500">
-              Distribuição dos {totalLeads} contatos ao longo das 8 etapas do processo.
+              Distribuição dos {totalLeads} contatos ao longo das {FUNNEL_STAGES.length} etapas do processo.
             </p>
           </div>
           <span className="text-xs font-mono text-slate-500">
-            8 Etapas Monitoradas
+            {FUNNEL_STAGES.length} Etapas Monitoradas
           </span>
         </div>
 
@@ -299,8 +345,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ niche, leads }) =>
                         ? 'bg-green-600'
                         : stage.id === 'interessado'
                         ? 'bg-emerald-500'
+                        : stage.id === 'mockup_enviado'
+                        ? 'bg-violet-600'
+                        : stage.id === 'nao_tem_contato'
+                        ? 'bg-zinc-400'
                         : stage.id === 'nao_interessado'
                         ? 'bg-rose-400'
+                        : stage.id === 'nao_respondida'
+                        ? 'bg-amber-500'
+                        : stage.id === 'follow_up_1' || stage.id === 'follow_up_2'
+                        ? 'bg-purple-500'
                         : 'bg-blue-600'
                     }`}
                     style={{ width: `${Math.max(count > 0 ? 3 : 0, percentOfTotal)}%` }}

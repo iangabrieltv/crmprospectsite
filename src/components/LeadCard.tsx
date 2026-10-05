@@ -4,7 +4,8 @@ import {
   isInactiveOver48h,
   buildWhatsAppLink,
   interpolateScript,
-  formatDisplayPhone
+  formatDisplayPhone,
+  formatFriendlyTime
 } from '../utils/phone';
 import {
   MessageCircle,
@@ -17,7 +18,8 @@ import {
   DollarSign,
   ArrowRight,
   Copy,
-  Check
+  Check,
+  Send
 } from 'lucide-react';
 import { DEFAULT_SCRIPTS } from '../utils/initialData';
 
@@ -43,10 +45,13 @@ export const LeadCard: React.FC<LeadCardProps> = ({
   const inactive = isInactiveOver48h(lead.lastContactDate, lead.createdAt);
 
   // Script definition helper
-  const scriptKey = lead.scriptUsed !== 'none' ? lead.scriptUsed : 'script1';
+  const scriptKey =
+    lead.scriptUsed !== 'none' && niche.scripts[lead.scriptUsed]
+      ? lead.scriptUsed
+      : Object.keys(niche.scripts)[0] || 'script1';
   const scriptDef =
     niche.scripts[scriptKey] ||
-    niche.scripts.script1 ||
+    Object.values(niche.scripts)[0] ||
     DEFAULT_SCRIPTS.script1;
 
   const interpolatedMessage = interpolateScript(scriptDef.template, {
@@ -104,18 +109,34 @@ export const LeadCard: React.FC<LeadCardProps> = ({
           : 'border-slate-200/90 shadow-2xs'
       }`}
     >
-      {/* Top Tag & Inactivity Banner */}
+      {/* Top Tag & Inactivity Banner & Last Contact Indicator */}
       <div className="flex items-center justify-between gap-1 mb-2">
-        {inactive ? (
-          <div className="flex items-center gap-1 text-[10px] font-bold text-amber-900 bg-amber-100/90 px-2 py-0.5 rounded-full">
-            <Clock className="w-3 h-3 text-amber-700 shrink-0" />
-            <span>Inativo (+48h)</span>
-          </div>
-        ) : (
-          <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md truncate max-w-[170px]">
-            {scriptDef.title ? scriptDef.title.split('—')[0] : 'Script'}
-          </span>
-        )}
+        <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+          {inactive ? (
+            <div className="flex items-center gap-1 text-[10px] font-bold text-amber-900 bg-amber-100/90 px-2 py-0.5 rounded-full shrink-0">
+              <Clock className="w-3 h-3 text-amber-700 shrink-0" />
+              <span>Inativo (+48h)</span>
+            </div>
+          ) : (
+            <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md truncate max-w-[130px]">
+              {scriptDef.title ? scriptDef.title.split('—')[0] : 'Script'}
+            </span>
+          )}
+
+          {lead.lastContactDate ? (
+            <span
+              className="text-[10px] font-mono text-blue-700 bg-blue-50/90 border border-blue-200/50 px-1.5 py-0.5 rounded flex items-center gap-1 shrink-0"
+              title={`Última mensagem enviada: ${new Date(lead.lastContactDate).toLocaleString('pt-BR')}`}
+            >
+              <Send className="w-2.5 h-2.5 text-blue-600" />
+              <span>{formatFriendlyTime(lead.lastContactDate)}</span>
+            </span>
+          ) : (
+            <span className="text-[10px] text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded shrink-0">
+              Sem envio
+            </span>
+          )}
+        </div>
 
         {/* Quick Menu */}
         <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
@@ -173,12 +194,27 @@ export const LeadCard: React.FC<LeadCardProps> = ({
           <span className="truncate">{lead.city || niche.city}</span>
         </div>
 
-        {lead.googleRating ? (
-          <div className="flex items-center gap-0.5 font-mono text-[11px] text-amber-600 font-bold shrink-0 bg-amber-50 px-1.5 py-0.2 rounded-md">
-            <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-            <span>{lead.googleRating.toFixed(1)}</span>
-          </div>
-        ) : null}
+        <div className="flex items-center gap-1.5 shrink-0">
+          {lead.googleMapsUrl && (
+            <a
+              href={lead.googleMapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="px-1.5 py-0.5 rounded text-blue-600 hover:text-blue-800 hover:bg-blue-50 transition-colors flex items-center gap-0.5 text-[10px] font-medium border border-blue-200/50"
+              title="Abrir no Google Meu Negócio / Maps"
+            >
+              <span>GMB</span>
+              <ExternalLink className="w-2.5 h-2.5" />
+            </a>
+          )}
+          {lead.googleRating ? (
+            <div className="flex items-center gap-0.5 font-mono text-[11px] text-amber-600 font-bold shrink-0 bg-amber-50 px-1.5 py-0.2 rounded-md">
+              <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+              <span>{lead.googleRating.toFixed(1)}</span>
+            </div>
+          ) : null}
+        </div>
       </div>
 
       {/* Phone with 1-click copy */}

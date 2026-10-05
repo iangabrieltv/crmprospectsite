@@ -94,15 +94,26 @@ export function interpolateScript(
 ): string {
   let result = template;
   const empresaVal = variables.empresa || 'sua empresa';
-  const contatoVal = variables.contato || 'Prezado(a)';
+  const contatoVal = variables.contato || 'Camila';
   const seuNomeVal = variables.seuNome || 'Ian';
   const posicaoVal = variables.posicaoGoogle || '6ª';
   const h1Val = variables.horario1 || 'quinta às 14h';
   const h2Val = variables.horario2 || 'sexta às 10h';
 
+  // Smart extract of clean name without double title (e.g., if user saved "Dra. Camila", clean is "Camila")
+  const prefixMatch = contatoVal.match(/^(?:Dra?\.|Doutor(?:a)?)\s*(.*)$/i);
+  const cleanNameOnly = prefixMatch && prefixMatch[1] ? prefixMatch[1].trim() : contatoVal;
+
+  // Title-aware replacement for "Dra. [NOME]" or "Dr. [NOME]"
+  result = result.replace(/Dra\.\s*\[NOME\]/gi, `Dra. ${cleanNameOnly}`);
+  result = result.replace(/Dr\.\s*\[NOME\]/gi, `Dr. ${cleanNameOnly}`);
+  result = result.replace(/Dra\.\s*\{Nome\}/gi, `Dra. ${cleanNameOnly}`);
+  result = result.replace(/Dr\.\s*\{Nome\}/gi, `Dr. ${cleanNameOnly}`);
+
   // Curly braces support {Var}
   result = result.replace(/\{Empresa\}/gi, empresaVal);
-  result = result.replace(/\{NomeContato\}/gi, contatoVal);
+  result = result.replace(/\{NomeContato\}/gi, cleanNameOnly);
+  result = result.replace(/\{Nome\}/gi, cleanNameOnly);
   result = result.replace(/\{Nicho\}/gi, variables.nicho || 'seu segmento');
   result = result.replace(/\{Cidade\}/gi, variables.cidade || 'sua região');
   result = result.replace(/\{LinkMockup\}/gi, variables.linkMockup || '[Link da Demonstração]');
@@ -112,13 +123,38 @@ export function interpolateScript(
   );
   result = result.replace(/\{SeuNome\}/gi, seuNomeVal);
 
-  // Square bracket support for Cold Call variables [NOME], [NOME DA CLÍNICA], [Xª], [HORÁRIO 1], etc.
+  // Square bracket support for Cold Call & Nutri variables [NOME], [cidade], [NOME DA CLÍNICA], etc.
   result = result.replace(/\[NOME DA CLÍNICA\]/gi, empresaVal);
-  result = result.replace(/\[NOME\]/gi, contatoVal);
+  result = result.replace(/\[NOME\]/gi, cleanNameOnly);
+  result = result.replace(/\[CIDADE\]/gi, variables.cidade || 'sua cidade');
+  result = result.replace(/\[LINKMOCKUP\]/gi, variables.linkMockup || '[Link da Prévia]');
   result = result.replace(/\[Xª\]/gi, posicaoVal);
   result = result.replace(/\[HORÁRIO 1\]/gi, h1Val);
   result = result.replace(/\[HORÁRIO 2\]/gi, h2Val);
   result = result.replace(/\[SEUNOME\]/gi, seuNomeVal);
 
+  // Safety check to remove any duplicate honorifics e.g. "Dra. Dra."
+  result = result.replace(/Dra\.\s*Dra\./gi, 'Dra.');
+  result = result.replace(/Dr\.\s*Dr\./gi, 'Dr.');
+
   return result;
+}
+
+/**
+ * Format relative friendly time for last contact (e.g. "Há 10 min", "Hoje às 14:20", "Ontem", "28/09")
+ */
+export function formatFriendlyTime(dateStr?: string): string {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return '';
+  const now = Date.now();
+  const diffMinutes = Math.floor((now - date.getTime()) / (1000 * 60));
+  if (diffMinutes < 1) return 'Agora mesmo';
+  if (diffMinutes < 60) return `Há ${diffMinutes} min`;
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `Há ${diffHours}h`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays === 1) return 'Ontem';
+  if (diffDays < 7) return `Há ${diffDays} dias`;
+  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 }

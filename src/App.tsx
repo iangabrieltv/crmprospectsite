@@ -42,9 +42,16 @@ export default function App() {
 
   // Modal states
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [activeLeadForScriptId, setActiveLeadForScriptId] = useState<string | null>(null);
   const [isNewNicheModalOpen, setIsNewNicheModalOpen] = useState(false);
   const [isNewLeadModalOpen, setIsNewLeadModalOpen] = useState(false);
   const [newLeadDefaultStage, setNewLeadDefaultStage] = useState<FunnelStageId>('nao_iniciada');
+
+  const handleOpenScriptForLead = (lead: Lead) => {
+    setActiveLeadForScriptId(lead.id);
+    setSelectedLead(null);
+    setActiveTab('scripts');
+  };
 
   // Active Niche resolution
   const activeNiche =
@@ -265,7 +272,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans w-full max-w-full overflow-x-hidden">
       {/* Global Top Bar Navigation */}
       <Header
         niches={niches}
@@ -284,7 +291,7 @@ export default function App() {
       />
 
       {/* Main Content Area based on Active Tab */}
-      <main className="flex-1 flex flex-col">
+      <main className="flex-1 flex flex-col min-w-0 w-full max-w-full">
         {activeTab === 'kanban' && (
           <KanbanView
             niche={activeNiche}
@@ -310,6 +317,7 @@ export default function App() {
             niche={activeNiche}
             leads={activeNicheLeads}
             userName={userName}
+            targetLeadId={activeLeadForScriptId}
             onUpdateNicheScripts={handleUpdateNicheScripts}
             onFastWhatsAppContacted={handleFastWhatsAppContacted}
           />
@@ -318,6 +326,7 @@ export default function App() {
         {activeTab === 'importer' && (
           <ImporterView
             activeNiche={activeNiche}
+            existingLeads={activeNicheLeads}
             onImportLeadsToNiche={handleImportLeadsToNiche}
             onCreateNicheWithLeads={handleCreateNicheWithLeads}
             onSwitchToKanban={() => setActiveTab('kanban')}
@@ -350,6 +359,7 @@ export default function App() {
           onUpdateLead={handleUpdateLead}
           onDeleteLead={handleDeleteLead}
           onFastWhatsAppContacted={handleFastWhatsAppContacted}
+          onOpenScriptForLead={handleOpenScriptForLead}
         />
       )}
 
