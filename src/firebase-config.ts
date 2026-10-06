@@ -1,0 +1,20 @@
+/**
+ * Configurações do Firebase para o ProspectFlow CRM.
+ * Mantido em TypeScript dentro do bundle para compatibilidade total
+ * com Netlify, Vercel e outros provedores de hospedagem sem erros de importação.
+ */
+
+export const firebaseConfig = {
+  projectId: "gen-lang-client-0798002034",
+  appId: "1:616174156359:web:f6221b6a05744eea258f62",
+  apiKey: "AIzaSyBYstZlV0T9VkDyCvpaEYt0Ii-0lY-dYsk",
+  authDomain: "gen-lang-client-0798002034.firebaseapp.com",
+  firestoreDatabaseId: "ai-studio-prospectflowcrmd-6ef58a98-06b1-4109-b7bb-169f00e7a2ea",
+  storageBucket: "gen-lang-client-0798002034.firebasestorage.app",
+  messagingSenderId: "616174156359",
+  measurementId: "",
+  oAuthClientId: "616174156359-uan63igpk1o12egpcfqlaq1cdosg11up.apps.googleusercontent.com",
+  recaptchaSiteKey: ""
+};
+
+export default firebaseConfig;

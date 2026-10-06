@@ -12,7 +12,7 @@ import {
   getDocFromServer
 } from 'firebase/firestore';
 import { Lead, NicheCampaign } from '../types/crm';
-import firebaseConfigData from '../../firebase-applet-config.json';
+import firebaseConfigData from '../firebase-config';
 
 // Initialize Firebase App
 const app = !getApps().length ? initializeApp(firebaseConfigData) : getApp();
