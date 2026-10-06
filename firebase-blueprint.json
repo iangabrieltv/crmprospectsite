@@ -48,6 +48,23 @@
         "scripts": { "type": "object" }
       },
       "required": ["name", "segment", "city"]
+    },
+    "ImportedSheet": {
+      "title": "ImportedSheet",
+      "description": "Histórico de planilhas importadas no CRM",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "nicheId": { "type": "string" },
+        "nicheName": { "type": "string" },
+        "importedAt": { "type": "string" },
+        "totalLeads": { "type": "number" },
+        "format": { "type": "string" },
+        "size": { "type": "number" },
+        "leadsSummary": { "type": "array" }
+      },
+      "required": ["name", "nicheId", "totalLeads"]
     }
   },
   "firestore": {
@@ -58,6 +75,10 @@
     "/workspaces/{workspaceId}/niches/{nicheId}": {
       "schema": "NicheCampaign",
       "description": "Nichos e campanhas cadastrados no workspace"
+    },
+    "/workspaces/{workspaceId}/importedSheets/{sheetId}": {
+      "schema": "ImportedSheet",
+      "description": "Planilhas importadas salvas no workspace da equipe"
     }
   }
 }

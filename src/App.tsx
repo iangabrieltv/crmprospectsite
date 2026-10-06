@@ -7,6 +7,7 @@ import React, { useState, useEffect } from 'react';
 import {
   NicheCampaign,
   Lead,
+  ImportedSheet,
   AppTab,
   FunnelStageId
 } from './types/crm';
@@ -35,11 +36,14 @@ import {
   testFirestoreConnection,
   subscribeToNiches,
   subscribeToLeads,
+  subscribeToImportedSheets,
   syncLeadToFirestore,
   deleteLeadFromFirestore,
   batchSyncLeadsToFirestore,
   syncNicheToFirestore,
   deleteNicheFromFirestore,
+  syncImportedSheetToFirestore,
+  deleteImportedSheetFromFirestore,
   seedFirestoreIfEmpty
 } from './utils/firebase';
 
@@ -53,6 +57,7 @@ export default function App() {
 
   const [niches, setNiches] = useState<NicheCampaign[]>(() => loadStoredNiches());
   const [leads, setLeads] = useState<Lead[]>(() => loadStoredLeads());
+  const [importedSheets, setImportedSheets] = useState<ImportedSheet[]>([]);
   const [activeNicheId, setActiveNicheId] = useState<string>(() =>
     loadStoredActiveNicheId(niches[0]?.id || '')
   );
@@ -81,12 +86,26 @@ export default function App() {
 
     // Subscribe to real-time leads updates across devices
     const unsubLeads = subscribeToLeads((remoteLeads) => {
-      setLeads(remoteLeads);
+      if (remoteLeads.length > 0) {
+        setLeads(remoteLeads);
+      } else {
+        // Fallback recovery: if remote has 0 leads but local storage has leads, sync them up!
+        const local = loadStoredLeads();
+        if (local.length > 0) {
+          batchSyncLeadsToFirestore(local).catch(console.error);
+        }
+      }
+    });
+
+    // Subscribe to real-time imported spreadsheets history
+    const unsubSheets = subscribeToImportedSheets((remoteSheets) => {
+      setImportedSheets(remoteSheets);
     });
 
     return () => {
       unsubNiches();
       unsubLeads();
+      unsubSheets();
     };
   }, [isAuthenticated]);
 
@@ -248,10 +267,12 @@ export default function App() {
   };
 
   // Handler: Import multiple leads into niche
-  const handleImportLeadsToNiche = (
+  const handleImportLeadsToNiche = async (
     targetNicheId: string,
-    importedLeads: Omit<Lead, 'id' | 'nicheId' | 'createdAt' | 'notes'>[]
+    importedLeads: Omit<Lead, 'id' | 'nicheId' | 'createdAt' | 'notes'>[],
+    sheetMetadata?: { name: string; format?: string; size?: number }
   ) => {
+    const targetNiche = niches.find((n) => n.id === targetNicheId) || activeNiche;
     const newLeads: Lead[] = importedLeads.map((imp, idx) => ({
       ...imp,
       id: 'lead-imp-' + Date.now() + '-' + idx,
@@ -261,19 +282,43 @@ export default function App() {
         {
           id: 'note-imp-' + idx,
           date: new Date().toLocaleDateString('pt-BR'),
-          text: 'Lead importado via importador inteligente.',
+          text: 'Lead importado via planilha.',
           author: userName,
         },
       ],
     }));
     setLeads((prev) => [...newLeads, ...prev]);
-    batchSyncLeadsToFirestore(newLeads).catch(console.error);
+
+    const sheetRecord: ImportedSheet = {
+      id: 'sheet-' + Date.now(),
+      name: sheetMetadata?.name || `Planilha ${targetNiche.name} (${newLeads.length} leads)`,
+      nicheId: targetNicheId,
+      nicheName: targetNiche.name,
+      importedAt: new Date().toISOString(),
+      totalLeads: newLeads.length,
+      format: sheetMetadata?.format,
+      size: sheetMetadata?.size,
+      leadsSummary: newLeads.slice(0, 10).map((l) => ({
+        companyName: l.companyName,
+        phone: l.phone,
+        city: l.city,
+        category: l.category,
+      })),
+    };
+
+    try {
+      await batchSyncLeadsToFirestore(newLeads);
+      await syncImportedSheetToFirestore(sheetRecord);
+    } catch (err) {
+      console.error('Erro ao sincronizar importação no Firestore:', err);
+    }
   };
 
   // Handler: Create new niche AND import leads into it
-  const handleCreateNicheWithLeads = (
+  const handleCreateNicheWithLeads = async (
     newNicheData: { name: string; segment: string; city: string; emoji: string },
-    importedLeads: Omit<Lead, 'id' | 'nicheId' | 'createdAt' | 'notes'>[]
+    importedLeads: Omit<Lead, 'id' | 'nicheId' | 'createdAt' | 'notes'>[],
+    sheetMetadata?: { name: string; format?: string; size?: number }
   ) => {
     const newNicheId = 'niche-' + Date.now();
     const newNiche: NicheCampaign = {
@@ -305,8 +350,41 @@ export default function App() {
     setNiches((prev) => [...prev, newNiche]);
     setLeads((prev) => [...newLeads, ...prev]);
     setActiveNicheId(newNicheId);
-    syncNicheToFirestore(newNiche).catch(console.error);
-    batchSyncLeadsToFirestore(newLeads).catch(console.error);
+
+    const sheetRecord: ImportedSheet = {
+      id: 'sheet-' + Date.now(),
+      name: sheetMetadata?.name || `Planilha ${newNiche.name} (${newLeads.length} leads)`,
+      nicheId: newNicheId,
+      nicheName: newNiche.name,
+      importedAt: new Date().toISOString(),
+      totalLeads: newLeads.length,
+      format: sheetMetadata?.format,
+      size: sheetMetadata?.size,
+      leadsSummary: newLeads.slice(0, 10).map((l) => ({
+        companyName: l.companyName,
+        phone: l.phone,
+        city: l.city,
+        category: l.category,
+      })),
+    };
+
+    try {
+      await syncNicheToFirestore(newNiche);
+      await batchSyncLeadsToFirestore(newLeads);
+      await syncImportedSheetToFirestore(sheetRecord);
+    } catch (err) {
+      console.error('Erro ao sincronizar nova campanha e leads no Firestore:', err);
+    }
+  };
+
+  // Handler: Delete imported sheet record
+  const handleDeleteImportedSheet = async (sheetId: string) => {
+    setImportedSheets((prev) => prev.filter((s) => s.id !== sheetId));
+    try {
+      await deleteImportedSheetFromFirestore(sheetId);
+    } catch (err) {
+      console.error('Erro ao excluir planilha do Firestore:', err);
+    }
   };
 
   // Handler: Update niche script templates
@@ -436,8 +514,10 @@ export default function App() {
           <ImporterView
             activeNiche={activeNiche}
             existingLeads={activeNicheLeads}
+            importedSheets={importedSheets}
             onImportLeadsToNiche={handleImportLeadsToNiche}
             onCreateNicheWithLeads={handleCreateNicheWithLeads}
+            onDeleteImportedSheet={handleDeleteImportedSheet}
             onSwitchToKanban={() => setActiveTab('kanban')}
           />
         )}

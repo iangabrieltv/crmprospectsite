@@ -11,7 +11,7 @@ import {
   getDocs,
   getDocFromServer
 } from 'firebase/firestore';
-import { Lead, NicheCampaign } from '../types/crm';
+import { Lead, NicheCampaign, ImportedSheet } from '../types/crm';
 import firebaseConfigData from '../firebase-config';
 
 // Initialize Firebase App
@@ -36,6 +36,29 @@ export enum OperationType {
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
   const errMessage = error instanceof Error ? error.message : String(error);
   console.error(`[Firestore Error] op: ${operationType}, path: ${path}`, errMessage);
+}
+
+/**
+ * Remove recursivamente todas as propriedades com valor `undefined`,
+ * pois o Firestore lança erro se encontrar qualquer campo `undefined` em setDoc ou writeBatch.
+ */
+export function sanitizeForFirestore<T>(data: T): T {
+  if (data === null || data === undefined) return null as any;
+  if (Array.isArray(data)) {
+    return data
+      .filter((item) => item !== undefined)
+      .map((item) => sanitizeForFirestore(item)) as any;
+  }
+  if (typeof data === 'object') {
+    const result: Record<string, any> = {};
+    for (const [key, value] of Object.entries(data)) {
+      if (value !== undefined) {
+        result[key] = sanitizeForFirestore(value);
+      }
+    }
+    return result as any;
+  }
+  return data;
 }
 
 // Test connection on boot
@@ -104,17 +127,43 @@ export function subscribeToLeads(
   );
 }
 
+/**
+ * Escuta em tempo real o histórico de planilhas importadas
+ */
+export function subscribeToImportedSheets(
+  onUpdate: (sheets: ImportedSheet[]) => void,
+  onError?: (error: Error) => void
+) {
+  const sheetsCol = collection(db, 'workspaces', WORKSPACE_ID, 'importedSheets');
+  return onSnapshot(
+    sheetsCol,
+    (snapshot) => {
+      const list: ImportedSheet[] = [];
+      snapshot.forEach((docSnap) => {
+        list.push(docSnap.data() as ImportedSheet);
+      });
+      list.sort((a, b) => new Date(b.importedAt || '').getTime() - new Date(a.importedAt || '').getTime());
+      onUpdate(list);
+    },
+    (err) => {
+      handleFirestoreError(err, OperationType.LIST, `workspaces/${WORKSPACE_ID}/importedSheets`);
+      onError?.(err);
+    }
+  );
+}
+
 // ---------------------------------------------------------------------------
 // MUTAÇÕES NO BANCO DE DADOS EM TEMPO REAL
 // ---------------------------------------------------------------------------
 
 /**
- * Salva ou atualiza um lead no Firestore
+ * Salva ou atualiza um lead no Firestore (com sanitização contra undefined)
  */
 export async function syncLeadToFirestore(lead: Lead): Promise<void> {
   try {
     const leadRef = doc(db, 'workspaces', WORKSPACE_ID, 'leads', lead.id);
-    await setDoc(leadRef, lead, { merge: true });
+    const cleanLead = sanitizeForFirestore(lead);
+    await setDoc(leadRef, cleanLead, { merge: true });
   } catch (err) {
     handleFirestoreError(err, OperationType.WRITE, `workspaces/${WORKSPACE_ID}/leads/${lead.id}`);
     throw err;
@@ -135,12 +184,13 @@ export async function deleteLeadFromFirestore(leadId: string): Promise<void> {
 }
 
 /**
- * Salva ou atualiza um nicho no Firestore
+ * Salva ou atualiza um nicho no Firestore (com sanitização contra undefined)
  */
 export async function syncNicheToFirestore(niche: NicheCampaign): Promise<void> {
   try {
     const nicheRef = doc(db, 'workspaces', WORKSPACE_ID, 'niches', niche.id);
-    await setDoc(nicheRef, niche, { merge: true });
+    const cleanNiche = sanitizeForFirestore(niche);
+    await setDoc(nicheRef, cleanNiche, { merge: true });
   } catch (err) {
     handleFirestoreError(err, OperationType.WRITE, `workspaces/${WORKSPACE_ID}/niches/${niche.id}`);
     throw err;
@@ -161,7 +211,35 @@ export async function deleteNicheFromFirestore(nicheId: string): Promise<void> {
 }
 
 /**
+ * Salva o registro de uma planilha importada no Firestore
+ */
+export async function syncImportedSheetToFirestore(sheet: ImportedSheet): Promise<void> {
+  try {
+    const sheetRef = doc(db, 'workspaces', WORKSPACE_ID, 'importedSheets', sheet.id);
+    const cleanSheet = sanitizeForFirestore(sheet);
+    await setDoc(sheetRef, cleanSheet, { merge: true });
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, `workspaces/${WORKSPACE_ID}/importedSheets/${sheet.id}`);
+    throw err;
+  }
+}
+
+/**
+ * Remove o registro de uma planilha importada do Firestore
+ */
+export async function deleteImportedSheetFromFirestore(sheetId: string): Promise<void> {
+  try {
+    const sheetRef = doc(db, 'workspaces', WORKSPACE_ID, 'importedSheets', sheetId);
+    await deleteDoc(sheetRef);
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, `workspaces/${WORKSPACE_ID}/importedSheets/${sheetId}`);
+    throw err;
+  }
+}
+
+/**
  * Importa múltiplos leads em lote (batch) para salvar na nuvem
+ * Sanitiza cada documento para garantir que nenhum campo undefined interrompa o commit.
  */
 export async function batchSyncLeadsToFirestore(leads: Lead[]): Promise<void> {
   if (leads.length === 0) return;
@@ -174,11 +252,13 @@ export async function batchSyncLeadsToFirestore(leads: Lead[]): Promise<void> {
 
     for (const lead of chunk) {
       const ref = doc(db, 'workspaces', WORKSPACE_ID, 'leads', lead.id);
-      batch.set(ref, lead, { merge: true });
+      const cleanLead = sanitizeForFirestore(lead);
+      batch.set(ref, cleanLead, { merge: true });
     }
 
     try {
       await batch.commit();
+      console.log(`[Firestore] ${chunk.length} leads salvos com sucesso na nuvem.`);
     } catch (err) {
       handleFirestoreError(err, OperationType.WRITE, `workspaces/${WORKSPACE_ID}/leads (batch)`);
       throw err;
@@ -199,11 +279,11 @@ export async function seedFirestoreIfEmpty(
       const batch = writeBatch(db);
       for (const niche of initialNiches) {
         const nRef = doc(db, 'workspaces', WORKSPACE_ID, 'niches', niche.id);
-        batch.set(nRef, niche);
+        batch.set(nRef, sanitizeForFirestore(niche));
       }
       for (const lead of initialLeads) {
         const lRef = doc(db, 'workspaces', WORKSPACE_ID, 'leads', lead.id);
-        batch.set(lRef, lead);
+        batch.set(lRef, sanitizeForFirestore(lead));
       }
       await batch.commit();
     }

@@ -211,4 +211,21 @@ export interface NicheCampaign {
   scripts: Record<string, ScriptDefinition>;
 }
 
+export interface ImportedSheet {
+  id: string;
+  name: string;
+  nicheId: string;
+  nicheName: string;
+  importedAt: string;
+  totalLeads: number;
+  format?: string;
+  size?: number;
+  leadsSummary?: {
+    companyName: string;
+    phone: string;
+    city?: string;
+    category?: string;
+  }[];
+}
+
 export type AppTab = 'kanban' | 'dashboard' | 'scripts' | 'importer' | 'global';

@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
-import { NicheCampaign, Lead } from '../types/crm';
+import { NicheCampaign, Lead, ImportedSheet } from '../types/crm';
 import { cleanPhoneForWhatsApp, formatDisplayPhone } from '../utils/phone';
 import { SAMPLE_IMPORT_LEADS } from '../utils/initialData';
 import {
@@ -77,19 +77,28 @@ interface UploadedFileInfo {
 interface ImporterViewProps {
   activeNiche: NicheCampaign;
   existingLeads?: Lead[];
-  onImportLeadsToNiche: (nicheId: string, leads: Omit<Lead, 'id' | 'nicheId' | 'createdAt' | 'notes'>[]) => void;
+  importedSheets?: ImportedSheet[];
+  onImportLeadsToNiche: (
+    nicheId: string,
+    leads: Omit<Lead, 'id' | 'nicheId' | 'createdAt' | 'notes'>[],
+    sheetMetadata?: { name: string; format?: string; size?: number }
+  ) => void;
   onCreateNicheWithLeads: (
     newNiche: { name: string; segment: string; city: string; emoji: string },
-    leads: Omit<Lead, 'id' | 'nicheId' | 'createdAt' | 'notes'>[]
+    leads: Omit<Lead, 'id' | 'nicheId' | 'createdAt' | 'notes'>[],
+    sheetMetadata?: { name: string; format?: string; size?: number }
   ) => void;
+  onDeleteImportedSheet?: (sheetId: string) => void;
   onSwitchToKanban: () => void;
 }
 
 export const ImporterView: React.FC<ImporterViewProps> = ({
   activeNiche,
   existingLeads,
+  importedSheets = [],
   onImportLeadsToNiche,
   onCreateNicheWithLeads,
+  onDeleteImportedSheet,
   onSwitchToKanban,
 }) => {
   const [inputMethod, setInputMethod] = useState<'file' | 'text'>('file');
@@ -1274,8 +1283,18 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
       opportunityAngle: c.opportunityAngle,
     }));
 
+    const sheetMeta = {
+      name:
+        uploadedFile?.name ||
+        (destinationMode === 'current'
+          ? `Planilha Importada - ${activeNiche.name}`
+          : `Planilha - ${newNicheName.trim()}`),
+      format: uploadedFile?.format || (inputMethod === 'file' ? 'Arquivo' : 'Texto Copiado'),
+      size: uploadedFile?.size,
+    };
+
     if (destinationMode === 'current') {
-      onImportLeadsToNiche(activeNiche.id, payload);
+      onImportLeadsToNiche(activeNiche.id, payload, sheetMeta);
     } else {
       if (!newNicheName.trim()) {
         setErrorMessage('Informe um nome para a nova campanha.');
@@ -1288,7 +1307,8 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
           city: newNicheCity.trim() || activeNiche.city,
           emoji: newNicheEmoji || '💼',
         },
-        payload
+        payload,
+        sheetMeta
       );
     }
 
@@ -2576,6 +2596,90 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 �
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* HISTÓRICO DE PLANILHAS IMPORTADAS NA NUVEM */}
+      {importedSheets && importedSheets.length > 0 && (
+        <div className="bg-white rounded-xl border border-slate-200/90 shadow-2xs overflow-hidden mt-6">
+          <div className="p-4 sm:p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                <FileSpreadsheet className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">
+                  Planilhas Importadas Salvas na Nuvem ({importedSheets.length})
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Estas planilhas e seus contatos ficam salvos permanentemente no seu banco de dados mesmo se você sair da conta.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={onSwitchToKanban}
+              className="px-3.5 py-1.5 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200/60 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 self-start sm:self-auto"
+            >
+              <span>Ver no Pipeline</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <div className="divide-y divide-slate-100">
+            {importedSheets.map((sheet) => (
+              <div
+                key={sheet.id}
+                className="p-4 hover:bg-slate-50/80 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200/60 flex items-center justify-center shrink-0 mt-0.5">
+                    <FileSpreadsheet className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-bold text-slate-900">{sheet.name}</span>
+                      <span className="text-[11px] px-2 py-0.5 rounded-full font-medium bg-blue-50 text-blue-700 border border-blue-200/60">
+                        {sheet.nicheName}
+                      </span>
+                      <span className="text-[11px] px-2 py-0.5 rounded-full font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                        {sheet.totalLeads} contatos na pipeline
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-slate-400 mt-1 flex items-center gap-2">
+                      <span>Importada em {new Date(sheet.importedAt).toLocaleDateString('pt-BR')} às {new Date(sheet.importedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
+                      {sheet.format && <span>• {sheet.format}</span>}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+                  <button
+                    type="button"
+                    onClick={onSwitchToKanban}
+                    className="px-3 py-1.5 text-xs font-semibold text-slate-700 hover:text-blue-700 bg-slate-100 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5"
+                  >
+                    <span>Ir para Pipeline</span>
+                  </button>
+                  {onDeleteImportedSheet && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (confirm(`Remover do histórico a planilha "${sheet.name}"? (Os leads continuarão no funil)`)) {
+                          onDeleteImportedSheet(sheet.id);
+                        }
+                      }}
+                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                      title="Excluir do histórico"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
