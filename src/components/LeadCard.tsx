@@ -30,6 +30,7 @@ interface LeadCardProps {
   onClick: () => void;
   onMoveStage: (leadId: string, targetStage: FunnelStageId) => void;
   onFastWhatsAppContacted: (lead: Lead) => void;
+  onSelectCity?: (city: string) => void;
 }
 
 export const LeadCard: React.FC<LeadCardProps> = ({
@@ -39,6 +40,7 @@ export const LeadCard: React.FC<LeadCardProps> = ({
   onClick,
   onMoveStage,
   onFastWhatsAppContacted,
+  onSelectCity,
 }) => {
   const [showMoveMenu, setShowMoveMenu] = useState(false);
   const [copiedPhone, setCopiedPhone] = useState(false);
@@ -180,19 +182,47 @@ export const LeadCard: React.FC<LeadCardProps> = ({
         <h4 className="text-xs font-bold text-slate-900 leading-snug line-clamp-2 group-hover:text-blue-600 transition-colors">
           {lead.companyName}
         </h4>
-        {lead.contactName && (
-          <span className="text-[11px] text-slate-500 font-medium truncate block mt-0.5">
-            {lead.contactName}
-          </span>
-        )}
+        <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+          {lead.contactName && (
+            <span className="text-[11px] text-slate-500 font-medium truncate">
+              {lead.contactName}
+            </span>
+          )}
+          {lead.category && (
+            <span
+              className={`text-[9px] font-semibold px-1.5 py-0.2 rounded-md tracking-tight ${
+                lead.category.toLowerCase().includes('academia') ||
+                lead.category.toLowerCase().includes('suplement') ||
+                lead.category.toLowerCase().includes('crossfit')
+                  ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                  : 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
+              }`}
+              title={`Categoria: ${lead.category}`}
+            >
+              {lead.category}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Location & Google Rating */}
       <div className="flex items-center justify-between gap-1 text-[11px] text-slate-500 mb-2.5">
-        <div className="flex items-center gap-1 truncate text-slate-600">
-          <MapPin className="w-3 h-3 shrink-0 text-slate-400" />
-          <span className="truncate">{lead.city || niche.city}</span>
-        </div>
+        <button
+          type="button"
+          onClick={(e) => {
+            if (onSelectCity && lead.city) {
+              e.stopPropagation();
+              onSelectCity(lead.city);
+            }
+          }}
+          className={`flex items-center gap-1 truncate text-slate-600 rounded px-1 -mx-1 transition-colors text-left ${
+            onSelectCity ? 'hover:bg-blue-50 hover:text-blue-700 cursor-pointer' : ''
+          }`}
+          title={onSelectCity ? `Filtrar pipeline pela cidade: ${lead.city || niche.city}` : undefined}
+        >
+          <MapPin className="w-3 h-3 shrink-0 text-blue-500" />
+          <span className="truncate font-medium">{lead.city || niche.city}</span>
+        </button>
 
         <div className="flex items-center gap-1.5 shrink-0">
           {lead.googleMapsUrl && (

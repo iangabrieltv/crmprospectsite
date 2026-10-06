@@ -29,16 +29,66 @@ import { GlobalAgencyView } from './components/GlobalAgencyView';
 import { LeadModal } from './components/LeadModal';
 import { NewNicheModal } from './components/NewNicheModal';
 import { NewLeadModal } from './components/NewLeadModal';
-import { DEFAULT_SCRIPTS } from './utils/initialData';
+import { LoginView } from './components/LoginView';
+import { DEFAULT_SCRIPTS, INITIAL_NICHES, INITIAL_LEADS } from './utils/initialData';
+import {
+  testFirestoreConnection,
+  subscribeToNiches,
+  subscribeToLeads,
+  syncLeadToFirestore,
+  deleteLeadFromFirestore,
+  batchSyncLeadsToFirestore,
+  syncNicheToFirestore,
+  deleteNicheFromFirestore,
+  seedFirestoreIfEmpty
+} from './utils/firebase';
 
 export default function App() {
+  // Authentication gatekeeper (restricts access to authorized credentials adm.equipeie / adm123)
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    const local = localStorage.getItem('prospectflow_auth_user');
+    const session = sessionStorage.getItem('prospectflow_auth_user');
+    return local === 'adm.equipeie' || session === 'adm.equipeie';
+  });
+
   const [niches, setNiches] = useState<NicheCampaign[]>(() => loadStoredNiches());
   const [leads, setLeads] = useState<Lead[]>(() => loadStoredLeads());
   const [activeNicheId, setActiveNicheId] = useState<string>(() =>
     loadStoredActiveNicheId(niches[0]?.id || '')
   );
-  const [userName, setUserName] = useState<string>(() => loadStoredUserName());
+  const [userName, setUserName] = useState<string>(() => {
+    const stored = loadStoredUserName();
+    return stored && stored !== 'Gabriel' ? stored : 'adm.equipeie';
+  });
   const [activeTab, setActiveTab] = useState<AppTab>('kanban');
+
+  // Real-time Firestore synchronization between devices
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    // Test connection on boot
+    testFirestoreConnection();
+
+    // Seed database if cloud collection is currently empty
+    seedFirestoreIfEmpty(INITIAL_NICHES, INITIAL_LEADS);
+
+    // Subscribe to real-time niches updates across devices
+    const unsubNiches = subscribeToNiches((remoteNiches) => {
+      if (remoteNiches.length > 0) {
+        setNiches(remoteNiches);
+      }
+    });
+
+    // Subscribe to real-time leads updates across devices
+    const unsubLeads = subscribeToLeads((remoteLeads) => {
+      setLeads(remoteLeads);
+    });
+
+    return () => {
+      unsubNiches();
+      unsubLeads();
+    };
+  }, [isAuthenticated]);
 
   // Modal states
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
@@ -81,12 +131,13 @@ export default function App() {
 
   // Handler: Move lead stage (Drag & Drop or dropdown)
   const handleMoveStage = (leadId: string, targetStage: FunnelStageId) => {
+    let updatedLeadItem: Lead | undefined;
     setLeads((prev) =>
       prev.map((lead) => {
         if (lead.id === leadId) {
           const nowIso = new Date().toISOString();
           const autoNoteText = `Etapa alterada para: ${targetStage}`;
-          return {
+          const updated: Lead = {
             ...lead,
             stage: targetStage,
             lastContactDate: nowIso,
@@ -100,19 +151,25 @@ export default function App() {
               ...lead.notes,
             ],
           };
+          updatedLeadItem = updated;
+          return updated;
         }
         return lead;
       })
     );
+    if (updatedLeadItem) {
+      syncLeadToFirestore(updatedLeadItem).catch(console.error);
+    }
   };
 
   // Handler: Trigger WhatsApp contacted (advances from nao_iniciada if needed)
   const handleFastWhatsAppContacted = (leadToContact: Lead) => {
+    let updatedLeadItem: Lead | undefined;
     setLeads((prev) =>
       prev.map((lead) => {
         if (lead.id === leadToContact.id) {
           const nextStage = lead.stage === 'nao_iniciada' ? 'primeiro_contato' : lead.stage;
-          return {
+          const updated: Lead = {
             ...lead,
             stage: nextStage,
             lastContactDate: new Date().toISOString(),
@@ -126,20 +183,27 @@ export default function App() {
               ...lead.notes,
             ],
           };
+          updatedLeadItem = updated;
+          return updated;
         }
         return lead;
       })
     );
+    if (updatedLeadItem) {
+      syncLeadToFirestore(updatedLeadItem).catch(console.error);
+    }
   };
 
   // Handler: Update lead details
   const handleUpdateLead = (updatedLead: Lead) => {
     setLeads((prev) => prev.map((l) => (l.id === updatedLead.id ? updatedLead : l)));
+    syncLeadToFirestore(updatedLead).catch(console.error);
   };
 
   // Handler: Delete single lead
   const handleDeleteLead = (leadId: string) => {
     setLeads((prev) => prev.filter((l) => l.id !== leadId));
+    deleteLeadFromFirestore(leadId).catch(console.error);
   };
 
   // Handler: Create single lead manually
@@ -158,12 +222,14 @@ export default function App() {
       ],
     };
     setLeads((prev) => [newLead, ...prev]);
+    syncLeadToFirestore(newLead).catch(console.error);
   };
 
   // Handler: Create new niche
   const handleCreateNiche = (newNiche: NicheCampaign) => {
     setNiches((prev) => [...prev, newNiche]);
     setActiveNicheId(newNiche.id);
+    syncNicheToFirestore(newNiche).catch(console.error);
   };
 
   // Handler: Delete niche
@@ -178,6 +244,7 @@ export default function App() {
     if (activeNicheId === nicheId) {
       setActiveNicheId(remaining[0].id);
     }
+    deleteNicheFromFirestore(nicheId).catch(console.error);
   };
 
   // Handler: Import multiple leads into niche
@@ -200,6 +267,7 @@ export default function App() {
       ],
     }));
     setLeads((prev) => [...newLeads, ...prev]);
+    batchSyncLeadsToFirestore(newLeads).catch(console.error);
   };
 
   // Handler: Create new niche AND import leads into it
@@ -237,14 +305,28 @@ export default function App() {
     setNiches((prev) => [...prev, newNiche]);
     setLeads((prev) => [...newLeads, ...prev]);
     setActiveNicheId(newNicheId);
+    syncNicheToFirestore(newNiche).catch(console.error);
+    batchSyncLeadsToFirestore(newLeads).catch(console.error);
   };
 
   // Handler: Update niche script templates
   const handleUpdateNicheScripts = (updatedScripts: NicheCampaign['scripts']) => {
     if (!activeNiche) return;
+    const updated = { ...activeNiche, scripts: updatedScripts };
     setNiches((prev) =>
-      prev.map((n) => (n.id === activeNiche.id ? { ...n, scripts: updatedScripts } : n))
+      prev.map((n) => (n.id === activeNiche.id ? updated : n))
     );
+    syncNicheToFirestore(updated).catch(console.error);
+  };
+
+  // Handler: Update niche target prospecting cities
+  const handleUpdateNicheTargetCities = (targetCities: string[]) => {
+    if (!activeNiche) return;
+    const updated = { ...activeNiche, targetCities };
+    setNiches((prev) =>
+      prev.map((n) => (n.id === activeNiche.id ? updated : n))
+    );
+    syncNicheToFirestore(updated).catch(console.error);
   };
 
   // Handler: Restore full backup
@@ -261,7 +343,32 @@ export default function App() {
     if (newUserName) {
       setUserName(newUserName);
     }
+    batchSyncLeadsToFirestore(newLeads).catch(console.error);
+    for (const n of newNiches) {
+      syncNicheToFirestore(n).catch(console.error);
+    }
   };
+
+  // Handler: Logout (restricts access and returns to login gate)
+  const handleLogout = () => {
+    localStorage.removeItem('prospectflow_auth_user');
+    localStorage.removeItem('prospectflow_auth_session');
+    sessionStorage.removeItem('prospectflow_auth_user');
+    sessionStorage.removeItem('prospectflow_auth_session');
+    setIsAuthenticated(false);
+  };
+
+  // 1. GESTÃO DE ACESSO: Se o usuário não estiver autenticado, exibe a tela de login
+  if (!isAuthenticated) {
+    return (
+      <LoginView
+        onSuccessLogin={(authorizedUser) => {
+          setIsAuthenticated(true);
+          setUserName(authorizedUser);
+        }}
+      />
+    );
+  }
 
   if (!activeNiche) {
     return (
@@ -288,6 +395,7 @@ export default function App() {
         userName={userName}
         onUpdateUserName={(name) => setUserName(name)}
         totalLeadsCount={activeNicheLeads.length}
+        onLogout={handleLogout}
       />
 
       {/* Main Content Area based on Active Tab */}
@@ -305,6 +413,7 @@ export default function App() {
             }}
             onFastWhatsAppContacted={handleFastWhatsAppContacted}
             onSwitchToImporter={() => setActiveTab('importer')}
+            onUpdateNicheTargetCities={(cities) => handleUpdateNicheTargetCities(cities)}
           />
         )}
 

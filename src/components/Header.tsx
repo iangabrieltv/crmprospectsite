@@ -16,7 +16,10 @@ import {
   Sparkles,
   TrendingUp,
   User,
-  Check
+  Check,
+  LogOut,
+  Database,
+  Cloud
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -30,6 +33,7 @@ interface HeaderProps {
   userName: string;
   onUpdateUserName: (name: string) => void;
   totalLeadsCount: number;
+  onLogout?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -43,6 +47,7 @@ export const Header: React.FC<HeaderProps> = ({
   userName,
   onUpdateUserName,
   totalLeadsCount,
+  onLogout,
 }) => {
   const [isNicheDropdownOpen, setIsNicheDropdownOpen] = useState(false);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
@@ -179,6 +184,16 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* ZONE 3: Primary Actions & User Identity */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {/* Cloud Database Live Badge */}
+          <div
+            className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200/80 text-[11px] font-medium text-emerald-800 shrink-0"
+            title="Banco na nuvem (Firestore) com sincronização em tempo real. Qualquer membro da equipe conectado com o login atualiza e visualiza os dados ao vivo simultaneamente."
+          >
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+            <Database className="w-3 h-3 text-emerald-600 shrink-0" />
+            <span className="font-semibold">Ao Vivo • Multi-usuários</span>
+          </div>
+
           {/* Quick Add Lead Button */}
           <button
             onClick={onOpenNewLeadModal}
@@ -200,8 +215,19 @@ export const Header: React.FC<HeaderProps> = ({
             title="Nome usado para personalizar os scripts de WhatsApp"
           >
             <User className="w-3 h-3 text-slate-500" />
-            <span className="max-w-[50px] sm:max-w-[70px] truncate hidden sm:inline">{userName}</span>
+            <span className="max-w-[70px] sm:max-w-[100px] truncate">{userName}</span>
           </button>
+
+          {/* Logout Button */}
+          {onLogout && (
+            <button
+              onClick={onLogout}
+              className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200 transition-colors cursor-pointer shrink-0"
+              title="Sair da conta (adm.equipeie)"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
 

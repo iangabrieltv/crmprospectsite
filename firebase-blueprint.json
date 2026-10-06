@@ -1,0 +1,63 @@
+{
+  "entities": {
+    "Lead": {
+      "title": "Lead",
+      "description": "Lead ou contato no funil de prospecção do CRM",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "nicheId": { "type": "string" },
+        "companyName": { "type": "string" },
+        "contactName": { "type": "string" },
+        "phone": { "type": "string" },
+        "displayPhone": { "type": "string" },
+        "city": { "type": "string" },
+        "category": { "type": "string" },
+        "address": { "type": "string" },
+        "googleRating": { "type": "number" },
+        "googleReviewsCount": { "type": "number" },
+        "googleMapsUrl": { "type": "string" },
+        "websiteUrl": { "type": "string" },
+        "mockupUrl": { "type": "string" },
+        "stage": { "type": "string" },
+        "scriptUsed": { "type": "string" },
+        "creationValue": { "type": "number" },
+        "monthlyMrr": { "type": "number" },
+        "lastContactDate": { "type": "string" },
+        "notes": { "type": "array" },
+        "objection": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "aiPitch": { "type": "string" },
+        "opportunityAngle": { "type": "string" }
+      },
+      "required": ["companyName", "phone", "stage"]
+    },
+    "NicheCampaign": {
+      "title": "NicheCampaign",
+      "description": "Campanha ou nicho segmentado do CRM",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "segment": { "type": "string" },
+        "city": { "type": "string" },
+        "targetCities": { "type": "array" },
+        "emoji": { "type": "string" },
+        "targetMrr": { "type": "number" },
+        "createdAt": { "type": "string" },
+        "scripts": { "type": "object" }
+      },
+      "required": ["name", "segment", "city"]
+    }
+  },
+  "firestore": {
+    "/workspaces/{workspaceId}/leads/{leadId}": {
+      "schema": "Lead",
+      "description": "Leads cadastrados no workspace da equipe"
+    },
+    "/workspaces/{workspaceId}/niches/{nicheId}": {
+      "schema": "NicheCampaign",
+      "description": "Nichos e campanhas cadastrados no workspace"
+    }
+  }
+}

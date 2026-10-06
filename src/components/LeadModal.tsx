@@ -63,6 +63,7 @@ export const LeadModal: React.FC<LeadModalProps> = ({
   const [companyName, setCompanyName] = useState(lead.companyName);
   const [contactName, setContactName] = useState(lead.contactName || '');
   const [phone, setPhone] = useState(lead.phone);
+  const [category, setCategory] = useState(lead.category || '');
   const [city, setCity] = useState(lead.city || niche.city);
   const [address, setAddress] = useState(lead.address || '');
   const [googleRating, setGoogleRating] = useState<string>(
@@ -199,6 +200,7 @@ export const LeadModal: React.FC<LeadModalProps> = ({
       contactName: contactName.trim() || undefined,
       phone: cleanNumber,
       displayPhone: formatDisplayPhone(cleanNumber),
+      category: category.trim() || undefined,
       city: city.trim() || niche.city,
       address: address.trim() || undefined,
       googleRating: googleRating ? parseFloat(googleRating) : undefined,
@@ -379,17 +381,31 @@ export const LeadModal: React.FC<LeadModalProps> = ({
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">
-                  Nome do Tomador de Decisão / Contato
-                </label>
-                <input
-                  type="text"
-                  value={contactName}
-                  onChange={(e) => setContactName(e.target.value)}
-                  placeholder="Ex: Dra. Camila ou Dr. Marcos"
-                  className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900"
-                />
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                    Nome do Tomador / Contato
+                  </label>
+                  <input
+                    type="text"
+                    value={contactName}
+                    onChange={(e) => setContactName(e.target.value)}
+                    placeholder="Ex: Dra. Camila ou Dr. Marcos"
+                    className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                    Categoria / Especialidade
+                  </label>
+                  <input
+                    type="text"
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    placeholder="Ex: Nutricionista, Clínica"
+                    className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
@@ -428,14 +444,20 @@ export const LeadModal: React.FC<LeadModalProps> = ({
 
               <div>
                 <label className="block text-xs font-medium text-slate-700 mb-1">
-                  Cidade / Estado
+                  Cidade / Estado de Prospecção
                 </label>
                 <input
                   type="text"
+                  list="leadmodal-cities-list"
                   value={city}
                   onChange={(e) => setCity(e.target.value)}
                   className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900"
                 />
+                <datalist id="leadmodal-cities-list">
+                  {Array.from(new Set([niche.city, ...(niche.targetCities || [])].filter(Boolean))).map((c) => (
+                    <option key={c} value={c} />
+                  ))}
+                </datalist>
               </div>
 
               <div>
