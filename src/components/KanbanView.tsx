@@ -30,7 +30,8 @@ import {
   X,
   Flame,
   PhoneOff,
-  MapPin
+  MapPin,
+  Globe
 } from 'lucide-react';
 
 export type KanbanSortOption =
@@ -78,57 +79,63 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
 
   // Cidades em Prospecção state
   const [selectedCity, setSelectedCity] = useState<string>('all');
-  const [isAddingCity, setIsAddingCity] = useState(false);
-  const [newCityName, setNewCityName] = useState('');
+  const [isCityDropdownOpen, setIsCityDropdownOpen] = useState(false);
+  const cityDropdownRef = useRef<HTMLDivElement | null>(null);
 
   const [dragOverColumn, setDragOverColumn] = useState<FunnelStageId | null>(null);
   const [mobileSelectedStage, setMobileSelectedStage] = useState<FunnelStageId>('nao_iniciada');
 
   const filterMenuRef = useRef<HTMLDivElement | null>(null);
 
-  // Memoized unique cities being prospected in this campaign
+  // Memoized unique cities present in the spreadsheet / leads
   const prospectedCities = React.useMemo(() => {
-    const cityMap = new Map<string, number>();
+    const cityMap = new Map<string, { city: string; count: number }>();
 
-    // 1. Base city of the niche
-    if (niche.city && niche.city.trim()) {
-      cityMap.set(niche.city.trim(), 0);
-    }
-
-    // 2. Target cities configured for the niche
-    if (niche.targetCities && Array.isArray(niche.targetCities)) {
-      niche.targetCities.forEach((c) => {
-        if (c && c.trim()) {
-          cityMap.set(c.trim(), cityMap.get(c.trim()) || 0);
-        }
-      });
-    }
-
-    // 3. Count leads currently in each city
+    // 1. Count leads currently in each city directly from the spreadsheet / leads
     leads.forEach((l) => {
-      const ct = (l.city || niche.city || '').trim();
+      const ct = (l.city || '').trim();
       if (ct) {
-        cityMap.set(ct, (cityMap.get(ct) || 0) + 1);
+        const key = ct.toLowerCase();
+        const existing = cityMap.get(key);
+        if (existing) {
+          existing.count += 1;
+        } else {
+          cityMap.set(key, { city: ct, count: 1 });
+        }
       }
     });
 
-    return Array.from(cityMap.entries()).map(([city, count]) => ({ city, count }));
-  }, [niche.city, niche.targetCities, leads]);
-
-  const handleAddTargetCity = () => {
-    if (!newCityName.trim()) return;
-    const formatted = newCityName.trim();
-    const current = niche.targetCities || [];
-    if (!current.map((c) => c.toLowerCase()).includes(formatted.toLowerCase())) {
-      const updated = [...current, formatted];
-      if (onUpdateNicheTargetCities) {
-        onUpdateNicheTargetCities(updated);
-      }
+    // 2. Base city of the niche if no cities were found in the leads
+    if (cityMap.size === 0 && niche.city && niche.city.trim()) {
+      const key = niche.city.trim().toLowerCase();
+      cityMap.set(key, { city: niche.city.trim(), count: leads.length });
     }
-    setSelectedCity(formatted);
-    setNewCityName('');
-    setIsAddingCity(false);
-  };
+
+    // Sort by count descending, then alphabetically
+    return Array.from(cityMap.values()).sort(
+      (a, b) => b.count - a.count || a.city.localeCompare(b.city)
+    );
+  }, [niche.city, leads]);
+
+  // Reset selected city to 'all' when switching niches
+  useEffect(() => {
+    setSelectedCity('all');
+  }, [niche.id]);
+
+  // Close city dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (cityDropdownRef.current && !cityDropdownRef.current.contains(event.target as Node)) {
+        setIsCityDropdownOpen(false);
+      }
+    };
+    if (isCityDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isCityDropdownOpen]);
 
   // Close filter menu when clicking outside
   useEffect(() => {
@@ -200,10 +207,11 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
       return false;
     }
 
-    // City filter (Cidades que estou prospectando)
+    // City filter (De acordo com a planilha)
     if (selectedCity !== 'all') {
       const leadCity = (lead.city || niche.city || '').trim().toLowerCase();
-      if (leadCity !== selectedCity.toLowerCase()) {
+      const target = selectedCity.trim().toLowerCase();
+      if (leadCity !== target && !leadCity.includes(target) && !target.includes(leadCity)) {
         return false;
       }
     }
@@ -307,6 +315,119 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
                 >
                   ✕
                 </button>
+              )}
+            </div>
+
+            {/* BOTÃO DA CIDADE / TODAS AS CIDADES (DE ACORDO COM A PLANILHA) */}
+            <div className="relative" ref={cityDropdownRef}>
+              <button
+                type="button"
+                onClick={() => setIsCityDropdownOpen(!isCityDropdownOpen)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors cursor-pointer shadow-2xs ${
+                  selectedCity === 'all'
+                    ? 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+                    : 'bg-blue-50 text-blue-800 border-blue-300 ring-1 ring-blue-200 font-bold'
+                }`}
+                title="Escolher cidade de acordo com a planilha"
+              >
+                {selectedCity === 'all' ? (
+                  <>
+                    <Globe className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                    <span>Todas as Cidades</span>
+                    <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-slate-100 text-slate-600">
+                      {leads.length}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <MapPin className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                    <span className="max-w-[150px] truncate">{selectedCity}</span>
+                    <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-blue-100 text-blue-700 font-bold">
+                      {filteredLeads.length}
+                    </span>
+                  </>
+                )}
+                <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isCityDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {/* Menu Dropdown de Cidades da Planilha */}
+              {isCityDropdownOpen && (
+                <div className="absolute left-0 mt-1.5 w-64 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
+                  <div className="px-3 py-1.5 border-b border-slate-100 flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                      Cidades da Planilha
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      {prospectedCities.length} {prospectedCities.length === 1 ? 'cidade' : 'cidades'}
+                    </span>
+                  </div>
+
+                  {/* Opção: Todas as Cidades */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedCity('all');
+                      setIsCityDropdownOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                      selectedCity === 'all'
+                        ? 'bg-blue-50 text-blue-900 font-bold'
+                        : 'hover:bg-slate-50 text-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Globe className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                      <span>Todas as Cidades</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-slate-100 text-slate-600">
+                        {leads.length}
+                      </span>
+                      {selectedCity === 'all' && <Check className="w-3.5 h-3.5 text-blue-600 shrink-0" />}
+                    </div>
+                  </button>
+
+                  <div className="my-1 border-t border-slate-100" />
+
+                  {/* Lista de Cidades da Planilha */}
+                  <div className="max-h-60 overflow-y-auto py-0.5">
+                    {prospectedCities.length === 0 ? (
+                      <div className="px-3 py-3 text-xs text-slate-400 text-center">
+                        Nenhuma cidade encontrada na planilha.
+                      </div>
+                    ) : (
+                      prospectedCities.map((item) => {
+                        const isSelected = selectedCity.toLowerCase() === item.city.toLowerCase();
+                        return (
+                          <button
+                            key={item.city}
+                            type="button"
+                            onClick={() => {
+                              setSelectedCity(item.city);
+                              setIsCityDropdownOpen(false);
+                            }}
+                            className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                              isSelected
+                                ? 'bg-blue-50 text-blue-900 font-bold'
+                                : 'hover:bg-slate-50 text-slate-700'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 truncate">
+                              <MapPin className={`w-3.5 h-3.5 shrink-0 ${isSelected ? 'text-blue-600' : 'text-slate-400'}`} />
+                              <span className="truncate">{item.city}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-slate-100 text-slate-600">
+                                {item.count}
+                              </span>
+                              {isSelected && <Check className="w-3.5 h-3.5 text-blue-600 shrink-0" />}
+                            </div>
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
               )}
             </div>
 
@@ -542,130 +663,6 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
             </div>
           </div>
         </div>
-      </div>
-
-      {/* CIDADES EM PROSPECÇÃO - Pipeline Cities Interactive Bar */}
-      <div className="bg-gradient-to-r from-blue-50/70 via-indigo-50/40 to-slate-50 border-b border-blue-200/60 px-3 sm:px-6 py-2 shrink-0 flex flex-wrap items-center justify-between gap-2.5 text-xs">
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-1.5 text-slate-800 font-bold text-xs shrink-0">
-            <MapPin className="w-4 h-4 text-blue-600 shrink-0" />
-            <span>Cidades em Prospecção:</span>
-          </div>
-
-          {/* All Cities Pill */}
-          <button
-            type="button"
-            onClick={() => setSelectedCity('all')}
-            className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
-              selectedCity === 'all'
-                ? 'bg-blue-600 text-white shadow-2xs'
-                : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100 hover:border-slate-300'
-            }`}
-          >
-            <span>🌐 Todas as Cidades</span>
-            <span
-              className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
-                selectedCity === 'all' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
-              }`}
-            >
-              {leads.length}
-            </span>
-          </button>
-
-          {/* Individual City Pills */}
-          {prospectedCities.map((item) => {
-            const isSelected = selectedCity.toLowerCase() === item.city.toLowerCase();
-            return (
-              <button
-                key={item.city}
-                type="button"
-                onClick={() => setSelectedCity(isSelected ? 'all' : item.city)}
-                className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
-                  isSelected
-                    ? 'bg-blue-600 text-white shadow-2xs ring-2 ring-blue-300'
-                    : 'bg-white text-slate-700 border border-slate-200 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300'
-                }`}
-                title={`Filtrar pipeline apenas por ${item.city}`}
-              >
-                <MapPin className={`w-3 h-3 ${isSelected ? 'text-white' : 'text-blue-500'}`} />
-                <span className="truncate max-w-[170px]">{item.city}</span>
-                <span
-                  className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
-                    isSelected ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
-                  }`}
-                >
-                  {item.count}
-                </span>
-              </button>
-            );
-          })}
-
-          {/* Add Prospecting City Button / Inline Form */}
-          {!isAddingCity ? (
-            <button
-              type="button"
-              onClick={() => setIsAddingCity(true)}
-              className="px-2.5 py-1 rounded-lg text-xs font-medium text-blue-700 hover:text-blue-900 bg-white hover:bg-blue-50 border border-dashed border-blue-300 transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
-              title="Adicionar nova cidade à lista de prospecção desta campanha"
-            >
-              <Plus className="w-3.5 h-3.5 text-blue-600" />
-              <span>+ Adicionar Cidade</span>
-            </button>
-          ) : (
-            <div className="flex items-center gap-1.5 bg-white p-1 rounded-lg border border-blue-400 shadow-xs animate-in fade-in duration-150">
-              <input
-                type="text"
-                value={newCityName}
-                onChange={(e) => setNewCityName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleAddTargetCity();
-                  } else if (e.key === 'Escape') {
-                    setIsAddingCity(false);
-                    setNewCityName('');
-                  }
-                }}
-                placeholder="Ex: Campinas - SP"
-                className="text-xs px-2.5 py-0.5 bg-slate-50 border border-slate-200 rounded text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 w-36 sm:w-44"
-                autoFocus
-              />
-              <button
-                type="button"
-                onClick={handleAddTargetCity}
-                className="px-2 py-0.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded cursor-pointer transition-colors"
-              >
-                Salvar
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsAddingCity(false);
-                  setNewCityName('');
-                }}
-                className="p-0.5 text-slate-400 hover:text-slate-600 rounded cursor-pointer"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Selected City Active Banner / Reset */}
-        {selectedCity !== 'all' && (
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] text-blue-900 bg-blue-100/90 border border-blue-200 px-2.5 py-0.5 rounded-md font-semibold flex items-center gap-1">
-              <span>📍 Mostrando: <strong>{selectedCity}</strong> ({filteredLeads.length} leads)</span>
-            </span>
-            <button
-              type="button"
-              onClick={() => setSelectedCity('all')}
-              className="text-[11px] text-blue-700 hover:text-blue-900 font-bold underline cursor-pointer"
-            >
-              Ver Todas as Cidades
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Clean Zero-State Guide Banner */}
