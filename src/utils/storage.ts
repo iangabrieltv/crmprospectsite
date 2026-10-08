@@ -40,6 +40,9 @@ export function loadStoredNiches(): NicheCampaign[] {
         mergedScripts.script_nutri = SCRIPT_NUTRICIONISTA;
         mergedScripts.script_nutri_mensagens = SCRIPT_NUTRICIONISTA_MENSAGENS;
 
+        // Ensure script2 is always updated to the new validated 10-step proposal structure
+        mergedScripts.script2 = DEFAULT_SCRIPTS.script2;
+
         // If script3 is not yet in niche.scripts, add it
         if (!mergedScripts.script3) {
           mergedScripts.script3 = DEFAULT_SCRIPTS.script3;
@@ -114,13 +117,13 @@ export function loadStoredNiches(): NicheCampaign[] {
         };
       });
 
-      // If user doesn't have a Nutricionista niche yet, add it to their campaigns list
-      const hasNutriNiche = upgraded.some(
-        (n) => n.id === 'niche-nutricionistas' || n.name.toLowerCase().includes('nutri')
-      );
-      if (!hasNutriNiche && INITIAL_NICHES[0]) {
-        upgraded.push(INITIAL_NICHES[0]);
-      }
+      // Ensure default preset niches are available if not yet added
+      INITIAL_NICHES.forEach((initNiche) => {
+        const exists = upgraded.some((n) => n.id === initNiche.id || n.name.toLowerCase() === initNiche.name.toLowerCase());
+        if (!exists) {
+          upgraded.push(initNiche);
+        }
+      });
 
       return upgraded;
     }

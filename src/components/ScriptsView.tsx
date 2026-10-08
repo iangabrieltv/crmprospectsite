@@ -43,9 +43,11 @@ import {
 import {
   DEFAULT_SCRIPTS,
   SCRIPT_1_MOCKUP,
+  SCRIPT_2_VALIDACAO_PROPOSTA,
   SCRIPT_2_DIAGNOSTICO_GOOGLE,
   SCRIPT_3_COLD_CALL,
-  SCRIPT_NUTRICIONISTA
+  SCRIPT_NUTRICIONISTA,
+  SCRIPT_NUTRICIONISTA_MENSAGENS
 } from '../utils/initialData';
 
 interface ScriptsViewProps {
@@ -69,17 +71,35 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
   const isNutriInitial =
     niche.name.toLowerCase().includes('nutri') ||
     niche.segment.toLowerCase().includes('nutri');
-  const [selectedScriptId, setSelectedScriptId] = useState<string>(
-    isNutriInitial && niche.scripts.script_nutri ? 'script_nutri' : scriptKeys[0] || 'script1'
-  );
+  const [selectedScriptId, setSelectedScriptId] = useState<string>(() => {
+    if (isNutriInitial && niche.scripts.script_nutri) return 'script_nutri';
+    if (niche.scripts.script2) return 'script2';
+    return scriptKeys[0] || 'script1';
+  });
 
-  // Custom simulator variables when leads list is clean
-  const [simCompany, setSimCompany] = useState(
-    isNutriInitial ? 'Consultório de Nutrição' : 'Clínica Exemplo'
-  );
-  const [simContact, setSimContact] = useState(isNutriInitial ? 'Camila' : 'Dr. Roberto');
-  const [simCity, setSimCity] = useState(niche.city || 'São Paulo - SP');
-  const [simMockup, setSimMockup] = useState('https://previa-clinica.framer.website');
+  // Custom simulator variables adapting automatically to the active niche
+  const [simCompany, setSimCompany] = useState(() => {
+    const seg = (niche.segment || niche.name).toLowerCase();
+    if (seg.includes('estétic') || seg.includes('automot')) return 'M4 Estética Automotiva';
+    if (seg.includes('dent') || seg.includes('odonto')) return 'Clínica Sorriso Dental';
+    if (seg.includes('nutri')) return 'Consultório de Nutrição';
+    return 'Clínica Exemplo';
+  });
+  const [simContact, setSimContact] = useState(() => {
+    const seg = (niche.segment || niche.name).toLowerCase();
+    if (seg.includes('estétic') || seg.includes('automot')) return 'Carlos';
+    if (seg.includes('dent') || seg.includes('odonto')) return 'Dr. Felipe';
+    if (seg.includes('nutri')) return 'Camila';
+    return 'Dr. Roberto';
+  });
+  const [simCity, setSimCity] = useState(niche.city || 'Arapiraca - AL');
+  const [simMockup, setSimMockup] = useState(() => {
+    const seg = (niche.segment || niche.name).toLowerCase();
+    if (seg.includes('estétic') || seg.includes('automot')) return 'https://previa-estetica.framer.website';
+    if (seg.includes('dent') || seg.includes('odonto')) return 'https://previa-odonto.framer.website';
+    if (seg.includes('nutri')) return 'https://previa-nutri.framer.website';
+    return 'https://previa-digital.framer.website';
+  });
   const [simPhone, setSimPhone] = useState('11999998888');
   const [simPosicao, setSimPosicao] = useState('6ª');
   const [simHorario1, setSimHorario1] = useState('quinta às 14h');
@@ -252,15 +272,23 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
     if (niche.city) {
       setSimCity(niche.city);
     }
-    const isNutriNiche =
-      niche.name.toLowerCase().includes('nutri') ||
-      niche.segment.toLowerCase().includes('nutri');
-    if (isNutriNiche) {
+    const seg = (niche.segment || niche.name).toLowerCase();
+    if (seg.includes('estétic') || seg.includes('automot')) {
+      setSimContact('Carlos');
+      setSimCompany('M4 Estética Automotiva');
+      setSimMockup('https://previa-estetica.framer.website');
+    } else if (seg.includes('dent') || seg.includes('odonto')) {
+      setSimContact('Dr. Felipe');
+      setSimCompany('Clínica Sorriso Dental');
+      setSimMockup('https://previa-odonto.framer.website');
+    } else if (seg.includes('nutri')) {
       setSimContact('Camila');
       setSimCompany('Consultório de Nutrição');
+      setSimMockup('https://previa-nutri.framer.website');
     } else {
-      setSimContact('Dr. Roberto');
-      setSimCompany('Clínica Exemplo');
+      setSimContact('Responsável');
+      setSimCompany('Empresa Exemplo');
+      setSimMockup('https://previa-digital.framer.website');
     }
   }, [niche.id]);
 
@@ -269,10 +297,10 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
     niche.name.toLowerCase().includes('nutri') ||
     niche.segment.toLowerCase().includes('nutri');
 
-  const defaultContatoFallback = isNutriActive ? 'Camila' : 'Doutor(a)';
+  const defaultContatoFallback = isNutriActive ? 'Camila' : 'Responsável';
 
   const vars = {
-    empresa: currentLead ? currentLead.companyName : (simCompany || 'Consultório de Nutrição'),
+    empresa: currentLead ? currentLead.companyName : (simCompany || 'M4 Estética Automotiva'),
     contato: currentLead
       ? (currentLead.contactName?.trim() || defaultContatoFallback)
       : (simContact?.trim() || defaultContatoFallback),
@@ -283,6 +311,7 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
     seuNome: userName,
     posicaoGoogle: simPosicao,
     horario1: simHorario1,
+    categoria: currentLead?.category,
     horario2: simHorario2,
   };
 
@@ -590,7 +619,11 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
       selectedScriptId === 'script1'
         ? SCRIPT_1_MOCKUP
         : selectedScriptId === 'script2'
-        ? SCRIPT_2_DIAGNOSTICO_GOOGLE
+        ? SCRIPT_2_VALIDACAO_PROPOSTA
+        : selectedScriptId === 'script_nutri'
+        ? SCRIPT_NUTRICIONISTA
+        : selectedScriptId === 'script_nutri_mensagens'
+        ? SCRIPT_NUTRICIONISTA_MENSAGENS
         : SCRIPT_3_COLD_CALL;
 
     onUpdateNicheScripts({
@@ -1163,6 +1196,8 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
                               <div className="flex flex-wrap items-center gap-1.5 mb-2">
                                 {[
                                   { label: '+ {empresa}', tag: '{empresa}' },
+                                  { label: '+ {nicho}', tag: '{nicho}' },
+                                  { label: '+ {servicosNicho}', tag: '{servicosNicho}' },
                                   { label: '+ {contato}', tag: '{contato}' },
                                   { label: '+ {cidade}', tag: '{cidade}' },
                                   { label: '+ {seuNome}', tag: '{seuNome}' },

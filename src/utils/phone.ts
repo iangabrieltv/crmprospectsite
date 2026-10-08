@@ -75,6 +75,86 @@ export function isInactiveOver48h(lastContactDate?: string, createdAt?: string):
 }
 
 /**
+ * Smart deduction of niche services to adapt cold messages naturally
+ */
+export function getDynamicNichoServices(nicho?: string, category?: string): string {
+  const target = `${category || ''} ${nicho || ''}`.toLowerCase();
+  if (target.includes('estétic') || target.includes('automot') || target.includes('polimento') || target.includes('lava') || target.includes('carro')) {
+    return 'serviços de estética automotiva e polimento';
+  }
+  if (target.includes('dent') || target.includes('odonto') || target.includes('sorriso')) {
+    return 'tratamentos e procedimentos odontológicos';
+  }
+  if (target.includes('nutri') || target.includes('aliment')) {
+    return 'consultas e planos nutricionais';
+  }
+  if (target.includes('médic') || target.includes('clínic') || target.includes('saúde') || target.includes('consultório')) {
+    return 'consultas e procedimentos da clínica';
+  }
+  if (target.includes('advoc') || target.includes('juríd') || target.includes('direito')) {
+    return 'atendimentos e consultorias jurídicas';
+  }
+  if (target.includes('imob') || target.includes('corret') || target.includes('imóve')) {
+    return 'vendas e locações de imóveis';
+  }
+  if (target.includes('academia') || target.includes('crossfit') || target.includes('fitness')) {
+    return 'matrículas e planos de treino';
+  }
+  if (target.includes('pet') || target.includes('veterin')) {
+    return 'atendimentos e procedimentos veterinários';
+  }
+  if (target.includes('beleza') || target.includes('salão') || target.includes('barbear') || target.includes('estética facial')) {
+    return 'agendamentos e serviços de estética';
+  }
+  if (target.includes('restaurante') || target.includes('pizzaria') || target.includes('hambúrg')) {
+    return 'pedidos e reservas de mesas';
+  }
+  if (target.includes('solar') || target.includes('energia')) {
+    return 'projetos e instalações de energia solar';
+  }
+  if (target.includes('constru') || target.includes('reforma') || target.includes('arquit')) {
+    return 'projetos e orçamentos de obras';
+  }
+  if (nicho && nicho.trim()) {
+    const clean = nicho.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim().toLowerCase();
+    return `serviços e clientes de ${clean}`;
+  }
+  return 'novos clientes e agendamentos';
+}
+
+/**
+ * Smart dynamic preview mockup URL for different industries
+ */
+export function getDynamicMockupUrl(nicho?: string, category?: string): string {
+  const target = `${category || ''} ${nicho || ''}`.toLowerCase();
+  if (target.includes('estétic') || target.includes('automot')) {
+    return 'https://previa-estetica.framer.website';
+  }
+  if (target.includes('dent') || target.includes('odonto')) {
+    return 'https://previa-odonto.framer.website';
+  }
+  if (target.includes('nutri')) {
+    return 'https://previa-nutri.framer.website';
+  }
+  if (target.includes('médic') || target.includes('clínic')) {
+    return 'https://previa-clinica.framer.website';
+  }
+  if (target.includes('advoc') || target.includes('juríd')) {
+    return 'https://previa-advocacia.framer.website';
+  }
+  return 'https://previa-digital.framer.website';
+}
+
+/**
+ * Clean niche label for lowercase sentences
+ */
+export function getCleanNichoLabel(nicho?: string): string {
+  if (!nicho) return 'negócios locais';
+  const clean = nicho.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim();
+  return clean.toLowerCase();
+}
+
+/**
  * Interpolate script templates with dynamic lead variables
  */
 export function interpolateScript(
@@ -90,6 +170,8 @@ export function interpolateScript(
     posicaoGoogle?: string;
     horario1?: string;
     horario2?: string;
+    categoria?: string;
+    servicos?: string;
   }
 ): string {
   let result = template;
@@ -99,6 +181,9 @@ export function interpolateScript(
   const posicaoVal = variables.posicaoGoogle || '6ª';
   const h1Val = variables.horario1 || 'quinta às 14h';
   const h2Val = variables.horario2 || 'sexta às 10h';
+  const cleanNicho = getCleanNichoLabel(variables.nicho);
+  const servicosVal = variables.servicos || getDynamicNichoServices(variables.nicho, variables.categoria);
+  const mockupVal = variables.linkMockup || getDynamicMockupUrl(variables.nicho, variables.categoria);
 
   // Smart extract of clean name without double title (e.g., if user saved "Dra. Camila", clean is "Camila")
   const prefixMatch = contatoVal.match(/^(?:Dra?\.|Doutor(?:a)?)\s*(.*)$/i);
@@ -110,13 +195,19 @@ export function interpolateScript(
   result = result.replace(/Dra\.\s*\{Nome\}/gi, `Dra. ${cleanNameOnly}`);
   result = result.replace(/Dr\.\s*\{Nome\}/gi, `Dr. ${cleanNameOnly}`);
 
+  // Dynamic services & industry terms
+  result = result.replace(/\{ServicosNicho\}/gi, servicosVal);
+  result = result.replace(/\{Servicos\}/gi, servicosVal);
+  result = result.replace(/\[SERVICOSNICHO\]/gi, servicosVal);
+  result = result.replace(/\[SERVICOS\]/gi, servicosVal);
+
   // Curly braces support {Var}
   result = result.replace(/\{Empresa\}/gi, empresaVal);
   result = result.replace(/\{NomeContato\}/gi, cleanNameOnly);
   result = result.replace(/\{Nome\}/gi, cleanNameOnly);
-  result = result.replace(/\{Nicho\}/gi, variables.nicho || 'seu segmento');
+  result = result.replace(/\{Nicho\}/gi, cleanNicho);
   result = result.replace(/\{Cidade\}/gi, variables.cidade || 'sua região');
-  result = result.replace(/\{LinkMockup\}/gi, variables.linkMockup || '[Link da Demonstração]');
+  result = result.replace(/\{LinkMockup\}/gi, mockupVal);
   result = result.replace(
     /\{NotaGoogle\}/gi,
     variables.notaGoogle ? `${variables.notaGoogle} ⭐` : 'excelentes avaliações'
@@ -125,9 +216,12 @@ export function interpolateScript(
 
   // Square bracket support for Cold Call & Nutri variables [NOME], [cidade], [NOME DA CLÍNICA], etc.
   result = result.replace(/\[NOME DA CLÍNICA\]/gi, empresaVal);
+  result = result.replace(/\[NOME DA EMPRESA\]/gi, empresaVal);
+  result = result.replace(/\[EMPRESA\]/gi, empresaVal);
+  result = result.replace(/\[NICHO\]/gi, cleanNicho);
   result = result.replace(/\[NOME\]/gi, cleanNameOnly);
   result = result.replace(/\[CIDADE\]/gi, variables.cidade || 'sua cidade');
-  result = result.replace(/\[LINKMOCKUP\]/gi, variables.linkMockup || '[Link da Prévia]');
+  result = result.replace(/\[LINKMOCKUP\]/gi, mockupVal);
   result = result.replace(/\[Xª\]/gi, posicaoVal);
   result = result.replace(/\[HORÁRIO 1\]/gi, h1Val);
   result = result.replace(/\[HORÁRIO 2\]/gi, h2Val);

@@ -76,7 +76,7 @@ Regras obrigatórias:
 9. "city": Cidade e Estado se detectados (ex: "São Paulo - SP", "Arapiraca - AL"). Se não constar, use "${defaultCity || ''}".
 10. "address": Endereço ou bairro se constar.
 11. "googleRating": Nota média de avaliação (número decimal de 1.0 a 5.0) ou null se não constar.
-12. "recommendedScript": Um dos três: "script1" (Método Simula/Mockup), "script2" (Diagnóstico Google/Site Ausente), ou "script3" (Cold Call Direta).
+12. "recommendedScript": Um dos roteiros: "script2" (Validação & Proposta Direta em 10 Etapas - R$ 697 com Ancoragem de R$ 997 e Plano B R$ 397), "script1" (Método Simula/Mockup), "script_nutri" (Nutricionistas) ou "script3" (Cold Call Direta).
 13. "opportunityAngle": Uma frase curta (máximo 12 palavras) com o melhor gancho de venda de site (ex: "Sem site no Google Maps", "Avaliação alta mas sem agendamento online", "Site atual não funciona no celular").
 
 Retorne a lista em formato JSON estrito conforme o schema.`;

@@ -80,7 +80,21 @@ export default function App() {
     // Subscribe to real-time niches updates across devices
     const unsubNiches = subscribeToNiches((remoteNiches) => {
       if (remoteNiches.length > 0) {
-        setNiches(remoteNiches);
+        const upgradedNiches = remoteNiches.map((n) => {
+          if (n.scripts?.script2?.title?.includes('Diagnóstico Google') || !n.scripts?.script2) {
+            const updated = {
+              ...n,
+              scripts: {
+                ...n.scripts,
+                script2: DEFAULT_SCRIPTS.script2,
+              },
+            };
+            syncNicheToFirestore(updated).catch(console.error);
+            return updated;
+          }
+          return n;
+        });
+        setNiches(upgradedNiches);
       }
     });
 

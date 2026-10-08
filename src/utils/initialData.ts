@@ -302,306 +302,272 @@ A estrutura continua sendo feita especificamente para a clínica e a entrega tam
   ],
 };
 
-export const SCRIPT_2_DIAGNOSTICO_GOOGLE: ScriptDefinition = {
+export const SCRIPT_2_VALIDACAO_PROPOSTA: ScriptDefinition = {
   id: 'script2',
-  title: 'Script 2 — Diagnóstico Google',
-  subtitle: 'Contato → Descobrir Responsável → Apresentar Análise → Posição no Google → Marcar Reunião',
-  description: 'Aborda a posição da clínica no Google e gera curiosidade para agendar uma chamada rápida de 10 minutos.',
-  category: 'Diagnóstico Consultivo Google',
+  title: 'Script 2 — Validação & Proposta Direta (Estrutura Validada)',
+  subtitle: '10 Etapas: Abertura → Elogio → Falta do Site → Permissão → Prévia MVP → Jornada → Validação → Proposta R$ 697 → Fechamento → Plano B R$ 397 → Upsell GMB',
+  description: 'Estrutura validada em 10 etapas estratégicas para conduzir o lead com micro-autorizações no WhatsApp, ancoragem de R$ 997 por R$ 697, plano B de R$ 397 e upsell de Google Meu Negócio.',
+  category: 'Proposta Direta & Ancoragem de Valor',
   goldenRule: {
-    order: 'Contato → descobrir quem é responsável → apresentar a análise → mostrar a posição/oportunidade no Google → gerar curiosidade → marcar reunião',
-    primaryGoal: 'O objetivo da abordagem NÃO é vender o site pelo WhatsApp. O objetivo é conseguir a REUNIÃO de 10 minutos.',
-    insight: 'Na reunião, você apresenta o diagnóstico e, a partir do que encontrou, mostra como um site e uma estrutura digital podem ajudar a resolver os pontos identificados.',
+    order: 'Abertura → Elogio sincero → Diagnóstico direto → Permissão → Envio da prévia → Jornada do cliente → Validação na rotina → Permissão comercial → Oferta R$ 697 (ancorada em R$ 997) → Fechamento Pix/Cartão → Plano B R$ 397 → Upsell Google',
+    primaryGoal: 'Conduzir o lead com micro-autorizações até apresentar a proposta ancorada de R$ 997 por R$ 697 com entrega em 72h.',
+    insight: 'Nunca envie a proposta comercial sem antes validar a rotina do lead e pedir permissão explícita para apresentar os valores.',
   },
   structure: {
     hook: 'Boa tarde, tudo bem? Esse número é da {Empresa}?',
-    problem: 'Nas pesquisas de {Nicho} em {Cidade}, a clínica aparece mais abaixo enquanto outros negócios aparecem antes.',
-    solution: 'Análise objetiva dos pontos que podem ser melhorados na apresentação digital.',
-    cta: 'Você teria uns 10 minutos para eu te apresentar isso? Qual horário costuma ser melhor para você?',
+    problem: 'Tava olhando vocês na internet e percebi que vocês não têm um site, principalmente quando pesquiso no Google Maps. E isso pode estar fazendo vocês perderem de fechar muitos {ServicosNicho}!',
+    solution: 'Essa é a prévia que preparei pensando no seu trabalho e na experiência de quem encontra você pelo Google ou Instagram. {LinkMockup}',
+    cta: 'Posso te explicar agora exatamente o que eu entrego e como funciona o investimento?',
   },
   template: `Boa tarde, tudo bem? Esse número é da {Empresa}?`,
-  followUp1: `Oi, {NomeContato}. Passando só para retomar aquela mensagem.
+  followUp1: `Oi! Conseguiu dar uma olhada na prévia que te mandei da {Empresa}?
 
-Eu estava falando sobre a análise que fiz da {Empresa} no Google.
+Queria muito saber o que você achou da estrutura e se faria sentido para a sua rotina.`,
+  followUp2: `Oi, {NomeContato}! Passando só para não deixar nossa conversa perdida por aqui.
 
-Encontrei alguns pontos interessantes sobre como vocês aparecem nas pesquisas.
+Preparei aquela prévia pensando especificamente na {Empresa} para atrair novos clientes pelo Google e WhatsApp.
 
-Consigo te mostrar tudo em uma conversa bem rápida.`,
-  followUp2: `Oi, {NomeContato}.
+O que você achou da proposta?`,
+  followUp3: `Oi, {NomeContato}.
 
-Vou ser direto para não tomar seu tempo.
+Vou ser direto para não ficar insistindo.
 
-Fiz uma análise da presença da {Empresa} no Google e queria te mostrar alguns pontos que encontrei.
-
-São só 10 minutos.
-
-Qual horário fica melhor para você?`,
+A prévia da {Empresa} continua disponível aqui com a entrega em até 72 horas. Melhorar a presença digital e fechar novos clientes de {Nicho} é uma prioridade para vocês agora ou prefere que eu encerre por aqui?`,
   objections: [
     {
-      id: 'obj2-manda-whats',
-      trigger: 'Pode mandar pelo WhatsApp',
-      title: 'Se a pessoa disser: "Pode mandar pelo WhatsApp"',
-      response: `Claro.
-
-Eu posso te mandar a análise por aqui.
-
-Mas algumas partes ficam muito mais fáceis de entender quando eu mostro ao vivo.
-
-Podemos fazer uma conversa de uns 10 minutos e eu te mostro tudo de forma bem objetiva.
-
-Qual horário fica melhor para vocês?`,
+      id: 'obj2-plano-b-preco',
+      trigger: 'Está caro / Pesou no orçamento',
+      title: 'Objeção de Preço → Plano B (R$ 397)',
+      response: `Entendi! Tenho uma condição especial que consigo abrir para alguns projetos desta rodada: realizo essa mesma estrutura completa por R$ 397 no Pix ou Cartão com o mesmo prazo de 72 horas. Nesse formato, faria sentido para começarmos?`,
     },
     {
-      id: 'obj2-sem-tempo',
-      trigger: 'Não tenho tempo agora',
-      title: 'Se disser: "Não tenho tempo"',
-      response: `Tranquilo.
+      id: 'obj2-ja-tem-equipe',
+      trigger: 'Já temos equipe / cuidamos disso internamente',
+      title: 'Objeção: "Já temos equipe responsável"',
+      response: `Sem problema! Entendo perfeitamente.
 
-Por isso mesmo eu pensei em fazer algo bem rápido.
+Na verdade, não entrei em contato para substituir a equipe de vocês.
 
-São cerca de 10 minutos, só para te mostrar o que encontrei.
+Eu fiz essa prévia específica da {Empresa} e queria apenas mostrar como poderia ficar na prática. Inclusive, pode servir até como uma referência ou ideia para vocês aproveitarem internamente.
 
-Se agora estiver corrido, qual outro horário seria melhor?`,
+Posso te enviar? É rapidinho e sem compromisso.`,
     },
     {
-      id: 'obj2-instagram',
-      trigger: 'Já temos Instagram',
-      title: 'Se disser: "Já temos Instagram"',
-      response: `Sim, eu vi que vocês têm presença no Instagram.
+      id: 'obj2-preciso-pensar',
+      trigger: 'Preciso pensar / vou falar com meu sócio',
+      title: 'Objeção: "Preciso pensar / falar com sócio"',
+      response: `Perfeito! Só para eu entender melhor: ficou alguma dúvida sobre o que está incluso no projeto de 72h ou é mais uma questão de decidir o momento de investir?
 
-A análise que fiz é um pouco diferente.
-
-Estou olhando principalmente para como a clínica aparece quando uma pessoa procura pelo serviço no Google.
-
-É justamente essa parte que eu queria te mostrar na reunião.`,
+Posso deixar todas as informações e o link da prévia organizados aqui para você avaliar com calma.`,
     },
     {
-      id: 'obj2-ja-tem-site',
-      trigger: 'Já temos site',
-      title: 'Se disser: "Já temos site"',
-      response: `Perfeito.
+      id: 'obj2-upsell-gmb',
+      trigger: 'Como funciona o Google Meu Negócio pós-venda?',
+      title: 'Dúvida / Upsell Google Meu Negócio (R$ 250 + R$ 200/mês)',
+      response: `Para quem já é cliente do site, eu faço a estruturação e otimização inicial do Perfil do Google por R$ 250 e a manutenção/atualização mensal por R$ 200/mês.
 
-Então a análise fica até mais interessante, porque eu consigo avaliar também como essa presença está sendo utilizada nas pesquisas do Google.
-
-Posso te mostrar o que encontrei em uma conversa rápida?`,
-    },
-    {
-      id: 'obj2-sem-interesse',
-      trigger: 'Não tenho interesse',
-      title: 'Se disser: "Não tenho interesse"',
-      response: `Sem problema.
-
-Eu só queria apresentar porque fiz a análise especificamente da clínica.
-
-Obrigado pelo seu tempo.`,
+Quer que a gente já ative essa parte também para começar a atrair mais clientes do Google a partir dessa semana?`,
     },
   ],
   stages: [
     {
       id: 's2-etapa-1',
-      stageTitle: '1. PRIMEIRO CONTATO & FILTRO',
-      description: 'Abertura para descobrir quem está do outro lado da linha.',
+      stageTitle: '1. ABERTURA E CONFIRMAÇÃO',
+      description: 'Envie no WhatsApp da empresa e aguarde confirmar.',
       steps: [
         {
-          id: 's2-msg-1',
-          title: 'Opção Principal — Abertura',
-          condition: 'Primeira mensagem enviada para a empresa',
+          id: 's2-step-1',
+          title: '1️⃣ Abertura e Confirmação',
+          condition: 'Envie no WhatsApp da empresa',
+          format: 'texto',
           message: `Boa tarde, tudo bem? Esse número é da {Empresa}?`,
-          tip: 'Mensagem de validação direta e natural.',
-        },
-        {
-          id: 's2-sim',
-          title: 'Se responder SIM',
-          condition: 'Quando confirmarem que o número é da clínica',
-          message: `Perfeito.
-
-Meu nome é {SeuNome}, eu trabalho com presença digital para negócios locais.
-
-Eu estava fazendo uma análise de algumas clínicas de {Cidade} no Google e acabei encontrando a {Empresa}.
-
-Aí eu queria falar rapidinho com vocês sobre uma coisa que encontrei na pesquisa.`,
-          tip: 'Gera curiosidade profissional sem tentar vender nada ainda.',
+          tip: 'Envie no WhatsApp da empresa e aguarde o lead responder e confirmar antes de prosseguir.',
         },
       ],
     },
     {
       id: 's2-etapa-2',
-      stageTitle: '2. DESCOBRINDO QUEM ESTÁ DO OUTRO LADO',
-      description: 'Descobrir quem é o responsável ou lidar com a secretária.',
+      stageTitle: '2. SINAL PERCEBIDO (ELOGIO SINCERO)',
+      description: 'Elogio sincero e validação do espaço físico ou trabalho.',
       steps: [
         {
-          id: 's2-secretaria-filtro',
-          title: 'Se disser que é a secretária/recepção',
-          condition: 'Quando a secretária se identificar',
-          message: `Ah, perfeito. Você consegue me ajudar com uma informação?
-
-Quem é a pessoa responsável por essa parte de marketing ou pela parte digital da clínica?`,
-          tip: 'Pergunta educada que quase sempre revela o nome do responsável.',
-        },
-        {
-          id: 's2-nome-responsavel',
-          title: 'Se ela disser o nome do responsável',
-          condition: 'Assim que ela falar o nome',
-          message: `Perfeito. Ele(a) está disponível agora?`,
-          tip: 'Verificação rápida de disponibilidade.',
-        },
-        {
-          id: 's2-sobre-o-que',
-          title: 'Se a secretária perguntar “Sobre o que?”',
-          condition: 'Caso peçam assunto antes de passar a ligação/conversa',
-          message: `É sobre uma análise que fiz da clínica no Google.
-
-Eu estava verificando como vocês aparecem quando alguém pesquisa por serviços de {Nicho} aqui em {Cidade} e encontrei alguns pontos que achei interessantes.
-
-Por exemplo, em uma das pesquisas que fiz, a clínica apareceu por volta da 4ª ou 5ª posição.
-
-Enquanto isso, existem outros negócios aparecendo antes.
-
-Queria justamente mostrar essa análise para o responsável e explicar alguns pontos que encontrei.`,
-          tip: 'Argumento factual irrefutável: mostra que você fez uma pesquisa real.',
-        },
-        {
-          id: 's2-responsavel-disponivel',
-          title: 'Se a secretária disser que o responsável está',
-          condition: 'Quando o responsável estiver no local',
-          message: `Perfeito, pode me passar para ele(a), por favor?`,
-          tip: 'Transferência direta para o decisor.',
-        },
-        {
-          id: 's2-responsavel-indisponivel',
-          title: 'Se o responsável NÃO estiver disponível',
-          condition: 'Caso ele não esteja no momento',
-          message: `Sem problema.
-
-Você consegue me passar o melhor horário para eu falar com ele(a)?
-
-É uma análise rápida que fiz da clínica no Google e queria apresentar diretamente para o responsável.`,
-          tip: 'Pega o melhor horário para ligar/mandar mensagem de volta.',
-        },
-        {
-          id: 's2-recado',
-          title: 'Se perguntarem se podem anotar um recado',
-          condition: 'Quando a secretária oferecer para anotar',
-          message: `Claro.
-
-Pode avisar que é o {SeuNome}, e que fiz uma análise da presença da clínica no Google e encontrei alguns pontos que gostaria de apresentar.
-
-Meu objetivo é marcar uma conversa rápida para mostrar essa análise.`,
-          tip: 'Recado profissional focado na análise do Google.',
-        },
-        {
-          id: 's2-explica-para-mim',
-          title: 'Se a secretária disser “Pode explicar para mim”',
-          condition: 'Caso a secretária queira saber antes de repassar',
-          message: `Claro.
-
-Basicamente, eu estava analisando como a clínica aparece para pessoas que procuram pelos serviços de vocês no Google.
-
-Encontrei algumas pesquisas em que vocês aparecem mais abaixo e existem outros negócios aparecendo antes.
-
-Além disso, encontrei alguns pontos na apresentação digital da clínica que podem ser melhorados.
-
-Eu consigo mostrar tudo isso visualmente em uma conversa bem rápida.
-
-Se você achar interessante, eu apresento para você e, caso faça sentido, você pode encaminhar para o responsável.`,
-          tip: 'Alinha com a secretária tornando-a sua aliada interna.',
+          id: 's2-step-2',
+          title: '2️⃣ Sinal Percebido (Elogio Sincero)',
+          condition: 'Aguarde o lead responder e confirmar',
+          format: 'texto',
+          message: `Tava olhando o Instagram de vocês e também encontrei a {Empresa} no Google Maps. Achei muito legal o espaço e o projeto de vocês! 👏`,
+          tip: 'Aguarde o lead responder e agradecer.',
         },
       ],
     },
     {
       id: 's2-etapa-3',
-      stageTitle: '3. QUANDO FALAR COM O RESPONSÁVEL',
-      description: 'Pitch direto de 4 etapas para agendar a reunião de 10 minutos.',
+      stageTitle: '3. DIAGNÓSTICO DIRETO (PONTO CEGO E FALTA DO SITE)',
+      description: 'Apresentação do ponto cego e oportunidades perdidas nas buscas.',
       steps: [
         {
-          id: 's2-resp-abertura',
-          title: '5. Abertura com o Responsável',
-          condition: 'Ao falar com o dono, médico ou gestor',
-          message: `Boa tarde, {NomeContato}, tudo bem?
-
-Meu nome é {SeuNome}.
-
-Eu estava fazendo uma análise de algumas clínicas da região no Google e encontrei a {Empresa}.
-
-Fui analisar algumas pesquisas relacionadas aos serviços de vocês e encontrei uma situação que achei interessante mostrar.`,
-          tip: 'Apresentação curta e objetiva.',
-        },
-        {
-          id: 's2-resp-problema',
-          title: '6. Apresentação do Problema / Posição',
-          condition: 'Apresentar a situação da pesquisa no Google',
-          message: `Por exemplo, quando pesquisei {Nicho} em {Cidade}, vocês apareceram mais abaixo nas buscas.
-
-E antes de vocês aparecem outros negócios.
-
-O ponto é que, quando uma pessoa faz essa pesquisa, ela acaba vendo essas outras opções primeiro.
-
-E foi justamente por isso que eu parei para analisar o perfil de vocês um pouco melhor.`,
-          tip: 'Conecta o problema à perda de pacientes.',
-        },
-        {
-          id: 's2-resp-curiosidade',
-          title: '7. Gerar Curiosidade',
-          condition: 'Preparar a ponte para a chamada',
-          message: `Eu encontrei alguns pontos na presença digital da clínica que podem ser trabalhados.
-
-Não queria ficar te explicando tudo por mensagem/ligação porque acaba ficando confuso.
-
-Eu tenho essa análise aqui e consigo te mostrar de forma muito mais clara.`,
-          tip: 'Justifica por que a reunião visual é necessária.',
-        },
-        {
-          id: 's2-resp-cta',
-          title: '8. CTA — Marcar a Reunião (10 minutos)',
-          condition: 'Fechamento do agendamento',
-          message: `Você teria uns 10 minutos para eu te apresentar isso?
-
-Pode ser por uma chamada rápida mesmo.
-
-Eu te mostro o que encontrei, como vocês estão aparecendo hoje e alguns pontos que podem ser melhorados.
-
-Qual horário costuma ser melhor para você?`,
-          tip: 'Pergunta com alternativa de horário, não pergunta se quer.',
+          id: 's2-step-3',
+          title: '3️⃣ Diagnóstico Direto (Ponto Cego e Falta do Site)',
+          condition: 'Aguarde o lead responder e agradecer',
+          format: 'texto',
+          message: `Na verdade queria apresentar um projeto para vocês. Tava olhando vocês na internet e percebi que vocês não têm um site, principalmente quando pesquiso no Google Maps. E isso pode estar fazendo vocês perderem de fechar muitos {ServicosNicho}!`,
+          tip: 'Destaca a perda de clientes reais no Google Maps sem agredir ou acusar o lead.',
         },
       ],
     },
     {
       id: 's2-etapa-4',
-      stageTitle: '4. FOLLOW-UPS SE NÃO RESPONDER',
-      description: 'Retomadas estratégicas após o primeiro contato.',
+      stageTitle: '4. PEDIDO DE PERMISSÃO (FILTRO DE INTERESSE)',
+      description: 'Filtro de autorização antes de mandar o link ou print da prévia.',
       steps: [
         {
-          id: 's2-fu-1',
-          title: 'Follow-up 1 — Reativação Suave',
-          condition: '24h a 48h sem retorno',
-          message: `Oi, {NomeContato}. Passando só para retomar aquela mensagem.
-
-Eu estava falando sobre a análise que fiz da {Empresa} no Google.
-
-Encontrei alguns pontos interessantes sobre como vocês aparecem nas pesquisas.
-
-Consigo te mostrar tudo em uma conversa bem rápida.`,
-          tip: 'Lembrete curto e respeitoso.',
+          id: 's2-step-4',
+          title: '4️⃣ Pedido de Permissão (Filtro de Interesse)',
+          condition: 'Pedir permissão de envio',
+          format: 'texto',
+          message: `Tô com um projeto que pode ajudar vocês com isso, posso mandar aqui?`,
+          tip: 'Aguarde a autorização dele antes de enviar a prévia.',
         },
+      ],
+    },
+    {
+      id: 's2-etapa-5',
+      stageTitle: '5. ENVIO DA PRÉVIA (MVP)',
+      description: 'Envio da demonstração visual personalizada.',
+      steps: [
         {
-          id: 's2-fu-2',
-          title: 'Follow-up 2 — Mais Direto (10 minutos)',
-          condition: 'Após 48h sem retorno do follow-up 1',
-          message: `Oi, {NomeContato}.
+          id: 's2-step-5',
+          title: '5️⃣ Envio da Prévia (MVP)',
+          condition: 'Assim que ele autorizar',
+          format: 'texto',
+          message: `Essa é a prévia que preparei pensando no seu trabalho e na experiência de quem encontra você pelo Google ou Instagram. {LinkMockup}`,
+          tip: 'Envie o link do protótipo ou um print completo da tela com a legenda acima.',
+        },
+      ],
+    },
+    {
+      id: 's2-etapa-6',
+      stageTitle: '6. EXPLICAÇÃO DA JORNADA DO CLIENTE',
+      description: 'Explicação detalhada da experiência do visitante até o agendamento.',
+      steps: [
+        {
+          id: 's2-step-6',
+          title: '6️⃣ Explicação da Jornada do Cliente',
+          condition: 'Aguarde o WhatsApp marcar a mensagem como visualizada antes de enviar',
+          format: 'texto',
+          message: `Aqui eu pensei justamente na jornada do cliente. Primeiro ele entende o padrão do trabalho de vocês, depois conhece os {ServicosNicho} e as informações do atendimento e, no final, encontra o caminho para solicitar o agendamento direto pelo WhatsApp.
 
-Vou ser direto para não tomar seu tempo.
+A ideia é deixar tudo mais claro e profissional e facilitar a conversão desse visitante em contato. O que você achou da estrutura?`,
+          tip: 'Aguarde o WhatsApp marcar a mensagem como visualizada antes de enviar.',
+        },
+      ],
+    },
+    {
+      id: 's2-etapa-7',
+      stageTitle: '7. VALIDAÇÃO NA ROTINA DO NEGÓCIO',
+      description: 'Pergunta crucial para o lead confirmar que a estrutura resolve a dor.',
+      steps: [
+        {
+          id: 's2-step-7',
+          title: '7️⃣ Validação na Rotina do Negócio',
+          condition: 'Quando o lead responder que gostou',
+          format: 'texto',
+          message: `Que bom! E pensando principalmente nessa parte de facilitar o caminho do cliente até o agendamento, você acha que uma estrutura assim realmente faria sentido para a sua rotina?`,
+          tip: 'Faz o lead verbalizar o valor e a aplicabilidade da solução na rotina dele.',
+        },
+      ],
+    },
+    {
+      id: 's2-etapa-8',
+      stageTitle: '8. PERMISSÃO PARA A OFERTA COMERCIAL',
+      description: 'Micro-compromisso antes de apresentar o valor.',
+      steps: [
+        {
+          id: 's2-step-8',
+          title: '8️⃣ Permissão para a Oferta Comercial',
+          condition: 'Quando ele disser que sim',
+          format: 'texto',
+          message: `Perfeito! Foi exatamente pensando nessa necessidade que eu montei a proposta. Posso te explicar agora exatamente o que eu entrego e como funciona o investimento?`,
+          tip: 'Nunca pule esta etapa: a permissão desarma qualquer postura defensiva.',
+        },
+      ],
+    },
+    {
+      id: 's2-etapa-9',
+      stageTitle: '9. APRESENTAÇÃO DA OFERTA E ANCORAGEM DE PREÇO (APENAS SITE)',
+      description: 'Ancoragem forte de R$ 997 por R$ 697 em até 72 horas.',
+      steps: [
+        {
+          id: 's2-step-9',
+          title: '9️⃣ Apresentação da Oferta e Ancoragem de Preço (Apenas Site)',
+          condition: 'Assim que ele autorizar',
+          format: 'texto',
+          message: `O projeto é personalizado para a {Empresa} e inclui toda a estrutura: o site personalizado com a identidade de vocês, apresentação dos serviços, localização e botão de solicitação de agendamento direto pelo WhatsApp.
 
-Fiz uma análise da presença da {Empresa} no Google e queria te mostrar alguns pontos que encontrei.
+Faço toda essa implementação com prazo de entrega de até 72 horas após receber os materiais necessários.
 
-São só 10 minutos.
+Para desenvolver toda essa estrutura, o valor normal do projeto é de R$ 997. Mas estou fechando uma rodada específica para empresas de {Nicho} e, nessa condição, consigo fazer o projeto completo por R$ 697.`,
+          tip: 'Ancoragem psicológica de R$ 997 reduzida para R$ 697 com entrega em 72h.',
+        },
+      ],
+    },
+    {
+      id: 's2-etapa-10',
+      stageTitle: '10. FECHAMENTO E CONDIÇÕES DE PAGAMENTO',
+      description: 'Condições de pagamento facilitadas e pergunta de viabilidade.',
+      steps: [
+        {
+          id: 's2-step-10',
+          title: '🔟 Fechamento e Condições de Pagamento',
+          condition: 'Apresentar formas de pagamento',
+          format: 'texto',
+          message: `No Pix, podemos fazer 50% para iniciar e 50% na entrega. No cartão, em até 12 vezes.
 
-Qual horário fica melhor para você?`,
-          tip: 'Direto ao ponto com pergunta clara de horário.',
+Essa condição fica viável para você?`,
+          tip: 'Pergunta direta e sem atrito para fechar o acordo.',
+        },
+      ],
+    },
+    {
+      id: 's2-etapa-11',
+      stageTitle: '11. PLANO B — DESCONTO PROMOCIONAL (SE A OBJEÇÃO FOR PREÇO)',
+      description: 'Condição promocional de R$ 397 para fechar na hora.',
+      steps: [
+        {
+          id: 's2-step-11',
+          title: '⚠️ Plano B — Desconto Promocional (Se a objeção for Preço)',
+          condition: 'Se o cliente disser que o investimento pesou no orçamento',
+          format: 'texto',
+          message: `Entendi! Tenho uma condição especial que consigo abrir para alguns projetos desta rodada: realizo essa mesma estrutura completa por R$ 397 no Pix ou Cartão com o mesmo prazo de 72 horas. Nesse formato, faria sentido para começarmos?`,
+          tip: 'Último recurso se o preço for a única barreira de fechamento.',
+        },
+      ],
+    },
+    {
+      id: 's2-etapa-12',
+      stageTitle: '12. UPSELL DE PÓS-VENDA — GOOGLE MEU NEGÓCIO',
+      description: 'Venda de esteira no momento da entrega do site.',
+      steps: [
+        {
+          id: 's2-step-12',
+          title: '🚀 Upsell de Pós-Venda — Google Meu Negócio (Na entrega do site)',
+          condition: 'Assim que o site estiver 100% aprovado e no ar',
+          format: 'texto',
+          message: `Seu site tá 100% finalizado e no ar! Ficou excelente.
+
+Agora que a estrutura tá pronta para converter visitantes em clientes, o próximo passo natural é garantir que o Google mostre a {Empresa} no topo das buscas quando alguém pesquisar por {Nicho} na região.
+
+Para quem já é cliente do site, eu faço a estruturação e otimização inicial do Perfil do Google por R$ 250 e a manutenção/atualização mensal por R$ 200/mês.
+
+Quer que a gente já ative essa parte também para começar a atrair mais clientes do Google a partir dessa semana?`,
+          tip: 'Momento de ouro (Pós-Venda): cliente feliz com o site fechando otimização GMB (R$ 250 setup + R$ 200/mês MRR).',
         },
       ],
     },
   ],
 };
+
+export const SCRIPT_2_DIAGNOSTICO_GOOGLE = SCRIPT_2_VALIDACAO_PROPOSTA;
 
 export const SCRIPT_3_COLD_CALL: ScriptDefinition = {
   id: 'script3',
@@ -2031,6 +1997,36 @@ export const DEFAULT_SCRIPTS: Record<string, ScriptDefinition> = {
 
 export const INITIAL_NICHES: NicheCampaign[] = [
   {
+    id: 'niche-estetica-automotiva',
+    name: 'Estética Automotiva',
+    segment: 'Estética Automotiva & Polimento',
+    city: 'Arapiraca - AL',
+    targetCities: ['Arapiraca - AL', 'Maceió - AL', 'Palmeira dos Índios - AL'],
+    emoji: '🚗',
+    targetMrr: 6000,
+    createdAt: new Date().toISOString(),
+    scripts: {
+      script2: SCRIPT_2_VALIDACAO_PROPOSTA,
+      script1: SCRIPT_1_MOCKUP,
+      script3: SCRIPT_3_COLD_CALL,
+    },
+  },
+  {
+    id: 'niche-odontologia',
+    name: 'Dentistas & Odontologia',
+    segment: 'Clínicas Odontológicas & Dentistas',
+    city: 'Arapiraca - AL',
+    targetCities: ['Arapiraca - AL', 'Maceió - AL', 'Palmeira dos Índios - AL'],
+    emoji: '🦷',
+    targetMrr: 7000,
+    createdAt: new Date().toISOString(),
+    scripts: {
+      script2: SCRIPT_2_VALIDACAO_PROPOSTA,
+      script1: SCRIPT_1_MOCKUP,
+      script3: SCRIPT_3_COLD_CALL,
+    },
+  },
+  {
     id: 'niche-nutricionistas',
     name: 'Nutricionistas & Nutrologia',
     segment: 'Nutricionistas & Nutrologia',
@@ -2042,21 +2038,22 @@ export const INITIAL_NICHES: NicheCampaign[] = [
     scripts: {
       script_nutri: SCRIPT_NUTRICIONISTA,
       script_nutri_mensagens: SCRIPT_NUTRICIONISTA_MENSAGENS,
+      script2: SCRIPT_2_VALIDACAO_PROPOSTA,
       script1: SCRIPT_1_MOCKUP,
     },
   },
   {
     id: 'niche-clinicas-locais',
     name: 'Clínicas & Consultórios',
-    segment: 'Clínicas Médicas & Odontológicas',
+    segment: 'Clínicas Médicas & Especialistas',
     city: 'São Paulo - SP',
     targetCities: ['São Paulo - SP', 'Campinas - SP', 'Santos - SP'],
     emoji: '🩺',
     targetMrr: 5000,
     createdAt: new Date().toISOString(),
     scripts: {
+      script2: SCRIPT_2_VALIDACAO_PROPOSTA,
       script1: SCRIPT_1_MOCKUP,
-      script2: SCRIPT_2_DIAGNOSTICO_GOOGLE,
       script3: SCRIPT_3_COLD_CALL,
       script_nutri: SCRIPT_NUTRICIONISTA,
     },

@@ -11,22 +11,30 @@ interface NewNicheModalProps {
 const EMOJI_SUGGESTIONS = ['🥗', '🥑', '🩺', '🦷', '🔑', '💅', '⚖️', '🍕', '🚗', '🏗️', '🐾', '💈'];
 
 export const NewNicheModal: React.FC<NewNicheModalProps> = ({ onClose, onCreateNiche }) => {
-  const [templateType, setTemplateType] = useState<'nutri' | 'clinicas' | 'custom'>('nutri');
-  const [name, setName] = useState('Nutricionistas & Nutrologia');
-  const [segment, setSegment] = useState('Nutricionistas & Clínicas de Nutrição');
+  const [templateType, setTemplateType] = useState<'estetica' | 'odonto' | 'nutri' | 'clinicas' | 'custom'>('estetica');
+  const [name, setName] = useState('Estética Automotiva');
+  const [segment, setSegment] = useState('Estética Automotiva & Polimento');
   const [city, setCity] = useState('');
-  const [emoji, setEmoji] = useState('🥗');
-  const [targetMrr, setTargetMrr] = useState('5000');
+  const [emoji, setEmoji] = useState('🚗');
+  const [targetMrr, setTargetMrr] = useState('6000');
 
-  const handleSelectTemplate = (type: 'nutri' | 'clinicas' | 'custom') => {
+  const handleSelectTemplate = (type: 'estetica' | 'odonto' | 'nutri' | 'clinicas' | 'custom') => {
     setTemplateType(type);
-    if (type === 'nutri') {
+    if (type === 'estetica') {
+      setName('Estética Automotiva');
+      setSegment('Estética Automotiva & Polimento');
+      setEmoji('🚗');
+    } else if (type === 'odonto') {
+      setName('Dentistas & Odontologia');
+      setSegment('Clínicas Odontológicas & Dentistas');
+      setEmoji('🦷');
+    } else if (type === 'nutri') {
       setName('Nutricionistas');
       setSegment('Nutricionistas & Clínicas de Nutrição');
       setEmoji('🥗');
     } else if (type === 'clinicas') {
       setName('Clínicas & Consultórios');
-      setSegment('Clínicas Médicas & Odontológicas');
+      setSegment('Clínicas Médicas & Especialistas');
       setEmoji('🩺');
     } else {
       setName('');
@@ -48,8 +56,8 @@ export const NewNicheModal: React.FC<NewNicheModalProps> = ({ onClose, onCreateN
       ? {
           script_nutri: SCRIPT_NUTRICIONISTA,
           script_nutri_mensagens: SCRIPT_NUTRICIONISTA_MENSAGENS,
-          script1: DEFAULT_SCRIPTS.script1,
           script2: DEFAULT_SCRIPTS.script2,
+          script1: DEFAULT_SCRIPTS.script1,
         }
       : { ...DEFAULT_SCRIPTS };
 
@@ -93,6 +101,40 @@ export const NewNicheModal: React.FC<NewNicheModalProps> = ({ onClose, onCreateN
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
+                onClick={() => handleSelectTemplate('estetica')}
+                className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                  templateType === 'estetica'
+                    ? 'border-blue-600 bg-blue-50/70 ring-1 ring-blue-500'
+                    : 'border-slate-200 hover:bg-slate-50'
+                }`}
+              >
+                <div className="flex items-center gap-1.5 font-bold text-xs text-slate-900">
+                  <span>🚗</span> Estética Automotiva
+                </div>
+                <div className="text-[10px] text-slate-500 mt-0.5 leading-tight">
+                  10 Etapas: Ancoragem R$ 697, Plano B R$ 397 + Upsell GMB
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleSelectTemplate('odonto')}
+                className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                  templateType === 'odonto'
+                    ? 'border-blue-600 bg-blue-50/70 ring-1 ring-blue-500'
+                    : 'border-slate-200 hover:bg-slate-50'
+                }`}
+              >
+                <div className="flex items-center gap-1.5 font-bold text-xs text-slate-900">
+                  <span>🦷</span> Dentistas / Odonto
+                </div>
+                <div className="text-[10px] text-slate-500 mt-0.5 leading-tight">
+                  10 Etapas: Ancoragem R$ 697, Plano B R$ 397 + Upsell GMB
+                </div>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => handleSelectTemplate('nutri')}
                 className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
                   templateType === 'nutri'
@@ -104,7 +146,7 @@ export const NewNicheModal: React.FC<NewNicheModalProps> = ({ onClose, onCreateN
                   <span>🥗</span> Nutricionistas
                 </div>
                 <div className="text-[10px] text-slate-500 mt-0.5 leading-tight">
-                  16 Etapas com Áudios, Diagnóstico Google e Fechamento R$ 697
+                  16 Etapas com Áudios, Diagnóstico e Roteiro Texto
                 </div>
               </button>
 
@@ -118,10 +160,10 @@ export const NewNicheModal: React.FC<NewNicheModalProps> = ({ onClose, onCreateN
                 }`}
               >
                 <div className="flex items-center gap-1.5 font-bold text-xs text-slate-900">
-                  <span>🩺</span> Clínicas & Médicos
+                  <span>🩺</span> Clínicas Médicas
                 </div>
                 <div className="text-[10px] text-slate-500 mt-0.5 leading-tight">
-                  Método Mockup, Prévia Pronta e Cold Call
+                  Estrutura Validada, Mockup e Cold Call
                 </div>
               </button>
             </div>
