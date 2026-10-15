@@ -39,20 +39,21 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ niche, leads }) =>
   const totalMrr = closedLeads.reduce((acc, l) => acc + (l.monthlyMrr || 0), 0);
 
   // Stage groups
-  const interestedLeads = leads.filter((l) => l.stage === 'interessado');
+  const uncontactedLeads = leads.filter(
+    (l) => (l.stage === 'leads_sem_contato' || l.stage === 'nao_iniciada') && !l.lastContactDate
+  );
+  const firstContactLeads = leads.filter((l) => l.stage === 'primeiro_contato');
+  const unansweredLeads = leads.filter((l) => l.stage === 'nao_atendida' || l.stage === 'nao_respondida');
   const followUpLeads = leads.filter(
     (l) => l.stage === 'follow_up_1' || l.stage === 'follow_up_2'
   );
-
-  // ALL leads where contact has been initiated (including mockup, follow-up, interested, closed, etc.)
-  const contactedLeads = leads.filter(
-    (l) => l.stage !== 'nao_iniciada' || Boolean(l.lastContactDate)
+  const meetingScheduledLeads = leads.filter(
+    (l) => l.stage === 'reuniao_marcada' || l.stage === 'interessado'
   );
 
-  const mockupSentLeads = leads.filter((l) => l.stage === 'mockup_enviado');
-  const noContactLeads = leads.filter((l) => l.stage === 'nao_tem_contato');
-  const uncontactedLeads = leads.filter(
-    (l) => l.stage === 'nao_iniciada' && !l.lastContactDate
+  // ALL leads where contact has been initiated
+  const contactedLeads = leads.filter(
+    (l) => (l.stage !== 'leads_sem_contato' && l.stage !== 'nao_iniciada') || Boolean(l.lastContactDate)
   );
 
   const contactPercentage = totalLeads > 0
@@ -61,12 +62,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ niche, leads }) =>
 
   const respondedLeads = leads.filter(
     (l) =>
-      l.stage === 'mockup_enviado' ||
       l.stage === 'follow_up_1' ||
       l.stage === 'follow_up_2' ||
+      l.stage === 'reuniao_marcada' ||
       l.stage === 'interessado' ||
-      l.stage === 'fechado' ||
-      l.stage === 'nao_interessado'
+      l.stage === 'fechado'
   );
 
   // Response & Conversion Rates
@@ -202,31 +202,31 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ niche, leads }) =>
           </div>
         </div>
 
-        {/* Card 3: Mockups Enviados */}
-        <div className="bg-white p-4 rounded-xl border border-violet-200/80 shadow-2xs flex flex-col justify-between bg-violet-50/20">
-          <div className="text-[11px] font-semibold text-violet-900 flex items-center justify-between">
-            <span>Mockups Enviados</span>
-            <Sparkles className="w-3.5 h-3.5 text-violet-600" />
+        {/* Card 3: Reunião Marcada */}
+        <div className="bg-white p-4 rounded-xl border border-emerald-200/80 shadow-2xs flex flex-col justify-between bg-emerald-50/20">
+          <div className="text-[11px] font-semibold text-emerald-900 flex items-center justify-between">
+            <span>Reuniões Marcadas</span>
+            <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
           </div>
-          <div className="mt-2 text-2xl font-bold font-mono tabular-nums text-violet-700">
-            {mockupSentLeads.length}
+          <div className="mt-2 text-2xl font-bold font-mono tabular-nums text-emerald-700">
+            {meetingScheduledLeads.length}
           </div>
-          <div className="mt-1 text-[11px] text-violet-600 font-medium truncate">
-            Prévia interativa entregue
+          <div className="mt-1 text-[11px] text-emerald-600 font-medium truncate">
+            Demonstração / Proposta agendada
           </div>
         </div>
 
-        {/* Card 4: Sem Contato / Inacessíveis */}
-        <div className="bg-white p-4 rounded-xl border border-zinc-200 shadow-2xs flex flex-col justify-between bg-zinc-50/40">
-          <div className="text-[11px] font-medium text-zinc-700 flex items-center justify-between">
-            <span>Sem Contato</span>
-            <PhoneOff className="w-3.5 h-3.5 text-zinc-500" />
+        {/* Card 4: Não Atendidas */}
+        <div className="bg-white p-4 rounded-xl border border-amber-200 shadow-2xs flex flex-col justify-between bg-amber-50/30">
+          <div className="text-[11px] font-medium text-amber-800 flex items-center justify-between">
+            <span>Não Atendida</span>
+            <PhoneOff className="w-3.5 h-3.5 text-amber-600" />
           </div>
-          <div className="mt-2 text-2xl font-bold font-mono tabular-nums text-zinc-700">
-            {noContactLeads.length}
+          <div className="mt-2 text-2xl font-bold font-mono tabular-nums text-amber-700">
+            {unansweredLeads.length}
           </div>
-          <div className="mt-1 text-[11px] text-zinc-500 truncate">
-            Números sem retorno/inválidos
+          <div className="mt-1 text-[11px] text-amber-600 truncate">
+            Aguardando retorno para novo toque
           </div>
         </div>
 
@@ -244,17 +244,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ niche, leads }) =>
           </div>
         </div>
 
-        {/* Card 6: Interested Leads */}
+        {/* Card 6: Follow-up Leads */}
         <div className="bg-white p-4 rounded-xl border border-slate-200/90 shadow-2xs flex flex-col justify-between">
           <div className="text-[11px] font-medium text-slate-500 flex items-center justify-between">
-            <span>Interessados na Mesa</span>
-            <Flame className="w-3.5 h-3.5 text-amber-500" />
+            <span>Em Follow-up</span>
+            <Flame className="w-3.5 h-3.5 text-purple-500" />
           </div>
-          <div className="mt-2 text-2xl font-bold font-mono tabular-nums text-amber-700">
-            {interestedLeads.length}
+          <div className="mt-2 text-2xl font-bold font-mono tabular-nums text-purple-700">
+            {followUpLeads.length}
           </div>
           <div className="mt-1 text-[11px] text-slate-500 truncate">
-            Demo / Proposta em análise
+            Follow-up 1 e 2 em andamento
           </div>
         </div>
 
@@ -343,19 +343,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ niche, leads }) =>
                     className={`h-full transition-all duration-300 ${
                       stage.id === 'fechado'
                         ? 'bg-green-600'
-                        : stage.id === 'interessado'
+                        : stage.id === 'reuniao_marcada' || stage.id === 'interessado'
                         ? 'bg-emerald-500'
-                        : stage.id === 'mockup_enviado'
-                        ? 'bg-violet-600'
-                        : stage.id === 'nao_tem_contato'
-                        ? 'bg-zinc-400'
-                        : stage.id === 'nao_interessado'
-                        ? 'bg-rose-400'
-                        : stage.id === 'nao_respondida'
-                        ? 'bg-amber-500'
-                        : stage.id === 'follow_up_1' || stage.id === 'follow_up_2'
+                        : stage.id === 'follow_up_2'
+                        ? 'bg-indigo-600'
+                        : stage.id === 'follow_up_1'
                         ? 'bg-purple-500'
-                        : 'bg-blue-600'
+                        : stage.id === 'nao_atendida' || stage.id === 'nao_respondida'
+                        ? 'bg-amber-500'
+                        : stage.id === 'primeiro_contato'
+                        ? 'bg-blue-600'
+                        : 'bg-slate-400'
                     }`}
                     style={{ width: `${Math.max(count > 0 ? 3 : 0, percentOfTotal)}%` }}
                   />

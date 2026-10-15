@@ -1,5 +1,4 @@
 import express from 'express';
-import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
@@ -195,8 +194,152 @@ Regras OBRIGATÓRIAS:
   }
 });
 
+// API: Conversational AI Filter for Imported Spreadsheet Leads
+app.post('/api/gemini/filter-imported-leads', async (req, res) => {
+  try {
+    const { userInstruction, nicheName, nicheSegment, leads } = req.body;
+    if (!userInstruction || typeof userInstruction !== 'string') {
+      res.status(400).json({ error: 'Instrução do usuário não fornecida.' });
+      return;
+    }
+    if (!Array.isArray(leads) || leads.length === 0) {
+      res.status(400).json({ error: 'Lista de contatos vazia para filtragem.' });
+      return;
+    }
+
+    const ai = getGeminiClient();
+
+    // Fallback keyword-based matching if no API key is set
+    if (!ai) {
+      const normalizedInstruction = userInstruction.toLowerCase();
+      // Extract target words e.g. "oficina mecanica", "oficina", "mecanica"
+      const terms = normalizedInstruction
+        .replace(/retirar|remover|excluir|apagar|tirar|todos|os|que|estao|na|categoria|de|com|sem|por|favor/gi, ' ')
+        .split(/\s+/)
+        .map((t) => t.trim())
+        .filter((t) => t.length > 2);
+
+      const removedDetails: { id: string; companyName: string; reason: string }[] = [];
+      const removedIds: string[] = [];
+      const removedCategoriesSet = new Set<string>();
+
+      leads.forEach((l: any, idx: number) => {
+        const leadId = l.id || String(idx);
+        const cat = (l.category || '').toLowerCase();
+        const comp = (l.companyName || '').toLowerCase();
+
+        const match = terms.some((term) => cat.includes(term) || comp.includes(term));
+        if (match) {
+          removedIds.push(leadId);
+          if (l.category) removedCategoriesSet.add(l.category);
+          removedDetails.push({
+            id: leadId,
+            companyName: l.companyName,
+            reason: `Identificado pelo termo de exclusão "${terms.join(', ')}"`
+          });
+        }
+      });
+
+      res.json({
+        removedIds,
+        explanation: `Filtro local aplicado: ${removedIds.length} contatos removidos correspondentes a "${terms.join(', ')}".`,
+        removedCategories: Array.from(removedCategoriesSet),
+        removedDetails,
+        retainedCount: leads.length - removedIds.length,
+        removedCount: removedIds.length,
+        usedFallback: true,
+      });
+      return;
+    }
+
+    const leadSummaryList = leads.slice(0, 350).map((l: any, idx: number) => ({
+      id: l.id || String(idx),
+      empresa: l.companyName,
+      categoria: l.category || 'Sem categoria',
+      cidade: l.city || '',
+      telefone: l.phone || '',
+      notaGoogle: l.googleRating || null
+    }));
+
+    const prompt = `Você é um analista especialista em CRM de prospecção ativa de vendas e higienização de listas comerciais.
+O usuário importou uma lista de contatos para a campanha de nicho: "${nicheName || 'Geral'}" (${nicheSegment || nicheName || 'Negócios Locais'}).
+
+O usuário enviou a seguinte instrução para limpar/filtrar a lista de contatos:
+"""
+${userInstruction}
+"""
+
+LISTA DE CONTATOS ATUAIS (${leadSummaryList.length} contatos):
+${JSON.stringify(leadSummaryList)}
+
+DIRETRIZES OBRIGATÓRIAS:
+1. Avalie com atenção a intenção do usuário:
+   - Se o usuário pedir para "retirar X" (ex: "retirar todos na categoria de oficina mecânica"), identifique todos os contatos que correspondam a X (por exemplo: oficina mecânica, mecânica, auto center, auto elétrica, lanternagem, etc.) e adicione seus IDs na lista "removedIds".
+   - Se o usuário pedir para "manter apenas Y", identifique tudo que NÃO for Y e adicione na lista "removedIds".
+   - Mantenha na lista limpa tudo aquilo que o usuário NÃO mandou retirar.
+2. Seja preciso e não remova empresas legítimas do nicho principal a menos que o usuário tenha pedido expressamente.
+3. Gere uma mensagem explicativa ("explanation") em português do Brasil, cordial e direta, explicando exatamente o que você retirou e por quê.
+4. Liste as categorias/atividades que foram removidas em "removedCategories".
+5. Em "removedDetails", para cada contato removido, inclua o id, companyName e reason curta.
+
+Retorne estritamente o JSON no schema especificado.`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.8-flash',
+      contents: prompt,
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            removedIds: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING },
+            },
+            explanation: { type: Type.STRING },
+            removedCategories: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING },
+            },
+            removedDetails: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  id: { type: Type.STRING },
+                  companyName: { type: Type.STRING },
+                  reason: { type: Type.STRING },
+                },
+                required: ['id', 'companyName', 'reason'],
+              },
+            },
+          },
+          required: ['removedIds', 'explanation', 'removedCategories'],
+        },
+      },
+    });
+
+    const parsed = JSON.parse(response.text || '{}');
+    const removedIds = Array.isArray(parsed.removedIds) ? parsed.removedIds : [];
+
+    res.json({
+      removedIds,
+      explanation: parsed.explanation || `Foram filtrados ${removedIds.length} contatos com base na sua instrução.`,
+      removedCategories: parsed.removedCategories || [],
+      removedDetails: parsed.removedDetails || [],
+      retainedCount: leads.length - removedIds.length,
+      removedCount: removedIds.length,
+      usedFallback: false,
+    });
+  } catch (error: any) {
+    console.error('Error filtering leads with Gemini:', error);
+    res.status(500).json({ error: error.message || 'Falha ao processar filtragem com IA.' });
+  }
+});
+
 async function startServer() {
   if (!isProd) {
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: {
         middlewareMode: true,
@@ -217,4 +360,9 @@ async function startServer() {
   });
 }
 
-startServer();
+// Start standalone dev/production server when not running inside a Vercel serverless function
+if (!process.env.VERCEL) {
+  startServer();
+}
+
+export default app;

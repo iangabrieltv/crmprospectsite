@@ -37,7 +37,9 @@ import {
   Trash2,
   Undo2,
   Tag,
-  Ban
+  Ban,
+  Bot,
+  Send
 } from 'lucide-react';
 
 export interface ParsedLeadCandidate {
@@ -89,6 +91,7 @@ interface ImporterViewProps {
     sheetMetadata?: { name: string; format?: string; size?: number }
   ) => void;
   onDeleteImportedSheet?: (sheetId: string) => void;
+  onDeleteLeads?: (leadIds: string[]) => void;
   onSwitchToKanban: () => void;
 }
 
@@ -99,6 +102,7 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
   onImportLeadsToNiche,
   onCreateNicheWithLeads,
   onDeleteImportedSheet,
+  onDeleteLeads,
   onSwitchToKanban,
 }) => {
   const [inputMethod, setInputMethod] = useState<'file' | 'text'>('file');
@@ -120,8 +124,53 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
   const [rawParsedCandidates, setRawParsedCandidates] = useState<ParsedLeadCandidate[]>([]);
   const [parsedCandidates, setParsedCandidates] = useState<ParsedLeadCandidate[]>([]);
   const [duplicateCandidates, setDuplicateCandidates] = useState<DuplicateDetail[]>([]);
-  const [activeCandidatesTab, setActiveCandidatesTab] = useState<'unique' | 'duplicates' | 'incompatible_category'>('unique');
+  const [activeCandidatesTab, setActiveCandidatesTab] = useState<'unique' | 'duplicates' | 'incompatible_category' | 'ai_excluded'>('unique');
   const [duplicateSearch, setDuplicateSearch] = useState('');
+
+  // Conversational AI Lead & Service Filter
+  const [aiFilterPrompt, setAiFilterPrompt] = useState('');
+  const [isAiFiltering, setIsAiFiltering] = useState(false);
+  const [aiFilterHistory, setAiFilterHistory] = useState<{
+    id: string;
+    prompt: string;
+    explanation: string;
+    removedCount: number;
+    removedCategories: string[];
+    timestamp: string;
+  }[]>([]);
+  const [aiExcludedLeads, setAiExcludedLeads] = useState<{
+    id: string;
+    candidate: ParsedLeadCandidate;
+    reason: string;
+    matchedCategory: string;
+    query: string;
+    originalIndex: number;
+  }[]>([]);
+  const [filterUndoStack, setFilterUndoStack] = useState<{
+    candidates: ParsedLeadCandidate[];
+    excluded: {
+      id: string;
+      candidate: ParsedLeadCandidate;
+      reason: string;
+      matchedCategory: string;
+      query: string;
+      originalIndex: number;
+    }[];
+  }[]>([]);
+
+  // State for AI filtering modal on already imported leads in CRM
+  const [filterModalTarget, setFilterModalTarget] = useState<{
+    type: 'sheet' | 'niche';
+    title: string;
+    leads: Lead[];
+  } | null>(null);
+  const [filterModalPrompt, setFilterModalPrompt] = useState('');
+  const [isFilteringModal, setIsFilteringModal] = useState(false);
+  const [modalFilterResult, setModalFilterResult] = useState<{
+    explanation: string;
+    removedLeadIds: string[];
+    removedCategories: string[];
+  } | null>(null);
 
   // Antiduplication & Niche Category filters (active by default!)
   const [dedupCheckPhone, setDedupCheckPhone] = useState(true);
@@ -523,6 +572,305 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
   const handleToggleDedupCategory = (enabled: boolean) => {
     setDedupCheckCategory(enabled);
     runDeduplication(rawParsedCandidates, dedupCheckPhone, dedupCheckName, dedupCheckCrm, dedupAutoExclude, enabled);
+  };
+
+  // Conversational AI Filtering: Removes contacts based on user instruction (e.g. "retirar oficina mecanica")
+  const handleRunAiFilterLeads = async (customInstruction?: string) => {
+    const instruction = (customInstruction || aiFilterPrompt).trim();
+    if (!instruction) return;
+    if (parsedCandidates.length === 0) {
+      setErrorMessage('Não há contatos na lista para filtrar.');
+      return;
+    }
+
+    setIsAiFiltering(true);
+    setErrorMessage(null);
+
+    // Save snapshot for Undo
+    setFilterUndoStack((prev) => [
+      ...prev,
+      {
+        candidates: [...parsedCandidates],
+        excluded: [...aiExcludedLeads],
+      },
+    ]);
+
+    try {
+      const payloadLeads = parsedCandidates.map((c, idx) => ({
+        id: `cand-${idx}-${c.phone}`,
+        companyName: c.companyName,
+        category: c.category || '',
+        city: c.city || '',
+        phone: c.phone || '',
+      }));
+
+      const res = await fetch('/api/gemini/filter-imported-leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userInstruction: instruction,
+          nicheName: destinationMode === 'current' ? activeNiche.name : newNicheName || activeNiche.name,
+          nicheSegment: destinationMode === 'current' ? activeNiche.segment : newNicheSegment,
+          leads: payloadLeads,
+        }),
+      });
+
+      let removedIds: string[] = [];
+      let explanation = '';
+      let removedCategories: string[] = [];
+      let removedDetails: { id: string; companyName: string; reason: string }[] = [];
+
+      if (res.ok) {
+        const data = await res.json();
+        removedIds = Array.isArray(data.removedIds) ? data.removedIds : [];
+        explanation = data.explanation || '';
+        removedCategories = Array.isArray(data.removedCategories) ? data.removedCategories : [];
+        removedDetails = Array.isArray(data.removedDetails) ? data.removedDetails : [];
+      } else {
+        throw new Error('Fallback local de filtragem');
+      }
+
+      // If backend returned zero removed or fallback is triggered, run local matching
+      if (removedIds.length === 0) {
+        const norm = instruction.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        const cleanTerms = norm
+          .replace(/retirar|remover|excluir|apagar|tirar|todos|os|que|estao|na|categoria|de|com|sem|por|favor|deixar|apenas|so/gi, ' ')
+          .split(/\s+/)
+          .map((t) => t.trim())
+          .filter((t) => t.length >= 3);
+
+        const localRemoved: typeof aiExcludedLeads = [];
+        const kept: ParsedLeadCandidate[] = [];
+        const catsSet = new Set<string>();
+
+        parsedCandidates.forEach((cand, idx) => {
+          const comp = (cand.companyName || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+          const cat = (cand.category || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+          const combo = `${comp} ${cat}`;
+
+          const matches = cleanTerms.some((term) => combo.includes(term));
+          if (matches) {
+            if (cand.category) catsSet.add(cand.category);
+            localRemoved.push({
+              id: `ai-exc-${idx}-${Date.now()}`,
+              candidate: cand,
+              reason: `Identificado pelo termo de exclusão: "${cleanTerms.join(', ')}"`,
+              matchedCategory: cand.category || 'Categoria identificada',
+              query: instruction,
+              originalIndex: cand.originalLineNumber || idx + 1,
+            });
+          } else {
+            kept.push(cand);
+          }
+        });
+
+        if (localRemoved.length > 0) {
+          setParsedCandidates(kept);
+          setAiExcludedLeads((prev) => [...prev, ...localRemoved]);
+          setAiFilterHistory((prev) => [
+            {
+              id: 'ai-hist-' + Date.now(),
+              prompt: instruction,
+              explanation: `Entendido! Analisei a planilha e retirei ${localRemoved.length} contatos correspondentes a "${instruction}". Restaram ${kept.length} contatos limpos no seu nicho.`,
+              removedCount: localRemoved.length,
+              removedCategories: Array.from(catsSet),
+              timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+            },
+            ...prev,
+          ]);
+          setAiFilterPrompt('');
+          return;
+        }
+      }
+
+      // Process backend AI results
+      const removedIdSet = new Set(removedIds);
+      const keptList: ParsedLeadCandidate[] = [];
+      const newlyExcluded: typeof aiExcludedLeads = [];
+
+      parsedCandidates.forEach((cand, idx) => {
+        const idKey = `cand-${idx}-${cand.phone}`;
+        if (removedIdSet.has(idKey)) {
+          const det = removedDetails.find((d) => d.id === idKey);
+          newlyExcluded.push({
+            id: `ai-exc-${idx}-${Date.now()}`,
+            candidate: cand,
+            reason: det?.reason || `Removido pela IA conforme solicitação: "${instruction}"`,
+            matchedCategory: cand.category || 'Categoria fora do solicitado',
+            query: instruction,
+            originalIndex: cand.originalLineNumber || idx + 1,
+          });
+        } else {
+          keptList.push(cand);
+        }
+      });
+
+      setParsedCandidates(keptList);
+      setAiExcludedLeads((prev) => [...prev, ...newlyExcluded]);
+      setAiFilterHistory((prev) => [
+        {
+          id: 'ai-hist-' + Date.now(),
+          prompt: instruction,
+          explanation: explanation || `Removidos ${newlyExcluded.length} contatos conforme sua instrução. Restam ${keptList.length} leads prontos.`,
+          removedCount: newlyExcluded.length,
+          removedCategories,
+          timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+        },
+        ...prev,
+      ]);
+      setAiFilterPrompt('');
+    } catch (err: any) {
+      console.warn('AI filter fallback executing:', err);
+      const norm = instruction.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const cleanTerms = norm
+        .replace(/retirar|remover|excluir|apagar|tirar|todos|os|que|estao|na|categoria|de|com|sem|por|favor|deixar|apenas|so/gi, ' ')
+        .split(/\s+/)
+        .map((t) => t.trim())
+        .filter((t) => t.length >= 3);
+
+      const localRemoved: typeof aiExcludedLeads = [];
+      const kept: ParsedLeadCandidate[] = [];
+      const catsSet = new Set<string>();
+
+      parsedCandidates.forEach((cand, idx) => {
+        const comp = (cand.companyName || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        const cat = (cand.category || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        const combo = `${comp} ${cat}`;
+
+        const matches = cleanTerms.some((term) => combo.includes(term));
+        if (matches) {
+          if (cand.category) catsSet.add(cand.category);
+          localRemoved.push({
+            id: `ai-exc-${idx}-${Date.now()}`,
+            candidate: cand,
+            reason: `Identificado pelo termo de exclusão: "${cleanTerms.join(', ')}"`,
+            matchedCategory: cand.category || 'Categoria identificada',
+            query: instruction,
+            originalIndex: cand.originalLineNumber || idx + 1,
+          });
+        } else {
+          kept.push(cand);
+        }
+      });
+
+      setParsedCandidates(kept);
+      setAiExcludedLeads((prev) => [...prev, ...localRemoved]);
+      setAiFilterHistory((prev) => [
+        {
+          id: 'ai-hist-' + Date.now(),
+          prompt: instruction,
+          explanation: `Filtragem concluída: ${localRemoved.length} contatos correspondentes a "${instruction}" foram retirados da lista. Restam ${kept.length} contatos mantidos.`,
+          removedCount: localRemoved.length,
+          removedCategories: Array.from(catsSet),
+          timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+        },
+        ...prev,
+      ]);
+      setAiFilterPrompt('');
+    } finally {
+      setIsAiFiltering(false);
+    }
+  };
+
+  const handleUndoLastAiFilter = () => {
+    if (filterUndoStack.length === 0) return;
+    const lastSnapshot = filterUndoStack[filterUndoStack.length - 1];
+    setParsedCandidates(lastSnapshot.candidates);
+    setAiExcludedLeads(lastSnapshot.excluded);
+    setFilterUndoStack((prev) => prev.slice(0, -1));
+    setAiFilterHistory((prev) => prev.slice(1));
+  };
+
+  const handleRestoreAiExcludedLead = (leadToRestore: typeof aiExcludedLeads[0]) => {
+    setAiExcludedLeads((prev) => prev.filter((item) => item.id !== leadToRestore.id));
+    setParsedCandidates((prev) => [...prev, { ...leadToRestore.candidate, selected: true }]);
+  };
+
+  const handleRestoreAllAiExcluded = () => {
+    const toRestore = aiExcludedLeads.map((item) => ({ ...item.candidate, selected: true }));
+    setParsedCandidates((prev) => [...prev, ...toRestore]);
+    setAiExcludedLeads([]);
+    setActiveCandidatesTab('unique');
+  };
+
+  // Conversational AI filtering for already imported CRM leads
+  const handleRunModalAiFilter = async () => {
+    if (!filterModalTarget || !filterModalPrompt.trim()) return;
+    setIsFilteringModal(true);
+    setModalFilterResult(null);
+
+    const targetLeads = filterModalTarget.leads;
+    try {
+      const payloadLeads = targetLeads.map((l) => ({
+        id: l.id,
+        companyName: l.companyName,
+        category: l.category || '',
+        city: l.city || '',
+        phone: l.phone || '',
+      }));
+
+      const res = await fetch('/api/gemini/filter-imported-leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userInstruction: filterModalPrompt.trim(),
+          nicheName: activeNiche.name,
+          nicheSegment: activeNiche.segment,
+          leads: payloadLeads,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const removedIds = Array.isArray(data.removedIds) ? data.removedIds : [];
+        setModalFilterResult({
+          explanation: data.explanation || `Foram identificados ${removedIds.length} contatos para exclusão.`,
+          removedLeadIds: removedIds,
+          removedCategories: Array.isArray(data.removedCategories) ? data.removedCategories : [],
+        });
+      } else {
+        throw new Error('Fallback local');
+      }
+    } catch {
+      // Local fallback for modal
+      const norm = filterModalPrompt.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const terms = norm
+        .replace(/retirar|remover|excluir|apagar|tirar|todos|os|que|estao|na|categoria|de|com|sem|por|favor|deixar|apenas|so/gi, ' ')
+        .split(/\s+/)
+        .map((t) => t.trim())
+        .filter((t) => t.length >= 3);
+
+      const removedIds: string[] = [];
+      const catsSet = new Set<string>();
+
+      targetLeads.forEach((l) => {
+        const comp = (l.companyName || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        const cat = (l.category || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        const combo = `${comp} ${cat}`;
+        if (terms.some((t) => combo.includes(t))) {
+          removedIds.push(l.id);
+          if (l.category) catsSet.add(l.category);
+        }
+      });
+
+      setModalFilterResult({
+        explanation: `Filtro aplicado: foram identificados ${removedIds.length} contatos correspondentes a "${terms.join(', ')}".`,
+        removedLeadIds: removedIds,
+        removedCategories: Array.from(catsSet),
+      });
+    } finally {
+      setIsFilteringModal(false);
+    }
+  };
+
+  const handleConfirmModalLeadDeletion = () => {
+    if (!modalFilterResult || !modalFilterResult.removedLeadIds.length) return;
+    if (onDeleteLeads) {
+      onDeleteLeads(modalFilterResult.removedLeadIds);
+    }
+    setFilterModalTarget(null);
+    setModalFilterResult(null);
+    setFilterModalPrompt('');
   };
 
   // Normalize header text for intelligent column recognition
@@ -1116,6 +1464,9 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
     setRawParsedCandidates([]);
     setParsedCandidates([]);
     setDuplicateCandidates([]);
+    setAiExcludedLeads([]);
+    setAiFilterHistory([]);
+    setFilterUndoStack([]);
     setErrorMessage(null);
     setActiveCandidatesTab('unique');
     if (fileInputRef.current) {
@@ -1278,7 +1629,7 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
       googleRating: c.googleRating,
       googleMapsUrl: c.googleMapsUrl,
       websiteUrl: c.websiteUrl,
-      stage: 'nao_iniciada',
+      stage: 'leads_sem_contato',
       scriptUsed: c.recommendedScript || 'script1',
       opportunityAngle: c.opportunityAngle,
     }));
@@ -1316,6 +1667,9 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
     setRawParsedCandidates([]);
     setParsedCandidates([]);
     setDuplicateCandidates([]);
+    setAiExcludedLeads([]);
+    setAiFilterHistory([]);
+    setFilterUndoStack([]);
     setRawText('');
     setUploadedFile(null);
   };
@@ -1344,6 +1698,19 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
       dup.candidate.phone.includes(q) ||
       dup.reason.toLowerCase().includes(q) ||
       dup.matchedWith.toLowerCase().includes(q)
+    );
+  });
+
+  const filteredAiExcluded = aiExcludedLeads.filter((item) => {
+    if (!duplicateSearch.trim()) return true;
+    const q = duplicateSearch.toLowerCase();
+    return (
+      item.candidate.companyName.toLowerCase().includes(q) ||
+      (item.candidate.contactName && item.candidate.contactName.toLowerCase().includes(q)) ||
+      (item.candidate.category && item.candidate.category.toLowerCase().includes(q)) ||
+      item.candidate.phone.includes(q) ||
+      item.reason.toLowerCase().includes(q) ||
+      item.query.toLowerCase().includes(q)
     );
   });
 
@@ -1376,7 +1743,7 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
             <span>
-              <strong>{successCount} leads importados com sucesso!</strong> Os contatos com telefones e links do Google Meu Negócio foram organizados na coluna <em>1. Não Iniciada</em>.
+              <strong>{successCount} leads importados com sucesso!</strong> Os contatos com telefones e links do Google Meu Negócio foram organizados na coluna <em>1. Leads sem Contato</em>.
             </span>
           </div>
           <button
@@ -1952,7 +2319,158 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 �
             </div>
           </div>
 
-          {/* Navigation Tabs (Contatos no Nicho vs Repetidos vs Fora do Nicho) */}
+          {/* Assistente de IA: Filtragem e Higienização de Serviços da Planilha */}
+          <div className="bg-gradient-to-r from-purple-50/80 via-indigo-50/60 to-blue-50/80 border border-purple-200/90 rounded-xl p-4 sm:p-5 shadow-2xs space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-purple-100/80 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-purple-600 text-white flex items-center justify-center shadow-xs shrink-0">
+                  <Sparkles className="w-5 h-5 text-purple-100" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold text-slate-900 flex items-center gap-2">
+                    <span>Assistente de IA: Filtrar e Higienizar Serviços da Planilha</span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200">
+                      Inteligência Ativa
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-slate-600 mt-0.5">
+                    Diga à IA para retirar contatos indesejados pelos serviços ou categorias (ex: <em>"retirar todos os que estão na categoria de oficina mecânica"</em>). A IA deixará apenas o que você não alterou!
+                  </p>
+                </div>
+              </div>
+
+              {filterUndoStack.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleUndoLastAiFilter}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-purple-700 bg-white hover:bg-purple-100/70 border border-purple-300 rounded-lg shadow-2xs transition-colors cursor-pointer self-start sm:self-auto"
+                >
+                  <Undo2 className="w-3.5 h-3.5" />
+                  <span>Desfazer Última Filtragem</span>
+                </button>
+              )}
+            </div>
+
+            {/* Prompt Input Form */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleRunAiFilterLeads();
+              }}
+              className="flex items-center gap-2"
+            >
+              <div className="relative flex-1">
+                <Bot className="w-4 h-4 text-purple-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={aiFilterPrompt}
+                  onChange={(e) => setAiFilterPrompt(e.target.value)}
+                  placeholder="Diga à IA o que retirar... Ex: 'retirar todos os que estão na categoria de oficina mecânica' ou 'remover autopeças e borracharias'"
+                  className="w-full text-xs pl-9 pr-3 py-2.5 bg-white border border-purple-300/80 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs font-medium"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={isAiFiltering || !aiFilterPrompt.trim() || parsedCandidates.length === 0}
+                className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 active:bg-purple-800 disabled:opacity-50 rounded-xl shadow-2xs transition-all cursor-pointer shrink-0"
+              >
+                {isAiFiltering ? (
+                  <>
+                    <RotateCcw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Filtrando...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Filtrar com IA</span>
+                  </>
+                )}
+              </button>
+            </form>
+
+            {/* Quick Suggestions Chips */}
+            <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+              <span className="text-[10px] font-semibold uppercase text-slate-400 mr-1">Sugestões rápidas:</span>
+              <button
+                type="button"
+                onClick={() => handleRunAiFilterLeads("retirar todos os que estão na categoria de oficina mecânica")}
+                disabled={isAiFiltering || parsedCandidates.length === 0}
+                className="text-[11px] px-2.5 py-1 bg-white hover:bg-purple-100/70 border border-purple-200 text-purple-900 font-medium rounded-lg shadow-2xs transition-colors cursor-pointer"
+              >
+                ✂️ "Retirar todos da categoria de oficina mecânica"
+              </button>
+              <button
+                type="button"
+                onClick={() => handleRunAiFilterLeads("remover lojas de autopeças, borracharias e auto elétricas")}
+                disabled={isAiFiltering || parsedCandidates.length === 0}
+                className="text-[11px] px-2.5 py-1 bg-white hover:bg-purple-100/70 border border-purple-200 text-purple-900 font-medium rounded-lg shadow-2xs transition-colors cursor-pointer"
+              >
+                🚫 "Remover autopeças e borracharias"
+              </button>
+              <button
+                type="button"
+                onClick={() => handleRunAiFilterLeads("remover estabelecimentos que não prestam serviços do nicho de " + activeNiche.name)}
+                disabled={isAiFiltering || parsedCandidates.length === 0}
+                className="text-[11px] px-2.5 py-1 bg-white hover:bg-purple-100/70 border border-purple-200 text-purple-900 font-medium rounded-lg shadow-2xs transition-colors cursor-pointer"
+              >
+                🎯 "Remover quem for fora do nicho {activeNiche.name.split('&')[0].trim()}"
+              </button>
+            </div>
+
+            {/* Latest AI Conversation Balloon */}
+            {aiFilterHistory.length > 0 && (
+              <div className="mt-2 p-3.5 bg-white border border-purple-200/90 rounded-xl shadow-2xs space-y-2 animate-in fade-in duration-150">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center shrink-0 mt-0.5">
+                      <Bot className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-purple-950">
+                          Resposta do Assistente ({aiFilterHistory[0].timestamp})
+                        </span>
+                        <span className="text-[10px] px-2 py-0.2 rounded-full font-bold bg-rose-100 text-rose-800 border border-rose-200">
+                          -{aiFilterHistory[0].removedCount} contatos retirados
+                        </span>
+                        <span className="text-[10px] px-2 py-0.2 rounded-full font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                          {parsedCandidates.length} contatos mantidos
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-700 mt-1 leading-relaxed">
+                        {aiFilterHistory[0].explanation}
+                      </p>
+
+                      {aiFilterHistory[0].removedCategories.length > 0 && (
+                        <div className="flex items-center gap-1.5 flex-wrap mt-2">
+                          <span className="text-[10px] font-semibold text-slate-400">Categorias removidas:</span>
+                          {aiFilterHistory[0].removedCategories.map((cat, cIdx) => (
+                            <span
+                              key={cIdx}
+                              className="text-[10px] px-2 py-0.5 rounded font-bold bg-rose-50 text-rose-700 border border-rose-200"
+                            >
+                              ✕ {cat}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setActiveCandidatesTab('ai_excluded')}
+                    className="text-xs font-semibold text-purple-700 hover:text-purple-900 bg-purple-50 hover:bg-purple-100 px-2.5 py-1.5 rounded-lg border border-purple-200 transition-colors shrink-0 cursor-pointer"
+                  >
+                    Ver Excluídos ({aiExcludedLeads.length})
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Navigation Tabs (Contatos no Nicho vs Excluídos pela IA vs Repetidos vs Fora do Nicho) */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
             <div className="flex items-center gap-2 flex-wrap">
               <button
@@ -1964,13 +2482,28 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 �
                     : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                 }`}
               >
-                <span>✨ Contatos no Nicho ({parsedCandidates.length})</span>
+                <span>✨ Contatos Mantidos ({parsedCandidates.length})</span>
                 <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${
                   activeCandidatesTab === 'unique' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
                 }`}>
                   {parsedCandidates.filter((c) => c.selected).length} selecionados
                 </span>
               </button>
+
+              {aiExcludedLeads.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setActiveCandidatesTab('ai_excluded')}
+                  className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                    activeCandidatesTab === 'ai_excluded'
+                      ? 'bg-purple-600 text-white shadow-2xs'
+                      : 'bg-purple-50 text-purple-800 border border-purple-200 hover:bg-purple-100'
+                  }`}
+                >
+                  <Bot className="w-3.5 h-3.5" />
+                  <span>🤖 Excluídos pela IA ({aiExcludedLeads.length})</span>
+                </button>
+              )}
 
               {duplicatesOnly.length > 0 && (
                 <button
@@ -2409,7 +2942,7 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 �
                   </table>
                 )}
               </div>
-            ) : (
+            ) : activeCandidatesTab === 'incompatible_category' ? (
               /* Fora do Nicho Excluídos Table */
               <div>
                 {filteredDuplicates.length === 0 ? (
@@ -2511,6 +3044,95 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 �
                   </table>
                 )}
               </div>
+            ) : (
+              /* Excluídos pela IA Table */
+              <div>
+                {filteredAiExcluded.length === 0 ? (
+                  <div className="p-8 text-center bg-purple-50/40 rounded-lg border border-dashed border-purple-200 space-y-2">
+                    <CheckCircle2 className="w-8 h-8 text-purple-500 mx-auto" />
+                    <p className="text-xs font-semibold text-slate-800">
+                      {duplicateSearch ? 'Nenhum estabelecimento corresponde à sua busca.' : 'Nenhum contato excluído pela IA!'}
+                    </p>
+                    <p className="text-[11px] text-slate-500 max-w-sm mx-auto">
+                      Use o assistente acima para pedir à IA a retirada de contatos por serviço ou categoria (ex: "retirar oficina mecânica").
+                    </p>
+                  </div>
+                ) : (
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="sticky top-0 bg-purple-100/80 text-purple-950 border-b border-purple-200 z-10">
+                      <tr>
+                        <th className="py-2.5 px-3 w-16">Linha</th>
+                        <th className="py-2.5 px-3 min-w-[200px]">Empresa / Contato</th>
+                        <th className="py-2.5 px-3 min-w-[160px]">Categoria Identificada</th>
+                        <th className="py-2.5 px-3 min-w-[150px]">WhatsApp</th>
+                        <th className="py-2.5 px-3 min-w-[280px]">Motivo da Exclusão pela IA</th>
+                        <th className="py-2.5 px-3 min-w-[130px]">Status</th>
+                        <th className="py-2.5 px-3 min-w-[140px] text-right">Ação</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-purple-100/70 bg-purple-50/15">
+                      {filteredAiExcluded.map((exc) => (
+                        <tr key={exc.id} className="hover:bg-purple-50/40 transition-colors">
+                          <td className="py-2.5 px-3">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-purple-100 text-purple-800 border border-purple-200">
+                              Linha {exc.originalIndex}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <div className="font-semibold text-slate-900">
+                              {exc.candidate.companyName}
+                            </div>
+                            {exc.candidate.contactName && (
+                              <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
+                                <User className="w-3 h-3 text-purple-600" />
+                                <span>{exc.candidate.contactName}</span>
+                              </div>
+                            )}
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-purple-100 text-purple-800 border border-purple-300">
+                              <Bot className="w-3 h-3 text-purple-600" />
+                              <span>{exc.candidate.category || exc.matchedCategory}</span>
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <span className="font-mono tabular-nums text-slate-800 font-medium">
+                              {formatDisplayPhone(exc.candidate.phone)}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <div className="space-y-1">
+                              <p className="text-[11px] text-purple-950 font-medium leading-tight">
+                                {exc.reason}
+                              </p>
+                              <span className="text-[10px] text-purple-600">
+                                Pedido pelo usuário: "{exc.query}"
+                              </span>
+                            </div>
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-300">
+                              <Bot className="w-3 h-3" />
+                              Retirado pela IA
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 text-right">
+                            <button
+                              type="button"
+                              onClick={() => handleRestoreAiExcludedLead(exc)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-purple-700 bg-white hover:bg-purple-50 border border-purple-300 rounded-lg shadow-2xs transition-colors cursor-pointer"
+                              title="Restaurar este contato de volta para a lista mantida"
+                            >
+                              <Undo2 className="w-3 h-3" />
+                              <span>Restaurar</span>
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
             )}
           </div>
 
@@ -2521,13 +3143,17 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 �
                 <div className="text-xs text-slate-600">
                   Total a importar:{' '}
                   <strong className="text-slate-900 font-bold">
-                    {parsedCandidates.filter((c) => c.selected).length} leads no nicho
+                    {parsedCandidates.filter((c) => c.selected).length} leads mantidos no nicho
                   </strong>{' '}
-                  {(duplicatesOnly.length > 0 || categoryExclusions.length > 0) && (
+                  {(duplicatesOnly.length > 0 || categoryExclusions.length > 0 || aiExcludedLeads.length > 0) && (
                     <span className="text-slate-500 font-medium">
-                      ({duplicatesOnly.length > 0 ? `${duplicatesOnly.length} repetidos` : ''}
+                      (
+                      {aiExcludedLeads.length > 0 ? `${aiExcludedLeads.length} retirados pela IA` : ''}
+                      {aiExcludedLeads.length > 0 && (duplicatesOnly.length > 0 || categoryExclusions.length > 0) ? ', ' : ''}
+                      {duplicatesOnly.length > 0 ? `${duplicatesOnly.length} repetidos` : ''}
                       {duplicatesOnly.length > 0 && categoryExclusions.length > 0 ? ' e ' : ''}
-                      {categoryExclusions.length > 0 ? `${categoryExclusions.length} fora do nicho excluídos automaticamente` : ' excluídos automaticamente'})
+                      {categoryExclusions.length > 0 ? `${categoryExclusions.length} fora do nicho excluídos automaticamente` : ''}
+                      )
                     </span>
                   )}
                 </div>
@@ -2544,6 +3170,31 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 �
                       : `Criar Novo Nicho e Importar ${parsedCandidates.filter((c) => c.selected).length} Leads do Nicho`}
                   </span>
                 </button>
+              </>
+            ) : activeCandidatesTab === 'ai_excluded' ? (
+              <>
+                <div className="text-xs text-purple-900 font-medium">
+                  {aiExcludedLeads.length} contatos foram retirados conforme as instruções passadas para a IA.
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleRestoreAllAiExcluded}
+                    className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-purple-900 bg-purple-100 hover:bg-purple-200 border border-purple-300 rounded-lg transition-colors cursor-pointer"
+                  >
+                    <Undo2 className="w-3.5 h-3.5" />
+                    <span>Restaurar Todos os {aiExcludedLeads.length} Excluídos pela IA</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setActiveCandidatesTab('unique')}
+                    className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-2xs transition-colors cursor-pointer"
+                  >
+                    <span>Voltar aos Contatos Mantidos ({parsedCandidates.length})</span>
+                  </button>
+                </div>
               </>
             ) : activeCandidatesTab === 'duplicates' ? (
               <>
@@ -2566,7 +3217,7 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 �
                     onClick={() => setActiveCandidatesTab('unique')}
                     className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-2xs transition-colors cursor-pointer"
                   >
-                    <span>Voltar aos Contatos no Nicho ({parsedCandidates.length})</span>
+                    <span>Voltar aos Contatos Mantidos ({parsedCandidates.length})</span>
                   </button>
                 </div>
               </>
@@ -2591,7 +3242,7 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 �
                     onClick={() => setActiveCandidatesTab('unique')}
                     className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-2xs transition-colors cursor-pointer"
                   >
-                    <span>Voltar aos Contatos no Nicho ({parsedCandidates.length})</span>
+                    <span>Voltar aos Contatos Mantidos ({parsedCandidates.length})</span>
                   </button>
                 </div>
               </>

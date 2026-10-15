@@ -12,7 +12,7 @@ interface NewLeadModalProps {
 
 export const NewLeadModal: React.FC<NewLeadModalProps> = ({
   niche,
-  defaultStage = 'nao_iniciada',
+  defaultStage = 'leads_sem_contato',
   onClose,
   onCreateLead,
 }) => {

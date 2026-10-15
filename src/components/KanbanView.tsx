@@ -83,7 +83,7 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
   const cityDropdownRef = useRef<HTMLDivElement | null>(null);
 
   const [dragOverColumn, setDragOverColumn] = useState<FunnelStageId | null>(null);
-  const [mobileSelectedStage, setMobileSelectedStage] = useState<FunnelStageId>('nao_iniciada');
+  const [mobileSelectedStage, setMobileSelectedStage] = useState<FunnelStageId>('leads_sem_contato');
 
   const filterMenuRef = useRef<HTMLDivElement | null>(null);
 
@@ -230,13 +230,13 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
   const closedRevenue = closedLeads.reduce((acc, l) => acc + (l.creationValue || 0), 0);
   const totalMrr = closedLeads.reduce((acc, l) => acc + (l.monthlyMrr || 0), 0);
   const totalContactedLeads = leads.filter(
-    (l) => l.stage !== 'nao_iniciada' || Boolean(l.lastContactDate)
+    (l) => (l.stage !== 'leads_sem_contato' && l.stage !== 'nao_iniciada') || Boolean(l.lastContactDate)
   ).length;
-  const firstContactLeads = leads.filter((l) => l.stage === 'primeiro_contato').length;
-  const mockupSentLeads = leads.filter((l) => l.stage === 'mockup_enviado').length;
-  const noContactLeads = leads.filter((l) => l.stage === 'nao_tem_contato').length;
-  const interestedLeads = leads.filter((l) => l.stage === 'interessado').length;
+  const semContatoCount = leads.filter((l) => l.stage === 'leads_sem_contato' || l.stage === 'nao_iniciada').length;
+  const primeiroContatoCount = leads.filter((l) => l.stage === 'primeiro_contato').length;
+  const naoAtendidaCount = leads.filter((l) => l.stage === 'nao_atendida' || l.stage === 'nao_respondida').length;
   const inFollowupLeads = leads.filter((l) => l.stage === 'follow_up_1' || l.stage === 'follow_up_2').length;
+  const reuniaoCount = leads.filter((l) => l.stage === 'reuniao_marcada' || l.stage === 'interessado').length;
   const inactiveCount = leads.filter((l) => isInactiveOver48h(l.lastContactDate, l.createdAt)).length;
 
   const handleDragOver = (e: React.DragEvent, stageId: FunnelStageId) => {
@@ -638,28 +638,39 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
               <span className="font-bold text-blue-800">{totalContactedLeads}</span>
             </div>
 
-            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-violet-50/90 rounded-lg text-violet-700 border border-violet-200/80 shrink-0" title="Pessoas que receberam mockup da prévia">
-              <Sparkles className="w-3 h-3 text-violet-600 shrink-0" />
-              <span className="text-violet-600 font-sans text-[11px]">Mockups:</span>
-              <span className="font-bold text-violet-800">{mockupSentLeads}</span>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 rounded-lg text-slate-700 border border-slate-200/80 shrink-0" title="Leads sem contato aguardando abordagem">
+              <span className="text-slate-500 font-sans text-[11px]">Sem Contato:</span>
+              <span className="font-bold text-slate-900">{semContatoCount}</span>
             </div>
 
-            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-zinc-100 rounded-lg text-zinc-700 border border-zinc-200/80 shrink-0" title="Números que você não conseguiu falar">
-              <PhoneOff className="w-3 h-3 text-zinc-500 shrink-0" />
-              <span className="text-zinc-500 font-sans text-[11px]">Sem Contato:</span>
-              <span className="font-bold text-zinc-800">{noContactLeads}</span>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-50/90 rounded-lg text-blue-700 border border-blue-200/80 shrink-0" title="Primeiro contato enviado no WhatsApp">
+              <Send className="w-3 h-3 text-blue-600 shrink-0" />
+              <span className="text-blue-600 font-sans text-[11px]">1º Contato:</span>
+              <span className="font-bold text-blue-800">{primeiroContatoCount}</span>
             </div>
 
-            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-50/90 rounded-lg text-amber-800 border border-amber-200/80 shrink-0" title="Interessados na proposta">
-              <Flame className="w-3 h-3 text-amber-600 shrink-0" />
-              <span className="text-amber-700 font-sans text-[11px]">Interessados:</span>
-              <span className="font-bold text-amber-900">{interestedLeads}</span>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-50/90 rounded-lg text-amber-800 border border-amber-200/80 shrink-0" title="Mensagens não respondidas / não atendidas">
+              <PhoneOff className="w-3 h-3 text-amber-600 shrink-0" />
+              <span className="text-amber-700 font-sans text-[11px]">Não Atendida:</span>
+              <span className="font-bold text-amber-900">{naoAtendidaCount}</span>
             </div>
 
-            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50/90 rounded-lg text-emerald-800 border border-emerald-200/80 shrink-0" title="MRR Mensal Fechado">
-              <DollarSign className="w-3 h-3 text-emerald-600 shrink-0" />
-              <span className="text-emerald-700 font-sans text-[11px]">MRR:</span>
-              <span className="font-bold text-emerald-900">R$ {totalMrr.toLocaleString('pt-BR')}/mês</span>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-purple-50/90 rounded-lg text-purple-700 border border-purple-200/80 shrink-0" title="Follow-up 1 e Follow-up 2">
+              <Clock className="w-3 h-3 text-purple-600 shrink-0" />
+              <span className="text-purple-600 font-sans text-[11px]">Follow-ups:</span>
+              <span className="font-bold text-purple-800">{inFollowupLeads}</span>
+            </div>
+
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50/90 rounded-lg text-emerald-800 border border-emerald-200/80 shrink-0" title="Reunião ou demonstração agendada">
+              <Sparkles className="w-3 h-3 text-emerald-600 shrink-0" />
+              <span className="text-emerald-700 font-sans text-[11px]">Reunião:</span>
+              <span className="font-bold text-emerald-900">{reuniaoCount}</span>
+            </div>
+
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-green-100 rounded-lg text-green-800 border border-green-300 shrink-0" title="Contratos fechados e MRR mensal">
+              <DollarSign className="w-3 h-3 text-green-700 shrink-0" />
+              <span className="text-green-800 font-sans text-[11px] font-bold">Fechados ({closedLeads.length}):</span>
+              <span className="font-bold text-green-900">R$ {totalMrr.toLocaleString('pt-BR')}/mês</span>
             </div>
           </div>
         </div>
@@ -677,7 +688,7 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
           <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
-              onClick={() => onOpenNewLeadModal('nao_iniciada')}
+              onClick={() => onOpenNewLeadModal('leads_sem_contato')}
               className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shadow-2xs transition-colors cursor-pointer"
             >
               + Novo Lead

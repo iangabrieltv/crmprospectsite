@@ -19,7 +19,8 @@ import {
   ArrowRight,
   Copy,
   Check,
-  Send
+  Send,
+  Calendar
 } from 'lucide-react';
 import { DEFAULT_SCRIPTS } from '../utils/initialData';
 
@@ -293,6 +294,23 @@ export const LeadCard: React.FC<LeadCardProps> = ({
           ) : null}
         </div>
       ) : null}
+
+      {/* Meeting schedule tag if in reuniao_marcada */}
+      {lead.stage === 'reuniao_marcada' && (
+        <div className="mt-2 p-1.5 bg-emerald-50 border border-emerald-200/80 rounded-lg flex items-center justify-between text-[11px] text-emerald-950">
+          <div className="flex items-center gap-1 font-semibold truncate">
+            <Calendar className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+            <span className="truncate">
+              {lead.meetingDate
+                ? `${new Date(lead.meetingDate + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}${lead.meetingTime ? ` às ${lead.meetingTime}` : ''}`
+                : 'Definir dia na Agenda'}
+            </span>
+          </div>
+          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/80 px-1.5 py-0.2 rounded shrink-0">
+            {lead.meetingDate ? 'Agendada' : 'Pendente'}
+          </span>
+        </div>
+      )}
 
       {/* Action Row: Primary WhatsApp Call + Quick Advance button */}
       <div className="mt-3 pt-2 border-t border-slate-100 flex items-center gap-1.5">

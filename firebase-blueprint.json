@@ -28,7 +28,12 @@
         "objection": { "type": "string" },
         "createdAt": { "type": "string" },
         "aiPitch": { "type": "string" },
-        "opportunityAngle": { "type": "string" }
+        "opportunityAngle": { "type": "string" },
+        "meetingDate": { "type": "string" },
+        "meetingTime": { "type": "string" },
+        "meetingNotes": { "type": "string" },
+        "meetingLink": { "type": "string" },
+        "meetingStatus": { "type": "string" }
       },
       "required": ["companyName", "phone", "stage"]
     },

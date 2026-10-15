@@ -7,6 +7,7 @@ import {
 import {
   Kanban,
   BarChart3,
+  Calendar,
   FileText,
   Upload,
   Globe,
@@ -33,6 +34,7 @@ interface HeaderProps {
   userName: string;
   onUpdateUserName: (name: string) => void;
   totalLeadsCount: number;
+  meetingsCount?: number;
   onLogout?: () => void;
 }
 
@@ -47,6 +49,7 @@ export const Header: React.FC<HeaderProps> = ({
   userName,
   onUpdateUserName,
   totalLeadsCount,
+  meetingsCount = 0,
   onLogout,
 }) => {
   const [isNicheDropdownOpen, setIsNicheDropdownOpen] = useState(false);
@@ -65,9 +68,15 @@ export const Header: React.FC<HeaderProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const navItems: { tab: AppTab; label: string; icon: React.ReactNode }[] = [
+  const navItems: { tab: AppTab; label: string; icon: React.ReactNode; badge?: number }[] = [
     { tab: 'kanban', label: 'Pipeline', icon: <Kanban className="w-4 h-4 shrink-0" /> },
     { tab: 'dashboard', label: 'Dashboard', icon: <BarChart3 className="w-4 h-4 shrink-0" /> },
+    {
+      tab: 'agenda',
+      label: 'Agenda',
+      icon: <Calendar className="w-4 h-4 shrink-0" />,
+      badge: meetingsCount,
+    },
     { tab: 'scripts', label: 'Scripts', icon: <FileText className="w-4 h-4 shrink-0" /> },
     { tab: 'importer', label: 'Importador', icon: <Upload className="w-4 h-4 shrink-0" /> },
     { tab: 'global', label: 'Visão Geral', icon: <Globe className="w-4 h-4 shrink-0" /> },
@@ -177,6 +186,15 @@ export const Header: React.FC<HeaderProps> = ({
               >
                 {item.icon}
                 <span>{item.label}</span>
+                {item.badge !== undefined && item.badge > 0 && (
+                  <span
+                    className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold leading-none ${
+                      isActive ? 'bg-emerald-500 text-white' : 'bg-emerald-100 text-emerald-800'
+                    }`}
+                  >
+                    {item.badge}
+                  </span>
+                )}
               </button>
             );
           })}
@@ -247,6 +265,15 @@ export const Header: React.FC<HeaderProps> = ({
             >
               {item.icon}
               <span>{item.label}</span>
+              {item.badge !== undefined && item.badge > 0 && (
+                <span
+                  className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-mono font-bold leading-none ${
+                    isActive ? 'bg-emerald-500 text-white' : 'bg-emerald-100 text-emerald-800'
+                  }`}
+                >
+                  {item.badge}
+                </span>
+              )}
             </button>
           );
         })}

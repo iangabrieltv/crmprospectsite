@@ -128,7 +128,7 @@ export default function App() {
   const [activeLeadForScriptId, setActiveLeadForScriptId] = useState<string | null>(null);
   const [isNewNicheModalOpen, setIsNewNicheModalOpen] = useState(false);
   const [isNewLeadModalOpen, setIsNewLeadModalOpen] = useState(false);
-  const [newLeadDefaultStage, setNewLeadDefaultStage] = useState<FunnelStageId>('nao_iniciada');
+  const [newLeadDefaultStage, setNewLeadDefaultStage] = useState<FunnelStageId>('leads_sem_contato');
 
   const handleOpenScriptForLead = (lead: Lead) => {
     setActiveLeadForScriptId(lead.id);
@@ -201,7 +201,7 @@ export default function App() {
     setLeads((prev) =>
       prev.map((lead) => {
         if (lead.id === leadToContact.id) {
-          const nextStage = lead.stage === 'nao_iniciada' ? 'primeiro_contato' : lead.stage;
+          const nextStage = (lead.stage === 'leads_sem_contato' || lead.stage === 'nao_iniciada') ? 'primeiro_contato' : lead.stage;
           const updated: Lead = {
             ...lead,
             stage: nextStage,

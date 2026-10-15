@@ -1,4 +1,4 @@
-import { NicheCampaign, Lead } from '../types/crm';
+import { NicheCampaign, Lead, normalizeStageId } from '../types/crm';
 import {
   INITIAL_NICHES,
   INITIAL_LEADS,
@@ -157,7 +157,10 @@ export function loadStoredLeads(): Lead[] {
         saveStoredLeads([]);
         return [];
       }
-      return parsed;
+      return parsed.map((l: Lead) => ({
+        ...l,
+        stage: normalizeStageId(l.stage),
+      }));
     }
     return INITIAL_LEADS;
   } catch (err) {

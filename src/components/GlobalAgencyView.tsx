@@ -49,7 +49,7 @@ export const GlobalAgencyView: React.FC<GlobalAgencyViewProps> = ({
   const totalClosedCount = closedLeads.length;
   const totalSetupRevenue = closedLeads.reduce((acc, l) => acc + (l.creationValue || 0), 0);
   const totalMrrRevenue = closedLeads.reduce((acc, l) => acc + (l.monthlyMrr || 0), 0);
-  const interestedTotal = leads.filter((l) => l.stage === 'interessado').length;
+  const interestedTotal = leads.filter((l) => l.stage === 'reuniao_marcada' || l.stage === 'interessado').length;
 
   const globalConversionRate = totalLeads > 0
     ? ((totalClosedCount / totalLeads) * 100).toFixed(1)
@@ -60,8 +60,8 @@ export const GlobalAgencyView: React.FC<GlobalAgencyViewProps> = ({
     const nicheLeads = leads.filter((l) => l.nicheId === niche.id);
     const nTotal = nicheLeads.length;
     const nClosed = nicheLeads.filter((l) => l.stage === 'fechado');
-    const nInterested = nicheLeads.filter((l) => l.stage === 'interessado').length;
-    const nContacted = nicheLeads.filter((l) => l.stage !== 'nao_iniciada').length;
+    const nInterested = nicheLeads.filter((l) => l.stage === 'reuniao_marcada' || l.stage === 'interessado').length;
+    const nContacted = nicheLeads.filter((l) => l.stage !== 'leads_sem_contato' && l.stage !== 'nao_iniciada').length;
     const nSetup = nClosed.reduce((acc, l) => acc + (l.creationValue || 0), 0);
     const nMrr = nClosed.reduce((acc, l) => acc + (l.monthlyMrr || 0), 0);
     const conversion = nTotal > 0 ? (nClosed.length / nTotal) * 100 : 0;
