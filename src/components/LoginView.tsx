@@ -36,16 +36,16 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccessLogin }) => {
 
     setTimeout(() => {
       // Validação das credenciais de acesso
-      if (cleanUser === 'adm.equipeie' && cleanPass === 'adm123') {
+      if (cleanUser === 'kaizenvisual123' && cleanPass === 'adm123') {
         if (rememberMe) {
-          localStorage.setItem('prospectflow_auth_user', 'adm.equipeie');
+          localStorage.setItem('prospectflow_auth_user', 'kaizenvisual123');
           localStorage.setItem('prospectflow_auth_session', 'active');
         } else {
-          sessionStorage.setItem('prospectflow_auth_user', 'adm.equipeie');
+          sessionStorage.setItem('prospectflow_auth_user', 'kaizenvisual123');
           sessionStorage.setItem('prospectflow_auth_session', 'active');
         }
         setIsLoading(false);
-        onSuccessLogin('adm.equipeie');
+        onSuccessLogin('kaizenvisual123');
       } else {
         setIsLoading(false);
         setError('Login ou senha incorretos. Verifique suas credenciais de acesso.');

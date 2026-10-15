@@ -49,11 +49,16 @@ import {
 } from './utils/firebase';
 
 export default function App() {
-  // Authentication gatekeeper (restricts access to authorized credentials adm.equipeie / adm123)
+  // Authentication gatekeeper (restricts access to authorized credentials kaizenvisual123 / adm123)
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     const local = localStorage.getItem('prospectflow_auth_user');
     const session = sessionStorage.getItem('prospectflow_auth_user');
-    return local === 'adm.equipeie' || session === 'adm.equipeie';
+    return (
+      local === 'kaizenvisual123' ||
+      session === 'kaizenvisual123' ||
+      local === 'adm.equipeie' ||
+      session === 'adm.equipeie'
+    );
   });
 
   const [niches, setNiches] = useState<NicheCampaign[]>(() => loadStoredNiches());
@@ -64,7 +69,7 @@ export default function App() {
   );
   const [userName, setUserName] = useState<string>(() => {
     const stored = loadStoredUserName();
-    return stored && stored !== 'Gabriel' ? stored : 'adm.equipeie';
+    return stored && stored !== 'Gabriel' && stored !== 'adm.equipeie' ? stored : 'kaizenvisual123';
   });
   const [activeTab, setActiveTab] = useState<AppTab>('kanban');
 

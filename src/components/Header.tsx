@@ -241,7 +241,7 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               onClick={onLogout}
               className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200 transition-colors cursor-pointer shrink-0"
-              title="Sair da conta (adm.equipeie)"
+              title="Sair da conta (kaizenvisual123)"
             >
               <LogOut className="w-4 h-4" />
             </button>
