@@ -83,6 +83,13 @@ export const LeadModal: React.FC<LeadModalProps> = ({
   const [objection, setObjection] = useState(lead.objection || '');
   const [notes, setNotes] = useState<LeadNote[]>(lead.notes || []);
   const [newNoteText, setNewNoteText] = useState('');
+
+  // Meeting schedule state
+  const [meetingDate, setMeetingDate] = useState(lead.meetingDate || '');
+  const [meetingTime, setMeetingTime] = useState(lead.meetingTime || '');
+  const [meetingNotes, setMeetingNotes] = useState(lead.meetingNotes || '');
+  const [meetingLink, setMeetingLink] = useState(lead.meetingLink || '');
+  const [meetingStatus, setMeetingStatus] = useState<'agendada' | 'realizada' | 'remarcada' | 'cancelada'>(lead.meetingStatus || 'agendada');
   
   // AI Pitch state
   const [aiPitch, setAiPitch] = useState(lead.aiPitch || '');
@@ -212,6 +219,11 @@ export const LeadModal: React.FC<LeadModalProps> = ({
       creationValue: creationValue ? parseFloat(creationValue) : undefined,
       monthlyMrr: monthlyMrr ? parseFloat(monthlyMrr) : undefined,
       objection: objection.trim() || undefined,
+      meetingDate: meetingDate || undefined,
+      meetingTime: meetingTime || undefined,
+      meetingNotes: meetingNotes.trim() || undefined,
+      meetingLink: meetingLink.trim() || undefined,
+      meetingStatus,
       notes,
       aiPitch: aiPitch.trim() || undefined,
     };
@@ -651,6 +663,84 @@ export const LeadModal: React.FC<LeadModalProps> = ({
                   </div>
                 </div>
               </div>
+
+              {/* Meeting Schedule Box (Active when stage is reuniao_marcada) */}
+              {stage === 'reuniao_marcada' && (
+                <div className="p-3.5 bg-emerald-50/70 border border-emerald-200/90 rounded-xl space-y-3">
+                  <div className="flex items-center justify-between pb-1.5 border-b border-emerald-200/60">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-900">
+                      <Calendar className="w-4 h-4 text-emerald-600" />
+                      <span>Agendamento da Reunião (Pipeline)</span>
+                    </div>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-semibold">
+                      {meetingDate ? 'Agendada' : 'Aguardando Data/Hora'}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-emerald-950 mb-1">
+                        Data da Reunião
+                      </label>
+                      <input
+                        type="date"
+                        value={meetingDate}
+                        onChange={(e) => setMeetingDate(e.target.value)}
+                        className="w-full text-xs px-2.5 py-1.5 bg-white border border-emerald-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono text-slate-900 font-semibold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-emerald-950 mb-1">
+                        Horário da Reunião
+                      </label>
+                      <input
+                        type="time"
+                        value={meetingTime}
+                        onChange={(e) => setMeetingTime(e.target.value)}
+                        className="w-full text-xs px-2.5 py-1.5 bg-white border border-emerald-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono text-slate-900 font-semibold"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-emerald-950 mb-1">
+                      Link da Videochamada (Google Meet / WhatsApp)
+                    </label>
+                    <input
+                      type="text"
+                      value={meetingLink}
+                      onChange={(e) => setMeetingLink(e.target.value)}
+                      placeholder="https://meet.google.com/xyz ou WhatsApp Video"
+                      className="w-full text-xs px-2.5 py-1.5 bg-white border border-emerald-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono text-slate-900"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-[11px] font-semibold text-emerald-950">
+                        Observações da Reunião (Estudo de Caso & Perfil)
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const template = `• PERFIL DO CLIENTE & NEGÓCIO:\n- Responsável: ${contactName || 'Responsável'}\n- Negócio: ${companyName}\n- Situação atual: sem site próprio / perfil no Google Maps\n\n• ESTUDO DE CASO & OPORTUNIDADE:\n- Demonstrar protótipo responsivo no celular\n- Proposta: R$ 697 (ancoragem R$ 997) + R$ 200/mês\n- Prazo: entrega em até 72h`;
+                          setMeetingNotes((prev) => (prev ? `${prev}\n\n${template}` : template));
+                        }}
+                        className="text-[10px] text-emerald-700 hover:text-emerald-900 font-semibold cursor-pointer"
+                      >
+                        + Inserir Template
+                      </button>
+                    </div>
+                    <textarea
+                      rows={3}
+                      value={meetingNotes}
+                      onChange={(e) => setMeetingNotes(e.target.value)}
+                      placeholder="Anote o perfil do cliente, pontos do estudo de caso, dúvidas da ligação e o que apresentar..."
+                      className="w-full text-xs p-2.5 bg-white border border-emerald-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 leading-relaxed"
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* Objection Box (Active if stage is nao_interessado) */}
               <div>

@@ -56,6 +56,7 @@ interface KanbanViewProps {
   onOpenNewLeadModal: (defaultStage?: FunnelStageId, defaultCity?: string) => void;
   onFastWhatsAppContacted: (lead: Lead) => void;
   onSwitchToImporter?: () => void;
+  onSwitchToAgenda?: (leadId?: string) => void;
   onUpdateNicheTargetCities?: (targetCities: string[]) => void;
 }
 
@@ -68,6 +69,7 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
   onOpenNewLeadModal,
   onFastWhatsAppContacted,
   onSwitchToImporter,
+  onSwitchToAgenda,
   onUpdateNicheTargetCities,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -804,6 +806,19 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
                     >
                       <Plus className="w-3.5 h-3.5" />
                     </button>
+
+                    {/* Quick Agenda button for Reunião Marcada */}
+                    {stage.id === 'reuniao_marcada' && onSwitchToAgenda && (
+                      <button
+                        type="button"
+                        onClick={() => onSwitchToAgenda()}
+                        className="ml-1 px-2 py-0.5 text-[10px] font-bold text-emerald-800 bg-emerald-100 hover:bg-emerald-200 border border-emerald-300 rounded-md transition-colors flex items-center gap-1 cursor-pointer shrink-0"
+                        title="Ver e organizar reuniões na Agenda"
+                      >
+                        <Calendar className="w-3 h-3 text-emerald-700" />
+                        <span>Agenda</span>
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -844,6 +859,7 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
                         onMoveStage={onMoveStage}
                         onFastWhatsAppContacted={onFastWhatsAppContacted}
                         onSelectCity={(city) => setSelectedCity(city)}
+                        onOpenAgenda={(leadId) => onSwitchToAgenda?.(leadId)}
                       />
                     ))
                   )}

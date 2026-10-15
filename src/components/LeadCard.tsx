@@ -32,6 +32,7 @@ interface LeadCardProps {
   onMoveStage: (leadId: string, targetStage: FunnelStageId) => void;
   onFastWhatsAppContacted: (lead: Lead) => void;
   onSelectCity?: (city: string) => void;
+  onOpenAgenda?: (leadId: string) => void;
 }
 
 export const LeadCard: React.FC<LeadCardProps> = ({
@@ -42,6 +43,7 @@ export const LeadCard: React.FC<LeadCardProps> = ({
   onMoveStage,
   onFastWhatsAppContacted,
   onSelectCity,
+  onOpenAgenda,
 }) => {
   const [showMoveMenu, setShowMoveMenu] = useState(false);
   const [copiedPhone, setCopiedPhone] = useState(false);
@@ -297,7 +299,18 @@ export const LeadCard: React.FC<LeadCardProps> = ({
 
       {/* Meeting schedule tag if in reuniao_marcada */}
       {lead.stage === 'reuniao_marcada' && (
-        <div className="mt-2 p-1.5 bg-emerald-50 border border-emerald-200/80 rounded-lg flex items-center justify-between text-[11px] text-emerald-950">
+        <div
+          onClick={(e) => {
+            if (onOpenAgenda) {
+              e.stopPropagation();
+              onOpenAgenda(lead.id);
+            }
+          }}
+          className={`mt-2 p-1.5 bg-emerald-50 border border-emerald-200/80 rounded-lg flex items-center justify-between text-[11px] text-emerald-950 transition-colors ${
+            onOpenAgenda ? 'hover:bg-emerald-100 hover:border-emerald-300 cursor-pointer' : ''
+          }`}
+          title="Clique para abrir e agendar na Agenda"
+        >
           <div className="flex items-center gap-1 font-semibold truncate">
             <Calendar className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
             <span className="truncate">
@@ -306,8 +319,8 @@ export const LeadCard: React.FC<LeadCardProps> = ({
                 : 'Definir dia na Agenda'}
             </span>
           </div>
-          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/80 px-1.5 py-0.2 rounded shrink-0">
-            {lead.meetingDate ? 'Agendada' : 'Pendente'}
+          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/90 px-1.5 py-0.2 rounded shrink-0">
+            {lead.meetingDate ? 'Agendada' : 'Agendar 📅'}
           </span>
         </div>
       )}

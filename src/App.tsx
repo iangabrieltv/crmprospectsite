@@ -23,6 +23,7 @@ import {
 } from './utils/storage';
 import { Header } from './components/Header';
 import { KanbanView } from './components/KanbanView';
+import { AgendaView } from './components/AgendaView';
 import { DashboardView } from './components/DashboardView';
 import { ScriptsView } from './components/ScriptsView';
 import { ImporterView } from './components/ImporterView';
@@ -126,6 +127,7 @@ export default function App() {
   // Modal states
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [activeLeadForScriptId, setActiveLeadForScriptId] = useState<string | null>(null);
+  const [activeLeadForAgendaId, setActiveLeadForAgendaId] = useState<string | null>(null);
   const [isNewNicheModalOpen, setIsNewNicheModalOpen] = useState(false);
   const [isNewLeadModalOpen, setIsNewLeadModalOpen] = useState(false);
   const [newLeadDefaultStage, setNewLeadDefaultStage] = useState<FunnelStageId>('leads_sem_contato');
@@ -136,12 +138,23 @@ export default function App() {
     setActiveTab('scripts');
   };
 
+  const handleOpenAgendaForLead = (leadId?: string) => {
+    if (leadId) {
+      setActiveLeadForAgendaId(leadId);
+    }
+    setSelectedLead(null);
+    setActiveTab('agenda');
+  };
+
   // Active Niche resolution
   const activeNiche =
     niches.find((n) => n.id === activeNicheId) || niches[0];
 
   // Active niche leads
   const activeNicheLeads = leads.filter((l) => l.nicheId === activeNiche?.id);
+
+  // Total meetings count across all active leads in "reuniao_marcada"
+  const meetingLeadsCount = leads.filter((l) => l.stage === 'reuniao_marcada').length;
 
   // Persistence effects
   useEffect(() => {
@@ -487,6 +500,7 @@ export default function App() {
         userName={userName}
         onUpdateUserName={(name) => setUserName(name)}
         totalLeadsCount={activeNicheLeads.length}
+        meetingsCount={meetingLeadsCount}
         onLogout={handleLogout}
       />
 
@@ -505,7 +519,23 @@ export default function App() {
             }}
             onFastWhatsAppContacted={handleFastWhatsAppContacted}
             onSwitchToImporter={() => setActiveTab('importer')}
+            onSwitchToAgenda={handleOpenAgendaForLead}
             onUpdateNicheTargetCities={(cities) => handleUpdateNicheTargetCities(cities)}
+          />
+        )}
+
+        {activeTab === 'agenda' && (
+          <AgendaView
+            niche={activeNiche}
+            leads={activeNicheLeads}
+            allLeads={leads}
+            userName={userName}
+            initialLeadIdToEdit={activeLeadForAgendaId}
+            onClearInitialLeadToEdit={() => setActiveLeadForAgendaId(null)}
+            onUpdateLead={handleUpdateLead}
+            onMoveStage={handleMoveStage}
+            onOpenLeadModal={(lead: Lead) => setSelectedLead(lead)}
+            onSwitchToKanban={() => setActiveTab('kanban')}
           />
         )}
 

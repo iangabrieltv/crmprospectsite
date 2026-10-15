@@ -2060,8 +2060,50 @@ export const INITIAL_NICHES: NicheCampaign[] = [
   },
 ];
 
-// LISTA DE CONTATOS LIMPA CONFORME SOLICITADO PELO USUÁRIO
-export const INITIAL_LEADS: Lead[] = [];
+// Contato de demonstração de reunião marcada na pipeline
+export const INITIAL_LEADS: Lead[] = [
+  {
+    id: 'lead-frila-demo',
+    nicheId: 'niche-estetica-automotiva',
+    companyName: 'Frila Estética Automotiva',
+    contactName: 'Carlos (Frila)',
+    phone: '82998811223',
+    displayPhone: '(82) 99881-1223',
+    city: 'Arapiraca - AL',
+    category: 'Estética Automotiva',
+    googleRating: 4.9,
+    googleMapsUrl: 'https://maps.google.com/?q=Frila+Estetica+Automotiva+Arapiraca',
+    stage: 'reuniao_marcada',
+    scriptUsed: 'script2',
+    meetingDate: '2026-10-15',
+    meetingTime: '10:00',
+    meetingNotes: `• PERFIL DO CLIENTE & NEGÓCIO:
+- Responsável / Contato: Carlos (Frila)
+- Empresa: Frila Estética Automotiva (Polimento & Vitrificação) - Arapiraca - AL
+- Situação atual: Não tem site próprio. Tem perfil no Google Maps com nota 4.9 estrelas e fotos no Instagram.
+- Dúvidas e objeções da ligação: Perguntou se dá para colocar fotos de antes/depois dos carros polidos e se o cliente consegue chamar direto no WhatsApp para agendar os serviços.
+
+• ESTUDO DE CASO & OPORTUNIDADE:
+- Oportunidade: Clientes buscam "estética automotiva e polimento Arapiraca" no Google, encontram a Frila e já fecham agendamento com botão rápido no WhatsApp.
+- O que vou demonstrar no protótipo: Demonstração personalizada no celular com galeria antes/depois, tabela de serviços (vitrificação, polimento, higienização interna) e agendamento direto.
+
+• PAUTA DA REUNIÃO (10 A 15 MIN):
+1. Apresentar a demonstração ao vivo no celular.
+2. Ancorar valor especial da rodada: de R$ 997 por R$ 697.
+3. Condição: Pix 50% para início e 50% na entrega em até 72 horas.`,
+    meetingStatus: 'agendada',
+    meetingLink: 'https://meet.google.com/new',
+    createdAt: new Date().toISOString(),
+    notes: [
+      {
+        id: 'note-frila-1',
+        date: new Date().toLocaleDateString('pt-BR') + ' 10:00',
+        text: 'Ligação realizada! Demonstração rápida aceita. Reunião marcada para o dia 15 às 10h da manhã.',
+        author: 'Sistema',
+      },
+    ],
+  },
+];
 
 export const SAMPLE_IMPORT_LEADS = [
   {

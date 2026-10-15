@@ -157,6 +157,10 @@ export function loadStoredLeads(): Lead[] {
         saveStoredLeads([]);
         return [];
       }
+      if (parsed.length === 0 && INITIAL_LEADS.length > 0) {
+        saveStoredLeads(INITIAL_LEADS);
+        return INITIAL_LEADS;
+      }
       return parsed.map((l: Lead) => ({
         ...l,
         stage: normalizeStageId(l.stage),
