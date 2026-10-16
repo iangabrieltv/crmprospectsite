@@ -86,6 +86,7 @@ export const LeadCard: React.FC<LeadCardProps> = ({
 
   const handleDragStart = (e: React.DragEvent) => {
     e.dataTransfer.setData('text/plain', lead.id);
+    e.dataTransfer.setData('leadId', lead.id);
     e.dataTransfer.effectAllowed = 'move';
   };
 
@@ -107,6 +108,18 @@ export const LeadCard: React.FC<LeadCardProps> = ({
     <div
       draggable
       onDragStart={handleDragStart}
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const draggedLeadId = e.dataTransfer.getData('text/plain') || e.dataTransfer.getData('leadId');
+        if (draggedLeadId) {
+          onMoveStage(draggedLeadId, lead.stage);
+        }
+      }}
       onClick={onClick}
       className={`group relative bg-white rounded-xl border transition-all duration-200 cursor-pointer p-3.5 hover:shadow-md hover:border-slate-300 hover:-translate-y-0.5 ${
         inactive

@@ -4,7 +4,8 @@ import {
   FunnelStageId,
   FUNNEL_STAGES,
   NicheCampaign,
-  ScriptId
+  ScriptId,
+  normalizeStageId
 } from '../types/crm';
 import { LeadCard } from './LeadCard';
 import { isInactiveOver48h } from '../utils/phone';
@@ -228,17 +229,19 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
 
   // Calculate totals for summary bar
   const totalLeads = leads.length;
-  const closedLeads = leads.filter((l) => l.stage === 'fechado');
+  const closedLeads = leads.filter((l) => normalizeStageId(l.stage) === 'fechado');
   const closedRevenue = closedLeads.reduce((acc, l) => acc + (l.creationValue || 0), 0);
   const totalMrr = closedLeads.reduce((acc, l) => acc + (l.monthlyMrr || 0), 0);
   const totalContactedLeads = leads.filter(
-    (l) => (l.stage !== 'leads_sem_contato' && l.stage !== 'nao_iniciada') || Boolean(l.lastContactDate)
+    (l) => normalizeStageId(l.stage) !== 'leads_sem_contato' || Boolean(l.lastContactDate)
   ).length;
-  const semContatoCount = leads.filter((l) => l.stage === 'leads_sem_contato' || l.stage === 'nao_iniciada').length;
-  const primeiroContatoCount = leads.filter((l) => l.stage === 'primeiro_contato').length;
-  const naoAtendidaCount = leads.filter((l) => l.stage === 'nao_atendida' || l.stage === 'nao_respondida').length;
-  const inFollowupLeads = leads.filter((l) => l.stage === 'follow_up_1' || l.stage === 'follow_up_2').length;
-  const reuniaoCount = leads.filter((l) => l.stage === 'reuniao_marcada' || l.stage === 'interessado').length;
+  const semContatoCount = leads.filter((l) => normalizeStageId(l.stage) === 'leads_sem_contato').length;
+  const primeiroContatoCount = leads.filter((l) => normalizeStageId(l.stage) === 'primeiro_contato').length;
+  const naoAtendidaCount = leads.filter((l) => normalizeStageId(l.stage) === 'nao_atendida').length;
+  const inFollowupLeads = leads.filter(
+    (l) => normalizeStageId(l.stage) === 'follow_up_1' || normalizeStageId(l.stage) === 'follow_up_2'
+  ).length;
+  const reuniaoCount = leads.filter((l) => normalizeStageId(l.stage) === 'reuniao_marcada').length;
   const inactiveCount = leads.filter((l) => isInactiveOver48h(l.lastContactDate, l.createdAt)).length;
 
   const handleDragOver = (e: React.DragEvent, stageId: FunnelStageId) => {
@@ -249,16 +252,20 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
     }
   };
 
-  const handleDragLeave = (_e: React.DragEvent, stageId: FunnelStageId) => {
-    if (dragOverColumn === stageId) {
-      setDragOverColumn(null);
+  const handleDragLeave = (e: React.DragEvent, stageId: FunnelStageId) => {
+    // Only reset dragOverColumn if genuinely leaving the column container
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      if (dragOverColumn === stageId) {
+        setDragOverColumn(null);
+      }
     }
   };
 
   const handleDrop = (e: React.DragEvent, stageId: FunnelStageId) => {
     e.preventDefault();
+    e.stopPropagation();
     setDragOverColumn(null);
-    const leadId = e.dataTransfer.getData('text/plain');
+    const leadId = e.dataTransfer.getData('text/plain') || e.dataTransfer.getData('leadId');
     if (leadId) {
       onMoveStage(leadId, stageId);
     }
@@ -741,7 +748,7 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
         <div className="flex items-start gap-3 h-full min-w-max pb-4">
           {FUNNEL_STAGES.map((stage) => {
             const stageLeads = filteredLeads
-              .filter((l) => l.stage === stage.id)
+              .filter((l) => normalizeStageId(l.stage) === stage.id)
               .sort(sortLeads);
 
             const isDragOver = dragOverColumn === stage.id;
@@ -836,8 +843,12 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
                   </div>
                 )}
 
-                {/* Card List with custom scroll */}
-                <div className="p-2 space-y-2 overflow-y-auto flex-1 kanban-column-scroll min-h-[160px]">
+                {/* Card List with custom scroll and direct drop support */}
+                <div
+                  onDragOver={(e) => handleDragOver(e, stage.id)}
+                  onDrop={(e) => handleDrop(e, stage.id)}
+                  className="p-2 space-y-2 overflow-y-auto flex-1 kanban-column-scroll min-h-[160px]"
+                >
                   {stageLeads.length === 0 ? (
                     <div className="h-32 border border-dashed border-slate-200 rounded-lg flex flex-col items-center justify-center p-3 text-center text-slate-400">
                       <p className="text-xs">Nenhum lead nesta etapa</p>

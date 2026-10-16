@@ -1233,7 +1233,12 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
       // Company fallback: use first part if empty
       if (!company) {
         // Exclude if first part was purely a phone or URL
-        if (parts[0] && !parts[0].replace(/\D/g, '').length && !classifyUrl(parts[0])) {
+        const isPurePhone = Boolean(
+          parts[0] &&
+            parts[0].replace(/\D/g, '').length >= 8 &&
+            parts[0].replace(/[\d\s\(\)\-\+\.]/g, '').length === 0
+        );
+        if (parts[0] && !isPurePhone && !classifyUrl(parts[0])) {
           company = parts[0];
         } else {
           company = `Lead ${i + 1}`;

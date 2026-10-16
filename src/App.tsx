@@ -9,13 +9,16 @@ import {
   Lead,
   ImportedSheet,
   AppTab,
-  FunnelStageId
+  FunnelStageId,
+  FUNNEL_STAGES,
+  normalizeStageId
 } from './types/crm';
 import {
   loadStoredNiches,
   saveStoredNiches,
   loadStoredLeads,
   saveStoredLeads,
+  clearStoredLeads,
   loadStoredActiveNicheId,
   saveStoredActiveNicheId,
   loadStoredUserName,
@@ -45,7 +48,9 @@ import {
   deleteNicheFromFirestore,
   syncImportedSheetToFirestore,
   deleteImportedSheetFromFirestore,
-  seedFirestoreIfEmpty
+  seedFirestoreIfEmpty,
+  clearAllLeadsFromFirestore,
+  clearAllImportedSheetsFromFirestore
 } from './utils/firebase';
 
 export default function App() {
@@ -72,19 +77,23 @@ export default function App() {
     return stored && stored !== 'Gabriel' && stored !== 'adm.equipeie' ? stored : 'kaizenvisual123';
   });
   const [activeTab, setActiveTab] = useState<AppTab>('kanban');
+  const [isCloudSynced, setIsCloudSynced] = useState<boolean>(true);
 
-  // Real-time Firestore synchronization between devices
+  // Real-time Firestore synchronization between devices and tabs
   useEffect(() => {
     if (!isAuthenticated) return;
 
     // Test connection on boot
-    testFirestoreConnection();
+    testFirestoreConnection().then((connected) => {
+      setIsCloudSynced(connected);
+    });
 
     // Seed database if cloud collection is currently empty
     seedFirestoreIfEmpty(INITIAL_NICHES, INITIAL_LEADS);
 
     // Subscribe to real-time niches updates across devices
     const unsubNiches = subscribeToNiches((remoteNiches) => {
+      setIsCloudSynced(true);
       if (remoteNiches.length > 0) {
         const upgradedNiches = remoteNiches.map((n) => {
           if (n.scripts?.script2?.title?.includes('Diagnóstico Google') || !n.scripts?.script2) {
@@ -104,21 +113,16 @@ export default function App() {
       }
     });
 
-    // Subscribe to real-time leads updates across devices
+    // Subscribe to real-time leads updates across devices and tabs
     const unsubLeads = subscribeToLeads((remoteLeads) => {
-      if (remoteLeads.length > 0) {
-        setLeads(remoteLeads);
-      } else {
-        // Fallback recovery: if remote has 0 leads but local storage has leads, sync them up!
-        const local = loadStoredLeads();
-        if (local.length > 0) {
-          batchSyncLeadsToFirestore(local).catch(console.error);
-        }
-      }
+      setIsCloudSynced(true);
+      setLeads(remoteLeads);
+      saveStoredLeads(remoteLeads);
     });
 
     // Subscribe to real-time imported spreadsheets history
     const unsubSheets = subscribeToImportedSheets((remoteSheets) => {
+      setIsCloudSynced(true);
       setImportedSheets(remoteSheets);
     });
 
@@ -182,67 +186,66 @@ export default function App() {
 
   // Handler: Move lead stage (Drag & Drop or dropdown)
   const handleMoveStage = (leadId: string, targetStage: FunnelStageId) => {
-    let updatedLeadItem: Lead | undefined;
-    setLeads((prev) =>
-      prev.map((lead) => {
-        if (lead.id === leadId) {
-          const nowIso = new Date().toISOString();
-          const autoNoteText = `Etapa alterada para: ${targetStage}`;
-          const updated: Lead = {
-            ...lead,
-            stage: targetStage,
-            lastContactDate: nowIso,
-            notes: [
-              {
-                id: 'note-auto-' + Date.now(),
-                date: new Date().toLocaleDateString('pt-BR') + ' ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-                text: autoNoteText,
-                author: 'Sistema',
-              },
-              ...lead.notes,
-            ],
-          };
-          updatedLeadItem = updated;
-          return updated;
-        }
-        return lead;
-      })
-    );
-    if (updatedLeadItem) {
-      syncLeadToFirestore(updatedLeadItem).catch(console.error);
-    }
+    const targetLead = leads.find((l) => l.id === leadId);
+    if (!targetLead) return;
+
+    const normalizedTarget = normalizeStageId(targetStage);
+    const nowIso = new Date().toISOString();
+    const stageConfig = FUNNEL_STAGES.find((s) => s.id === normalizedTarget);
+    const stageName = stageConfig?.name || normalizedTarget;
+    const autoNoteText = `Etapa alterada para: ${stageName}`;
+
+    const updated: Lead = {
+      ...targetLead,
+      stage: normalizedTarget,
+      lastContactDate: nowIso,
+      notes: [
+        {
+          id: 'note-auto-' + Date.now(),
+          date:
+            new Date().toLocaleDateString('pt-BR') +
+            ' ' +
+            new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+          text: autoNoteText,
+          author: userName || 'Sistema',
+        },
+        ...(targetLead.notes || []),
+      ],
+    };
+
+    setLeads((prev) => prev.map((lead) => (lead.id === leadId ? updated : lead)));
+    syncLeadToFirestore(updated).catch((err) => {
+      console.error('Erro ao sincronizar movimentação no Firestore:', err);
+    });
   };
 
-  // Handler: Trigger WhatsApp contacted (advances from nao_iniciada if needed)
+  // Handler: Trigger WhatsApp contacted (advances from leads_sem_contato if needed)
   const handleFastWhatsAppContacted = (leadToContact: Lead) => {
-    let updatedLeadItem: Lead | undefined;
-    setLeads((prev) =>
-      prev.map((lead) => {
-        if (lead.id === leadToContact.id) {
-          const nextStage = (lead.stage === 'leads_sem_contato' || lead.stage === 'nao_iniciada') ? 'primeiro_contato' : lead.stage;
-          const updated: Lead = {
-            ...lead,
-            stage: nextStage,
-            lastContactDate: new Date().toISOString(),
-            notes: [
-              {
-                id: 'note-wa-' + Date.now(),
-                date: new Date().toLocaleDateString('pt-BR') + ' ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-                text: `Mensagem de WhatsApp disparada usando ${lead.scriptUsed !== 'none' ? lead.scriptUsed : 'Script 1'}.`,
-                author: userName,
-              },
-              ...lead.notes,
-            ],
-          };
-          updatedLeadItem = updated;
-          return updated;
-        }
-        return lead;
-      })
-    );
-    if (updatedLeadItem) {
-      syncLeadToFirestore(updatedLeadItem).catch(console.error);
-    }
+    const currentNorm = normalizeStageId(leadToContact.stage);
+    const nextStage = currentNorm === 'leads_sem_contato' ? 'primeiro_contato' : currentNorm;
+
+    const updated: Lead = {
+      ...leadToContact,
+      stage: nextStage,
+      lastContactDate: new Date().toISOString(),
+      notes: [
+        {
+          id: 'note-wa-' + Date.now(),
+          date:
+            new Date().toLocaleDateString('pt-BR') +
+            ' ' +
+            new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+          text: `Mensagem de WhatsApp disparada usando ${leadToContact.scriptUsed !== 'none' ? leadToContact.scriptUsed : 'Script 1'}.`,
+          author: userName || 'Sistema',
+        },
+        ...(leadToContact.notes || []),
+      ],
+    };
+
+    setLeads((prev) => prev.map((l) => (l.id === leadToContact.id ? updated : l)));
+    syncLeadToFirestore(updated).catch((err) => {
+      console.error('Erro ao sincronizar WhatsApp no Firestore:', err);
+    });
   };
 
   // Handler: Update lead details
@@ -468,6 +471,23 @@ export default function App() {
     setIsAuthenticated(false);
   };
 
+  // Handler: Clear all contacts from cloud & local storage (start clean from scratch)
+  const handleClearAllContacts = async () => {
+    setIsCloudSynced(false);
+    try {
+      await clearAllLeadsFromFirestore();
+      await clearAllImportedSheetsFromFirestore();
+      clearStoredLeads();
+      setLeads([]);
+      setImportedSheets([]);
+      setIsCloudSynced(true);
+    } catch (err) {
+      console.error('Erro ao limpar contatos da nuvem:', err);
+      setIsCloudSynced(true);
+      throw err;
+    }
+  };
+
   // 1. GESTÃO DE ACESSO: Se o usuário não estiver autenticado, exibe a tela de login
   if (!isAuthenticated) {
     return (
@@ -497,7 +517,7 @@ export default function App() {
         onSelectNiche={(id) => setActiveNicheId(id)}
         onOpenNewNicheModal={() => setIsNewNicheModalOpen(true)}
         onOpenNewLeadModal={() => {
-          setNewLeadDefaultStage('nao_iniciada');
+          setNewLeadDefaultStage('leads_sem_contato');
           setIsNewLeadModalOpen(true);
         }}
         activeTab={activeTab}
@@ -507,6 +527,8 @@ export default function App() {
         totalLeadsCount={activeNicheLeads.length}
         meetingsCount={meetingLeadsCount}
         onLogout={handleLogout}
+        isCloudSynced={isCloudSynced}
+        onClearAllContacts={handleClearAllContacts}
       />
 
       {/* Main Content Area based on Active Tab */}
@@ -519,7 +541,7 @@ export default function App() {
             onMoveStage={handleMoveStage}
             onOpenLeadModal={(lead) => setSelectedLead(lead)}
             onOpenNewLeadModal={(stage) => {
-              setNewLeadDefaultStage(stage || 'nao_iniciada');
+              setNewLeadDefaultStage(stage || 'leads_sem_contato');
               setIsNewLeadModalOpen(true);
             }}
             onFastWhatsAppContacted={handleFastWhatsAppContacted}

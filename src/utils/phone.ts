@@ -5,10 +5,21 @@ export function cleanPhoneForWhatsApp(raw: string, defaultDdd: string = '11'): s
   if (!raw) return '';
   // Remove non-digit characters
   let digits = raw.replace(/\D/g, '');
+  if (!digits) return '';
+
+  // Remove leading zeros (e.g. 011988887777 -> 11988887777)
+  while (digits.startsWith('0')) {
+    digits = digits.slice(1);
+  }
 
   // If already starts with 55 and has 12 or 13 digits (e.g. 55 11 98888 7777)
   if (digits.startsWith('55') && (digits.length === 12 || digits.length === 13)) {
     return digits;
+  }
+
+  // If starts with 55 but has 14 digits (e.g. 55 011 98888 7777)
+  if (digits.startsWith('550') && digits.length === 13) {
+    return `55${digits.slice(3)}`;
   }
 
   // If has 10 or 11 digits (DDD + number)

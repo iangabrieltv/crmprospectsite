@@ -15,12 +15,14 @@ import {
   ChevronDown,
   Building2,
   Sparkles,
-  TrendingUp,
   User,
   Check,
   LogOut,
   Database,
-  Cloud
+  Cloud,
+  Trash2,
+  AlertTriangle,
+  RotateCcw
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -36,6 +38,8 @@ interface HeaderProps {
   totalLeadsCount: number;
   meetingsCount?: number;
   onLogout?: () => void;
+  isCloudSynced?: boolean;
+  onClearAllContacts?: () => Promise<void> | void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -51,9 +55,13 @@ export const Header: React.FC<HeaderProps> = ({
   totalLeadsCount,
   meetingsCount = 0,
   onLogout,
+  isCloudSynced = true,
+  onClearAllContacts,
 }) => {
   const [isNicheDropdownOpen, setIsNicheDropdownOpen] = useState(false);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+  const [isClearModalOpen, setIsClearModalOpen] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
   const [tempUserName, setTempUserName] = useState(userName);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -202,14 +210,25 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* ZONE 3: Primary Actions & User Identity */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          {/* Cloud Database Live Badge */}
+          {/* Cloud Database Live Badge (Always visible with Cloud Icon) */}
           <div
-            className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200/80 text-[11px] font-medium text-emerald-800 shrink-0"
-            title="Banco na nuvem (Firestore) com sincronização em tempo real. Qualquer membro da equipe conectado com o login atualiza e visualiza os dados ao vivo simultaneamente."
+            className={`flex items-center gap-1.5 px-2 sm:px-2.5 py-1 rounded-lg border text-[11px] font-medium shrink-0 transition-colors shadow-2xs ${
+              isCloudSynced
+                ? 'bg-emerald-50 border-emerald-200/90 text-emerald-800'
+                : 'bg-amber-50 border-amber-200 text-amber-800'
+            }`}
+            title="Banco na nuvem (Firestore) com sincronização em tempo real. Qualquer membro conectado atualiza e visualiza as mudanças instantaneamente entre telas (Pipeline, Agenda e Dashboard)."
           >
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-            <Database className="w-3 h-3 text-emerald-600 shrink-0" />
-            <span className="font-semibold">Ao Vivo • Multi-usuários</span>
+            <span
+              className={`w-2 h-2 rounded-full shrink-0 ${
+                isCloudSynced ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
+              }`}
+            />
+            <Cloud className={`w-3.5 h-3.5 shrink-0 ${isCloudSynced ? 'text-emerald-600' : 'text-amber-600'}`} />
+            <span className="hidden sm:inline font-semibold">
+              {isCloudSynced ? 'Nuvem Ao Vivo' : 'Conectando...'}
+            </span>
+            <span className="hidden xl:inline text-emerald-600/80">• Multi-telas</span>
           </div>
 
           {/* Quick Add Lead Button */}
@@ -236,11 +255,22 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="max-w-[70px] sm:max-w-[100px] truncate">{userName}</span>
           </button>
 
+          {/* Clean Contacts (Start from zero) Button */}
+          {onClearAllContacts && (
+            <button
+              onClick={() => setIsClearModalOpen(true)}
+              className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200 transition-colors cursor-pointer shrink-0"
+              title="Limpar todos os contatos da nuvem para começar do zero"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
+
           {/* Logout Button */}
           {onLogout && (
             <button
               onClick={onLogout}
-              className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200 transition-colors cursor-pointer shrink-0"
+              className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
               title="Sair da conta (kaizenvisual123)"
             >
               <LogOut className="w-4 h-4" />
@@ -319,6 +349,79 @@ export const Header: React.FC<HeaderProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Começar do Zero (Limpar Nuvem) */}
+      {isClearModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-full bg-rose-100 flex items-center justify-center shrink-0 text-rose-600">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">
+                  Começar do Zero — Limpar Nuvem
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Banco de dados em nuvem (Firestore)
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-2 mb-5 text-xs text-slate-600 leading-relaxed bg-slate-50 p-3.5 rounded-lg border border-slate-200/80">
+              <p>
+                Deseja <strong>remover todos os contatos</strong> (já contatados, pendentes ou importados anteriormente) da nuvem e do dispositivo para começar 100% do zero?
+              </p>
+              <p className="text-slate-500">
+                • A base de contatos ficará com <strong>0 leads</strong>, pronta para suas novas importações.
+              </p>
+              <p className="text-slate-500">
+                • Seus <strong>nichos/campanhas e scripts de vendas serão preservados</strong>.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                disabled={isClearing}
+                onClick={() => setIsClearModalOpen(false)}
+                className="px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={isClearing}
+                onClick={async () => {
+                  if (!onClearAllContacts) return;
+                  setIsClearing(true);
+                  try {
+                    await onClearAllContacts();
+                    setIsClearModalOpen(false);
+                  } catch (e) {
+                    console.error('Falha ao limpar:', e);
+                  } finally {
+                    setIsClearing(false);
+                  }
+                }}
+                className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 active:bg-rose-800 rounded-lg shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {isClearing ? (
+                  <>
+                    <RotateCcw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Limpando base...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Sim, Limpar e Começar do Zero</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

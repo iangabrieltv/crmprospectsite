@@ -146,30 +146,36 @@ export function loadStoredLeads(): Lead[] {
   try {
     const raw = localStorage.getItem(LEADS_STORAGE_KEY);
     if (!raw) {
-      saveStoredLeads(INITIAL_LEADS);
-      return INITIAL_LEADS;
+      return [];
     }
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed)) {
-      // If contains old mock leads with lead-sp- or lead-rj-, clean it out
-      const hasMockLeads = parsed.some((l: Lead) => l.id?.startsWith('lead-sp-') || l.id?.startsWith('lead-rj-') || l.id?.startsWith('lead-cwb-'));
-      if (hasMockLeads) {
-        saveStoredLeads([]);
-        return [];
-      }
-      if (parsed.length === 0 && INITIAL_LEADS.length > 0) {
-        saveStoredLeads(INITIAL_LEADS);
-        return INITIAL_LEADS;
-      }
-      return parsed.map((l: Lead) => ({
+      // Clean out any old mock leads or demo leads
+      const cleaned = parsed.filter((l: Lead) => {
+        if (!l || !l.id) return false;
+        if (l.id.startsWith('lead-sp-') || l.id.startsWith('lead-rj-') || l.id.startsWith('lead-cwb-') || l.id === 'lead-frila-demo') {
+          return false;
+        }
+        return true;
+      });
+      return cleaned.map((l: Lead) => ({
         ...l,
         stage: normalizeStageId(l.stage),
       }));
     }
-    return INITIAL_LEADS;
+    return [];
   } catch (err) {
     console.error('Failed to load leads from localStorage', err);
-    return INITIAL_LEADS;
+    return [];
+  }
+}
+
+export function clearStoredLeads(): void {
+  try {
+    localStorage.removeItem(LEADS_STORAGE_KEY);
+    localStorage.setItem(LEADS_STORAGE_KEY, JSON.stringify([]));
+  } catch (err) {
+    console.error('Failed to clear stored leads', err);
   }
 }
 

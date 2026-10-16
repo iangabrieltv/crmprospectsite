@@ -5,7 +5,8 @@ import {
   FUNNEL_STAGES,
   NicheCampaign,
   ScriptId,
-  LeadNote
+  LeadNote,
+  normalizeStageId
 } from '../types/crm';
 import {
   cleanPhoneForWhatsApp,
@@ -72,7 +73,7 @@ export const LeadModal: React.FC<LeadModalProps> = ({
   const [googleMapsUrl, setGoogleMapsUrl] = useState(lead.googleMapsUrl || '');
   const [websiteUrl, setWebsiteUrl] = useState(lead.websiteUrl || '');
   const [mockupUrl, setMockupUrl] = useState(lead.mockupUrl || '');
-  const [stage, setStage] = useState<FunnelStageId>(lead.stage);
+  const [stage, setStage] = useState<FunnelStageId>(() => normalizeStageId(lead.stage));
   const [scriptUsed, setScriptUsed] = useState<ScriptId>(lead.scriptUsed);
   const [creationValue, setCreationValue] = useState<string>(
     lead.creationValue !== undefined ? String(lead.creationValue) : ''

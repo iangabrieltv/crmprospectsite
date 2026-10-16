@@ -267,11 +267,11 @@ export async function batchSyncLeadsToFirestore(leads: Lead[]): Promise<void> {
 }
 
 /**
- * Inicializa dados iniciais no Firestore se o banco estiver vazio
+ * Inicializa nichos no Firestore se o banco estiver vazio (NUNCA insere leads fictícios)
  */
 export async function seedFirestoreIfEmpty(
   initialNiches: NicheCampaign[],
-  initialLeads: Lead[]
+  _initialLeads: Lead[] = []
 ): Promise<void> {
   try {
     const nichesSnap = await getDocs(collection(db, 'workspaces', WORKSPACE_ID, 'niches'));
@@ -281,13 +281,62 @@ export async function seedFirestoreIfEmpty(
         const nRef = doc(db, 'workspaces', WORKSPACE_ID, 'niches', niche.id);
         batch.set(nRef, sanitizeForFirestore(niche));
       }
-      for (const lead of initialLeads) {
-        const lRef = doc(db, 'workspaces', WORKSPACE_ID, 'leads', lead.id);
-        batch.set(lRef, sanitizeForFirestore(lead));
-      }
       await batch.commit();
+      console.log(`[Firestore] ${initialNiches.length} campanhas/nichos inicializados na nuvem.`);
     }
   } catch (err) {
     handleFirestoreError(err, OperationType.WRITE, `workspaces/${WORKSPACE_ID}/seed`);
+  }
+}
+
+/**
+ * Remove todos os contatos da nuvem (Firestore) para começar 100% do zero.
+ */
+export async function clearAllLeadsFromFirestore(): Promise<number> {
+  try {
+    const leadsCol = collection(db, 'workspaces', WORKSPACE_ID, 'leads');
+    const snap = await getDocs(leadsCol);
+    if (snap.empty) return 0;
+
+    const count = snap.size;
+    const chunkSize = 400;
+    const docs = snap.docs;
+
+    for (let i = 0; i < docs.length; i += chunkSize) {
+      const chunk = docs.slice(i, i + chunkSize);
+      const batch = writeBatch(db);
+      for (const d of chunk) {
+        batch.delete(d.ref);
+      }
+      await batch.commit();
+    }
+    console.log(`[Firestore] ${count} leads removidos da nuvem com sucesso.`);
+    return count;
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, `workspaces/${WORKSPACE_ID}/leads (clearAll)`);
+    throw err;
+  }
+}
+
+/**
+ * Remove todas as planilhas importadas da nuvem (Firestore)
+ */
+export async function clearAllImportedSheetsFromFirestore(): Promise<number> {
+  try {
+    const sheetsCol = collection(db, 'workspaces', WORKSPACE_ID, 'importedSheets');
+    const snap = await getDocs(sheetsCol);
+    if (snap.empty) return 0;
+
+    const count = snap.size;
+    const batch = writeBatch(db);
+    for (const d of snap.docs) {
+      batch.delete(d.ref);
+    }
+    await batch.commit();
+    console.log(`[Firestore] ${count} planilhas importadas removidas da nuvem.`);
+    return count;
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, `workspaces/${WORKSPACE_ID}/importedSheets (clearAll)`);
+    throw err;
   }
 }
