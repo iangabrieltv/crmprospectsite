@@ -114,31 +114,22 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const [destinationMode, setDestinationMode] = useState<'current' | 'new'>('current');
   const [newNicheName, setNewNicheName] = useState('');
   const [newNicheSegment, setNewNicheSegment] = useState('');
   const [newNicheCity, setNewNicheCity] = useState(activeNiche.city);
-  const [newNicheEmoji, setNewNicheEmoji] = useState('💼');
+  const [newNicheEmoji, setNewNicheEmoji] = useState('💆‍♀️');
 
   // Candidate leads: raw from spreadsheet, unique (kept), and duplicates (excluded)
   const [rawParsedCandidates, setRawParsedCandidates] = useState<ParsedLeadCandidate[]>([]);
   const [parsedCandidates, setParsedCandidates] = useState<ParsedLeadCandidate[]>([]);
   const [duplicateCandidates, setDuplicateCandidates] = useState<DuplicateDetail[]>([]);
-  const [activeCandidatesTab, setActiveCandidatesTab] = useState<'unique' | 'duplicates' | 'incompatible_category' | 'ai_excluded'>('unique');
+  const [activeCandidatesTab, setActiveCandidatesTab] = useState<'unique' | 'duplicates' | 'incompatible_category' | 'category_excluded'>('unique');
   const [duplicateSearch, setDuplicateSearch] = useState('');
 
-  // Conversational AI Lead & Service Filter
-  const [aiFilterPrompt, setAiFilterPrompt] = useState('');
-  const [isAiFiltering, setIsAiFiltering] = useState(false);
-  const [aiFilterHistory, setAiFilterHistory] = useState<{
-    id: string;
-    prompt: string;
-    explanation: string;
-    removedCount: number;
-    removedCategories: string[];
-    timestamp: string;
-  }[]>([]);
-  const [aiExcludedLeads, setAiExcludedLeads] = useState<{
+  // Category Exclusion Filter (Direct, Deterministic, 100% Client-Side)
+  const [categorySearchOrSelect, setCategorySearchOrSelect] = useState('');
+  const [categoryFeedbackMessage, setCategoryFeedbackMessage] = useState<string | null>(null);
+  const [categoryExcludedLeads, setCategoryExcludedLeads] = useState<{
     id: string;
     candidate: ParsedLeadCandidate;
     reason: string;
@@ -146,6 +137,7 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
     query: string;
     originalIndex: number;
   }[]>([]);
+  const [excludedCategoriesList, setExcludedCategoriesList] = useState<string[]>([]);
   const [filterUndoStack, setFilterUndoStack] = useState<{
     candidates: ParsedLeadCandidate[];
     excluded: {
@@ -156,38 +148,26 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
       query: string;
       originalIndex: number;
     }[];
+    excludedCategories: string[];
   }[]>([]);
 
-  // State for AI filtering modal on already imported leads in CRM
-  const [filterModalTarget, setFilterModalTarget] = useState<{
-    type: 'sheet' | 'niche';
-    title: string;
-    leads: Lead[];
-  } | null>(null);
-  const [filterModalPrompt, setFilterModalPrompt] = useState('');
-  const [isFilteringModal, setIsFilteringModal] = useState(false);
-  const [modalFilterResult, setModalFilterResult] = useState<{
-    explanation: string;
-    removedLeadIds: string[];
-    removedCategories: string[];
-  } | null>(null);
-
-  // Antiduplication & Niche Category filters (disabled by default so all spreadsheet leads are preserved)
+  // Antiduplication & Niche Category filters
   const [dedupCheckPhone, setDedupCheckPhone] = useState(true);
   const [dedupCheckName, setDedupCheckName] = useState(false);
   const [dedupCheckCrm, setDedupCheckCrm] = useState(false);
   const [dedupCheckCategory, setDedupCheckCategory] = useState(false);
-  const [dedupAutoExclude, setDedupAutoExclude] = useState(false);
+  const [dedupAutoExclude, setDedupAutoExclude] = useState(true);
 
-  const [isAnalyzingAi, setIsAnalyzingAi] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successCount, setSuccessCount] = useState<number | null>(null);
 
   // Check if a category / company belongs or is incompatible with the active campaign niche
+  // Check if a category / company belongs or is incompatible with the target campaign niche
   const checkNicheCategoryRelevance = (
     rawCategory: string | undefined,
     companyName: string,
-    niche: NicheCampaign
+    targetName: string,
+    targetSegment: string
   ): { isIncompatible: boolean; reason: string; matchedCategory: string } => {
     const normCat = (rawCategory || '')
       .toLowerCase()
@@ -197,93 +177,116 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
       .toLowerCase()
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '');
-    const normNiche = `${niche.name} ${niche.segment}`
+    const normTarget = `${targetName} ${targetSegment}`
       .toLowerCase()
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '');
 
-    const isNutriNiche =
-      normNiche.includes('nutri') ||
-      normNiche.includes('nutricionista') ||
-      normNiche.includes('nutrolog');
-
-    const isOdontoNiche =
-      normNiche.includes('odonto') ||
-      normNiche.includes('dentist');
-
     const combinedText = `${normCat} ${normCompany}`;
 
-    // 1. Nutricionistas & Nutrologia Rules
-    if (isNutriNiche) {
-      // Whitelist terms: if it explicitly indicates a nutritionist/nutrology clinic, keep it
-      const hasNutriCore = /\b(nutri|nutricionista|nutrolog[ao]|nutricao|dieta|consultorio de nutricao|emagrecimento integrativo|nutri infantil)\b/i.test(
-        combinedText
-      );
+    // 1. Clínicas de Estética / Beleza / Harmonização / Dermatologia
+    const isEstetica =
+      normTarget.includes('estetica') ||
+      normTarget.includes('beleza') ||
+      normTarget.includes('harmonizac') ||
+      normTarget.includes('dermatolog') ||
+      normTarget.includes('depilac') ||
+      normTarget.includes('spa') ||
+      normTarget.includes('sobrancelha');
 
-      const nutriIncompatiblePatterns = [
-        {
-          pattern: /\b(academia|academias|crossfit|gym|fitness center|centro de treinamento|musculacao|treino funcional|ct |box de crossfit|escola de natacao|studio pilates|pilates)\b/i,
-          label: 'Academia / Centro Fitness',
-        },
-        {
-          pattern: /\b(loja de suplemento|loja de suplementos|suplementos alimentares|suplementacao|suplemento|suplementos|produtos naturais|emporio natural|loja de produtos naturais|mundo verde)\b/i,
-          label: 'Loja de Suplementos / Produtos',
-        },
-        {
-          pattern: /\b(farmacia|drogaria|farmacia de manipulacao|manipulacao|remedios)\b/i,
-          label: 'Farmácia / Drogaria',
-        },
-        {
-          pattern: /\b(marmitaria|restaurante|lanchonete|refeicoes fitness|buffet|comida fitness|delivery fitness|pizzaria|hamburgueria)\b/i,
-          label: 'Restaurante / Marmitaria',
-        },
-        {
-          pattern: /\b(pet shop|veterinari[ao]|agropecuaria|banho e tosa)\b/i,
-          label: 'Pet Shop / Veterinária',
-        },
-        {
-          pattern: /\b(otica|oticas|barbearia|salao de beleza|cabeleireir[ao]|tatuagem|tattoo|podologia)\b/i,
-          label: 'Comércio / Estética não relacionada',
-        },
-        {
-          pattern: /\b(mecanica|auto pecas|imobiliaria|advocacia|contabilidade|lava rapido)\b/i,
-          label: 'Setor não relacionado',
-        },
+    if (isEstetica) {
+      const hasEsteticaCore = /\b(estetica|esteticista|harmonizacao|beleza|dermatolog|laser|depilacao|facial|corporal|sobrancelha|micropigmentacao|spa|biomedicina|cosmetologia|massagem)\b/i.test(combinedText);
+      const incompatibleRules = [
+        { pattern: /\b(dentista|odonto|odontologia|ortodontia|protese dentaria|consultorio odontologico|implantodontia)\b/i, label: 'Dentistas / Odontologia' },
+        { pattern: /\b(academia|academias|crossfit|gym|fitness|musculacao|centro de treinamento|box de crossfit)\b/i, label: 'Academia / Centro Fitness' },
+        { pattern: /\b(suplemento|suplementos|loja de suplementos|produtos naturais|whey)\b/i, label: 'Loja de Suplementos' },
+        { pattern: /\b(farmacia|drogaria|remedios|medicamentos)\b/i, label: 'Farmácia / Drogaria' },
+        { pattern: /\b(mecanica|auto pecas|oficina|funilaria|auto center|lanternagem|borracharia)\b/i, label: 'Oficina Mecânica' },
+        { pattern: /\b(advocacia|advogado|juridico|escritorio de advocacia|direito)\b/i, label: 'Escritório de Advocacia' },
+        { pattern: /\b(restaurante|pizzaria|hamburgueria|lanchonete|marmitaria|buffet)\b/i, label: 'Restaurante / Alimentação' },
+        { pattern: /\b(pet shop|veterinari[ao]|agropecuaria|banho e tosa)\b/i, label: 'Pet Shop / Veterinária' },
+        { pattern: /\b(otica|oticas|contabilidade|imobiliaria)\b/i, label: 'Setor Comercial Distinto' },
       ];
 
-      for (const rule of nutriIncompatiblePatterns) {
-        if (rule.pattern.test(normCat)) {
-          if (!hasNutriCore) {
+      for (const rule of incompatibleRules) {
+        if (rule.pattern.test(normCat) || rule.pattern.test(normCompany)) {
+          if (!hasEsteticaCore) {
             return {
               isIncompatible: true,
-              reason: `Categoria fora do nicho: "${rawCategory || rule.label}". Não é nutricionista ou consultório de nutrição.`,
+              reason: `Categoria "${rawCategory || rule.label}" é ${rule.label}, fora do nicho de Clínicas de Estética.`,
               matchedCategory: rule.label,
             };
           }
-        } else if (rule.pattern.test(normCompany) && !hasNutriCore) {
+        }
+      }
+    }
+
+    // 2. Nutricionistas & Nutrologia Rules
+    const isNutri =
+      normTarget.includes('nutri') ||
+      normTarget.includes('nutricionista') ||
+      normTarget.includes('nutrolog');
+
+    if (isNutri) {
+      const hasNutriCore = /\b(nutri|nutricionista|nutrolog[ao]|nutricao|dieta|consultorio de nutricao|emagrecimento integrativo|nutri infantil)\b/i.test(combinedText);
+      const nutriIncompatible = [
+        { pattern: /\b(academia|academias|crossfit|gym|fitness center|centro de treinamento|musculacao|treino funcional|ct |box de crossfit|escola de natacao|studio pilates|pilates)\b/i, label: 'Academia / Centro Fitness' },
+        { pattern: /\b(loja de suplemento|loja de suplementos|suplementos alimentares|suplementacao|suplemento|suplementos|produtos naturais|emporio natural|loja de produtos naturais|mundo verde)\b/i, label: 'Loja de Suplementos / Produtos' },
+        { pattern: /\b(farmacia|drogaria|farmacia de manipulacao|manipulacao|remedios)\b/i, label: 'Farmácia / Drogaria' },
+        { pattern: /\b(marmitaria|restaurante|lanchonete|refeicoes fitness|buffet|comida fitness|delivery fitness|pizzaria|hamburgueria)\b/i, label: 'Restaurante / Marmitaria' },
+        { pattern: /\b(pet shop|veterinari[ao]|agropecuaria|banho e tosa)\b/i, label: 'Pet Shop / Veterinária' },
+        { pattern: /\b(dentista|odonto|odontologia|ortodontia)\b/i, label: 'Dentistas' },
+        { pattern: /\b(mecanica|auto pecas|imobiliaria|advocacia|contabilidade|lava rapido)\b/i, label: 'Setor não relacionado' },
+      ];
+
+      for (const rule of nutriIncompatible) {
+        if ((rule.pattern.test(normCat) || rule.pattern.test(normCompany)) && !hasNutriCore) {
           return {
             isIncompatible: true,
-            reason: `Estabelecimento identificado como "${rule.label}" pelo nome. Não corresponde ao perfil de nutricionista.`,
+            reason: `Categoria fora do nicho: "${rawCategory || rule.label}". Não é nutricionista ou consultório de nutrição.`,
             matchedCategory: rule.label,
           };
         }
       }
-    } else if (isOdontoNiche) {
+    }
+
+    // 3. Odontologia / Dentistas
+    const isOdonto =
+      normTarget.includes('odonto') ||
+      normTarget.includes('dentist');
+
+    if (isOdonto) {
       const odontoIncompatible = [
-        {
-          pattern: /\b(laboratorio de protese|protese dentaria|protetico|dental |produtos odontologicos)\b/i,
-          label: 'Laboratório / Fornecedor Odontológico',
-        },
-        {
-          pattern: /\b(farmacia|drogaria|academia|restaurante|pet shop)\b/i,
-          label: 'Comércio não odontológico',
-        },
+        { pattern: /\b(laboratorio de protese|protese dentaria|protetico|dental |produtos odontologicos)\b/i, label: 'Laboratório / Fornecedor Odontológico' },
+        { pattern: /\b(farmacia|drogaria|academia|restaurante|pet shop|mecanica|estetica)\b/i, label: 'Setor não odontológico' },
       ];
       for (const rule of odontoIncompatible) {
         if (rule.pattern.test(normCat) || rule.pattern.test(normCompany)) {
           return {
             isIncompatible: true,
             reason: `Categoria fora do nicho: "${rawCategory || rule.label}". Não é consultório ou clínica odontológica.`,
+            matchedCategory: rule.label,
+          };
+        }
+      }
+    }
+
+    // 4. Advocacia / Jurídico
+    const isAdvocacia =
+      normTarget.includes('advoc') ||
+      normTarget.includes('advogad') ||
+      normTarget.includes('juridic') ||
+      normTarget.includes('direito');
+
+    if (isAdvocacia) {
+      const advocaciaIncompatible = [
+        { pattern: /\b(dentista|odonto|medico|clinica|hospital|academia|estetica|mecanica|oficina|restaurante)\b/i, label: 'Setor não jurídico' },
+      ];
+      for (const rule of advocaciaIncompatible) {
+        if (rule.pattern.test(normCat) || rule.pattern.test(normCompany)) {
+          return {
+            isIncompatible: true,
+            reason: `Categoria "${rawCategory || rule.label}" não é escritório de advocacia.`,
             matchedCategory: rule.label,
           };
         }
@@ -416,9 +419,14 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
       let matchType: 'phone' | 'name' | 'existing_crm' | 'incompatible_category' = 'phone';
       let matchedWith = '';
 
-      // 0. Check niche category compatibility (only if explicitly checked, autoExclude is on, and importing to current niche)
-      if (!isDuplicate && checkCategory && autoExclude && destinationMode === 'current') {
-        const catCheck = checkNicheCategoryRelevance(candidate.category, candidate.companyName, activeNiche);
+      // 0. Check niche category compatibility
+      if (!isDuplicate && checkCategory && autoExclude) {
+        const catCheck = checkNicheCategoryRelevance(
+          candidate.category,
+          candidate.companyName,
+          newNicheName.trim() || activeNiche.name,
+          newNicheSegment.trim() || newNicheName.trim() || activeNiche.segment
+        );
         if (catCheck.isIncompatible) {
           isDuplicate = true;
           matchType = 'incompatible_category';
@@ -574,303 +582,178 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
     runDeduplication(rawParsedCandidates, dedupCheckPhone, dedupCheckName, dedupCheckCrm, dedupAutoExclude, enabled);
   };
 
-  // Conversational AI Filtering: Removes contacts based on user instruction (e.g. "retirar oficina mecanica")
-  const handleRunAiFilterLeads = async (customInstruction?: string) => {
-    const instruction = (customInstruction || aiFilterPrompt).trim();
-    if (!instruction) return;
-    if (parsedCandidates.length === 0) {
-      setErrorMessage('Não há contatos na lista para filtrar.');
-      return;
-    }
+  // Aggregated unique categories detected in currently kept candidates
+  const detectedCategories = React.useMemo(() => {
+    const counts = new Map<string, number>();
+    parsedCandidates.forEach((c) => {
+      const cat = (c.category || '').trim() || 'Sem categoria';
+      counts.set(cat, (counts.get(cat) || 0) + 1);
+    });
+    return Array.from(counts.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [parsedCandidates]);
 
-    setIsAiFiltering(true);
-    setErrorMessage(null);
+  // Summary of excluded categories with count
+  const excludedCategoriesSummary = React.useMemo(() => {
+    const counts = new Map<string, number>();
+    categoryExcludedLeads.forEach((item) => {
+      const cat = (item.matchedCategory || item.candidate.category || item.query || '').trim() || 'Sem categoria';
+      counts.set(cat, (counts.get(cat) || 0) + 1);
+    });
+    return Array.from(counts.entries()).map(([name, count]) => ({ name, count }));
+  }, [categoryExcludedLeads]);
+
+  // Direct Category Exclusion (Zero AI dependency, 100% Deterministic)
+  const handleExcludeCategory = (categoryNameOrQuery: string) => {
+    const rawQuery = categoryNameOrQuery.trim();
+    if (!rawQuery) return;
+    const query = rawQuery.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
     // Save snapshot for Undo
     setFilterUndoStack((prev) => [
       ...prev,
       {
         candidates: [...parsedCandidates],
-        excluded: [...aiExcludedLeads],
+        excluded: [...categoryExcludedLeads],
+        excludedCategories: [...excludedCategoriesList],
       },
     ]);
 
-    try {
-      const payloadLeads = parsedCandidates.map((c, idx) => ({
-        id: `cand-${idx}-${c.phone}`,
-        companyName: c.companyName,
-        category: c.category || '',
-        city: c.city || '',
-        phone: c.phone || '',
-      }));
+    const kept: ParsedLeadCandidate[] = [];
+    const newlyExcluded: typeof categoryExcludedLeads = [];
 
-      const res = await fetch('/api/gemini/filter-imported-leads', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userInstruction: instruction,
-          nicheName: destinationMode === 'current' ? activeNiche.name : newNicheName || activeNiche.name,
-          nicheSegment: destinationMode === 'current' ? activeNiche.segment : newNicheSegment,
-          leads: payloadLeads,
-        }),
-      });
+    parsedCandidates.forEach((cand, idx) => {
+      const cat = (cand.category || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const comp = (cand.companyName || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
-      let removedIds: string[] = [];
-      let explanation = '';
-      let removedCategories: string[] = [];
-      let removedDetails: { id: string; companyName: string; reason: string }[] = [];
+      // Check match: category equals or contains query, or company name contains query if category empty
+      const isMatch =
+        cat === query ||
+        cat.includes(query) ||
+        (query.length >= 4 && query.includes(cat) && cat.length >= 4) ||
+        comp.includes(query);
 
-      if (res.ok) {
-        const data = await res.json();
-        removedIds = Array.isArray(data.removedIds) ? data.removedIds : [];
-        explanation = data.explanation || '';
-        removedCategories = Array.isArray(data.removedCategories) ? data.removedCategories : [];
-        removedDetails = Array.isArray(data.removedDetails) ? data.removedDetails : [];
-      } else {
-        throw new Error('Fallback local de filtragem');
-      }
-
-      // If backend returned zero removed or fallback is triggered, run local matching
-      if (removedIds.length === 0) {
-        const norm = instruction.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-        const cleanTerms = norm
-          .replace(/retirar|remover|excluir|apagar|tirar|todos|os|que|estao|na|categoria|de|com|sem|por|favor|deixar|apenas|so/gi, ' ')
-          .split(/\s+/)
-          .map((t) => t.trim())
-          .filter((t) => t.length >= 3);
-
-        const localRemoved: typeof aiExcludedLeads = [];
-        const kept: ParsedLeadCandidate[] = [];
-        const catsSet = new Set<string>();
-
-        parsedCandidates.forEach((cand, idx) => {
-          const comp = (cand.companyName || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-          const cat = (cand.category || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-          const combo = `${comp} ${cat}`;
-
-          const matches = cleanTerms.some((term) => combo.includes(term));
-          if (matches) {
-            if (cand.category) catsSet.add(cand.category);
-            localRemoved.push({
-              id: `ai-exc-${idx}-${Date.now()}`,
-              candidate: cand,
-              reason: `Identificado pelo termo de exclusão: "${cleanTerms.join(', ')}"`,
-              matchedCategory: cand.category || 'Categoria identificada',
-              query: instruction,
-              originalIndex: cand.originalLineNumber || idx + 1,
-            });
-          } else {
-            kept.push(cand);
-          }
+      if (isMatch) {
+        newlyExcluded.push({
+          id: `cat-exc-${idx}-${Date.now()}`,
+          candidate: cand,
+          reason: `Excluído pelo filtro de nicho/categoria: "${rawQuery}"`,
+          matchedCategory: cand.category || rawQuery,
+          query: rawQuery,
+          originalIndex: cand.originalLineNumber || idx + 1,
         });
-
-        if (localRemoved.length > 0) {
-          setParsedCandidates(kept);
-          setAiExcludedLeads((prev) => [...prev, ...localRemoved]);
-          setAiFilterHistory((prev) => [
-            {
-              id: 'ai-hist-' + Date.now(),
-              prompt: instruction,
-              explanation: `Entendido! Analisei a planilha e retirei ${localRemoved.length} contatos correspondentes a "${instruction}". Restaram ${kept.length} contatos limpos no seu nicho.`,
-              removedCount: localRemoved.length,
-              removedCategories: Array.from(catsSet),
-              timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-            },
-            ...prev,
-          ]);
-          setAiFilterPrompt('');
-          return;
-        }
+      } else {
+        kept.push(cand);
       }
+    });
 
-      // Process backend AI results
-      const removedIdSet = new Set(removedIds);
-      const keptList: ParsedLeadCandidate[] = [];
-      const newlyExcluded: typeof aiExcludedLeads = [];
-
-      parsedCandidates.forEach((cand, idx) => {
-        const idKey = `cand-${idx}-${cand.phone}`;
-        if (removedIdSet.has(idKey)) {
-          const det = removedDetails.find((d) => d.id === idKey);
-          newlyExcluded.push({
-            id: `ai-exc-${idx}-${Date.now()}`,
-            candidate: cand,
-            reason: det?.reason || `Removido pela IA conforme solicitação: "${instruction}"`,
-            matchedCategory: cand.category || 'Categoria fora do solicitado',
-            query: instruction,
-            originalIndex: cand.originalLineNumber || idx + 1,
-          });
-        } else {
-          keptList.push(cand);
-        }
-      });
-
-      setParsedCandidates(keptList);
-      setAiExcludedLeads((prev) => [...prev, ...newlyExcluded]);
-      setAiFilterHistory((prev) => [
-        {
-          id: 'ai-hist-' + Date.now(),
-          prompt: instruction,
-          explanation: explanation || `Removidos ${newlyExcluded.length} contatos conforme sua instrução. Restam ${keptList.length} leads prontos.`,
-          removedCount: newlyExcluded.length,
-          removedCategories,
-          timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-        },
-        ...prev,
-      ]);
-      setAiFilterPrompt('');
-    } catch (err: any) {
-      console.warn('AI filter fallback executing:', err);
-      const norm = instruction.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      const cleanTerms = norm
-        .replace(/retirar|remover|excluir|apagar|tirar|todos|os|que|estao|na|categoria|de|com|sem|por|favor|deixar|apenas|so/gi, ' ')
-        .split(/\s+/)
-        .map((t) => t.trim())
-        .filter((t) => t.length >= 3);
-
-      const localRemoved: typeof aiExcludedLeads = [];
-      const kept: ParsedLeadCandidate[] = [];
-      const catsSet = new Set<string>();
-
-      parsedCandidates.forEach((cand, idx) => {
-        const comp = (cand.companyName || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-        const cat = (cand.category || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-        const combo = `${comp} ${cat}`;
-
-        const matches = cleanTerms.some((term) => combo.includes(term));
-        if (matches) {
-          if (cand.category) catsSet.add(cand.category);
-          localRemoved.push({
-            id: `ai-exc-${idx}-${Date.now()}`,
-            candidate: cand,
-            reason: `Identificado pelo termo de exclusão: "${cleanTerms.join(', ')}"`,
-            matchedCategory: cand.category || 'Categoria identificada',
-            query: instruction,
-            originalIndex: cand.originalLineNumber || idx + 1,
-          });
-        } else {
-          kept.push(cand);
-        }
-      });
-
+    if (newlyExcluded.length > 0) {
       setParsedCandidates(kept);
-      setAiExcludedLeads((prev) => [...prev, ...localRemoved]);
-      setAiFilterHistory((prev) => [
-        {
-          id: 'ai-hist-' + Date.now(),
-          prompt: instruction,
-          explanation: `Filtragem concluída: ${localRemoved.length} contatos correspondentes a "${instruction}" foram retirados da lista. Restam ${kept.length} contatos mantidos.`,
-          removedCount: localRemoved.length,
-          removedCategories: Array.from(catsSet),
-          timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-        },
-        ...prev,
-      ]);
-      setAiFilterPrompt('');
-    } finally {
-      setIsAiFiltering(false);
+      setCategoryExcludedLeads((prev) => [...prev, ...newlyExcluded]);
+      setExcludedCategoriesList((prev) => Array.from(new Set([...prev, rawQuery])));
+      setCategoryFeedbackMessage(
+        `✅ Foram excluídos ${newlyExcluded.length} contatos da categoria "${rawQuery}". Restam ${kept.length} contatos no nicho.`
+      );
+      setCategorySearchOrSelect('');
+    } else {
+      setCategoryFeedbackMessage(`Nenhum contato encontrado correspondente à categoria "${rawQuery}".`);
     }
   };
 
-  const handleUndoLastAiFilter = () => {
+  const handleRestoreCategory = (categoryName: string) => {
+    const rawQuery = categoryName.trim();
+    const query = rawQuery.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+    const toRestore: ParsedLeadCandidate[] = [];
+    const remaining: typeof categoryExcludedLeads = [];
+
+    categoryExcludedLeads.forEach((item) => {
+      const cat = (item.matchedCategory || item.candidate.category || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const q = (item.query || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+      if (cat === query || cat.includes(query) || q === query) {
+        toRestore.push({ ...item.candidate, selected: true });
+      } else {
+        remaining.push(item);
+      }
+    });
+
+    if (toRestore.length > 0) {
+      setParsedCandidates((prev) => [...prev, ...toRestore]);
+      setCategoryExcludedLeads(remaining);
+      setExcludedCategoriesList((prev) => prev.filter((c) => c.toLowerCase() !== rawQuery.toLowerCase()));
+      setCategoryFeedbackMessage(`Restaurados ${toRestore.length} contatos da categoria "${rawQuery}".`);
+    }
+  };
+
+  const handleRestoreSingleCategoryExcludedLead = (item: { id: string; candidate: ParsedLeadCandidate }) => {
+    setCategoryExcludedLeads((prev) => prev.filter((x) => x.id !== item.id));
+    setParsedCandidates((prev) => [...prev, { ...item.candidate, selected: true }]);
+  };
+
+  const handleUndoLastExclusion = () => {
     if (filterUndoStack.length === 0) return;
     const lastSnapshot = filterUndoStack[filterUndoStack.length - 1];
     setParsedCandidates(lastSnapshot.candidates);
-    setAiExcludedLeads(lastSnapshot.excluded);
+    setCategoryExcludedLeads(lastSnapshot.excluded);
+    setExcludedCategoriesList(lastSnapshot.excludedCategories);
     setFilterUndoStack((prev) => prev.slice(0, -1));
-    setAiFilterHistory((prev) => prev.slice(1));
+    setCategoryFeedbackMessage('Última exclusão desfeita com sucesso.');
   };
 
-  const handleRestoreAiExcludedLead = (leadToRestore: typeof aiExcludedLeads[0]) => {
-    setAiExcludedLeads((prev) => prev.filter((item) => item.id !== leadToRestore.id));
-    setParsedCandidates((prev) => [...prev, { ...leadToRestore.candidate, selected: true }]);
-  };
-
-  const handleRestoreAllAiExcluded = () => {
-    const toRestore = aiExcludedLeads.map((item) => ({ ...item.candidate, selected: true }));
+  const handleRestoreAllExcludedCategories = () => {
+    const toRestore = categoryExcludedLeads.map((item) => ({ ...item.candidate, selected: true }));
     setParsedCandidates((prev) => [...prev, ...toRestore]);
-    setAiExcludedLeads([]);
-    setActiveCandidatesTab('unique');
+    setCategoryExcludedLeads([]);
+    setExcludedCategoriesList([]);
+    setCategoryFeedbackMessage(`Todos os ${toRestore.length} contatos excluídos foram restaurados.`);
   };
 
-  // Conversational AI filtering for already imported CRM leads
-  const handleRunModalAiFilter = async () => {
-    if (!filterModalTarget || !filterModalPrompt.trim()) return;
-    setIsFilteringModal(true);
-    setModalFilterResult(null);
+  const handleExcludeAllOutOfNiche = () => {
+    const targetName = newNicheName.trim() || activeNiche.name;
+    const targetSegment = newNicheSegment.trim() || targetName;
 
-    const targetLeads = filterModalTarget.leads;
-    try {
-      const payloadLeads = targetLeads.map((l) => ({
-        id: l.id,
-        companyName: l.companyName,
-        category: l.category || '',
-        city: l.city || '',
-        phone: l.phone || '',
-      }));
+    setFilterUndoStack((prev) => [
+      ...prev,
+      {
+        candidates: [...parsedCandidates],
+        excluded: [...categoryExcludedLeads],
+        excludedCategories: [...excludedCategoriesList],
+      },
+    ]);
 
-      const res = await fetch('/api/gemini/filter-imported-leads', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userInstruction: filterModalPrompt.trim(),
-          nicheName: activeNiche.name,
-          nicheSegment: activeNiche.segment,
-          leads: payloadLeads,
-        }),
-      });
+    const kept: ParsedLeadCandidate[] = [];
+    const newlyExcluded: typeof categoryExcludedLeads = [];
+    const excludedCatsSet = new Set<string>();
 
-      if (res.ok) {
-        const data = await res.json();
-        const removedIds = Array.isArray(data.removedIds) ? data.removedIds : [];
-        setModalFilterResult({
-          explanation: data.explanation || `Foram identificados ${removedIds.length} contatos para exclusão.`,
-          removedLeadIds: removedIds,
-          removedCategories: Array.isArray(data.removedCategories) ? data.removedCategories : [],
+    parsedCandidates.forEach((cand, idx) => {
+      const check = checkNicheCategoryRelevance(cand.category, cand.companyName, targetName, targetSegment);
+      if (check.isIncompatible) {
+        newlyExcluded.push({
+          id: `cat-exc-${idx}-${Date.now()}`,
+          candidate: cand,
+          reason: check.reason,
+          matchedCategory: cand.category || check.matchedCategory,
+          query: 'Fora do Nicho',
+          originalIndex: cand.originalLineNumber || idx + 1,
         });
+        if (cand.category) excludedCatsSet.add(cand.category);
       } else {
-        throw new Error('Fallback local');
+        kept.push(cand);
       }
-    } catch {
-      // Local fallback for modal
-      const norm = filterModalPrompt.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      const terms = norm
-        .replace(/retirar|remover|excluir|apagar|tirar|todos|os|que|estao|na|categoria|de|com|sem|por|favor|deixar|apenas|so/gi, ' ')
-        .split(/\s+/)
-        .map((t) => t.trim())
-        .filter((t) => t.length >= 3);
+    });
 
-      const removedIds: string[] = [];
-      const catsSet = new Set<string>();
-
-      targetLeads.forEach((l) => {
-        const comp = (l.companyName || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-        const cat = (l.category || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-        const combo = `${comp} ${cat}`;
-        if (terms.some((t) => combo.includes(t))) {
-          removedIds.push(l.id);
-          if (l.category) catsSet.add(l.category);
-        }
-      });
-
-      setModalFilterResult({
-        explanation: `Filtro aplicado: foram identificados ${removedIds.length} contatos correspondentes a "${terms.join(', ')}".`,
-        removedLeadIds: removedIds,
-        removedCategories: Array.from(catsSet),
-      });
-    } finally {
-      setIsFilteringModal(false);
+    if (newlyExcluded.length > 0) {
+      setParsedCandidates(kept);
+      setCategoryExcludedLeads((prev) => [...prev, ...newlyExcluded]);
+      setExcludedCategoriesList((prev) => Array.from(new Set([...prev, ...Array.from(excludedCatsSet)])));
+      setCategoryFeedbackMessage(
+        `🎯 Foram excluídos ${newlyExcluded.length} contatos incompatíveis com o nicho de "${targetName}". Restam ${kept.length} contatos mantidos.`
+      );
+    } else {
+      setCategoryFeedbackMessage(`Todos os contatos atuais já são compatíveis com o nicho "${targetName}"!`);
     }
-  };
-
-  const handleConfirmModalLeadDeletion = () => {
-    if (!modalFilterResult || !modalFilterResult.removedLeadIds.length) return;
-    if (onDeleteLeads) {
-      onDeleteLeads(modalFilterResult.removedLeadIds);
-    }
-    setFilterModalTarget(null);
-    setModalFilterResult(null);
-    setFilterModalPrompt('');
   };
 
   // Normalize header text for intelligent column recognition
@@ -1165,6 +1048,17 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
         );
       });
 
+    const hasHeaderMatch =
+      headerCompanyIndex !== -1 ||
+      headerContactIndex !== -1 ||
+      headerCategoryIndex !== -1 ||
+      headerPhoneIndex !== -1 ||
+      headerMapsIndex !== -1 ||
+      headerWebIndex !== -1 ||
+      headerCityIndex !== -1 ||
+      headerAddressIndex !== -1 ||
+      headerRatingIndex !== -1;
+
     // If recognized header AND does not look like pure data row with phone, skip row 0; otherwise include row 0!
     const startIndex = hasRecognizedHeader && !firstRowHasPhone ? 1 : (hasRecognizedHeader ? 1 : 0);
 
@@ -1222,7 +1116,13 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
       // Infer category from company name or row content if not in header
       if (!categoryCandidate) {
         const textToTest = `${company} ${line}`.toLowerCase();
-        if (/\b(academia|academias|gym|crossfit|musculacao|centro de treinamento|box de crossfit|studio pilates|pilates)\b/i.test(textToTest)) {
+        if (/\b(estetica|esteticista|harmonizacao|beleza|depilacao|laser|spa|biomedicina|sobrancelha|micropigmentacao)\b/i.test(textToTest)) {
+          categoryCandidate = 'Clínica de Estética';
+        } else if (/\b(consultorio odontologico|consultorio odonto)\b/i.test(textToTest)) {
+          categoryCandidate = 'Consultório Odontológico';
+        } else if (/\b(dentista|odonto|odontologia|ortodontia|implantodontia|protese dentaria)\b/i.test(textToTest)) {
+          categoryCandidate = 'Dentistas';
+        } else if (/\b(academia|academias|gym|crossfit|musculacao|centro de treinamento|box de crossfit|studio pilates|pilates)\b/i.test(textToTest)) {
           categoryCandidate = 'Academia / Centro Fitness';
         } else if (/\b(loja de suplemento|suplementos|suplementacao|whey|creatina|produtos naturais|emporio natural|mundo verde)\b/i.test(textToTest)) {
           categoryCandidate = 'Loja de Suplementos';
@@ -1234,8 +1134,10 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
           categoryCandidate = 'Pet Shop / Veterinária';
         } else if (/\b(nutri|nutricionista|nutrolog|nutricao|dieta)\b/i.test(textToTest)) {
           categoryCandidate = 'Nutricionista';
-        } else if (/\b(dentista|odonto|odontologia|ortodontia)\b/i.test(textToTest)) {
-          categoryCandidate = 'Odontologia';
+        } else if (/\b(advocacia|advogado|juridico|direito)\b/i.test(textToTest)) {
+          categoryCandidate = 'Escritório de Advocacia';
+        } else if (/\b(mecanica|auto pecas|oficina|auto center|borracharia)\b/i.test(textToTest)) {
+          categoryCandidate = 'Oficina Mecânica';
         }
       }
 
@@ -1455,7 +1357,7 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
         } else {
           setParsedCandidates([]);
           setDuplicateCandidates([]);
-          setErrorMessage('Nenhum telefone válido foi detectado automaticamente nas linhas da planilha. Você pode usar a análise com IA para extrair.');
+          setErrorMessage('Nenhum telefone válido foi detectado automaticamente nas linhas da planilha. Verifique a coluna de telefones do arquivo.');
         }
       } catch (err: any) {
         // Fallback for CSV files if SheetJS throws
@@ -1540,8 +1442,8 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
     setRawParsedCandidates([]);
     setParsedCandidates([]);
     setDuplicateCandidates([]);
-    setAiExcludedLeads([]);
-    setAiFilterHistory([]);
+    setCategoryExcludedLeads([]);
+    setExcludedCategoriesList([]);
     setFilterUndoStack([]);
     setErrorMessage(null);
     setActiveCandidatesTab('unique');
@@ -1566,72 +1468,6 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
       return;
     }
     runDeduplication(candidates);
-  };
-
-  const handleRunAiAnalysis = async () => {
-    setErrorMessage(null);
-    if (!rawText.trim()) {
-      setErrorMessage(
-        inputMethod === 'file'
-          ? 'Escolha um arquivo de planilha (.xlsx, .csv) antes de analisar com IA.'
-          : 'Cole os dados da planilha antes de analisar com IA.'
-      );
-      return;
-    }
-
-    setIsAnalyzingAi(true);
-    try {
-      const res = await fetch('/api/gemini/analyze-leads', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          rawText,
-          nicheName: activeNiche.name,
-          defaultCity: activeNiche.city,
-        }),
-      });
-
-      if (!res.ok) {
-        throw new Error('Falha no processamento pelo Gemini');
-      }
-
-      const data = await res.json();
-      if (Array.isArray(data.leads) && data.leads.length > 0) {
-        const formatted: ParsedLeadCandidate[] = data.leads.map((l: any, i: number) => {
-          const comp = l.companyName || 'Empresa';
-          const ct = l.city || activeNiche.city;
-          const mapsUrl = l.googleMapsUrl || buildGoogleMapsSearchUrl(comp, ct);
-
-          return {
-            companyName: comp,
-            contactName: l.contactName || undefined,
-            phone: cleanPhoneForWhatsApp(l.phone || ''),
-            city: ct,
-            address: l.address || undefined,
-            googleRating: typeof l.googleRating === 'number' ? l.googleRating : undefined,
-            googleMapsUrl: mapsUrl,
-            websiteUrl: l.websiteUrl || undefined,
-            recommendedScript: (['script1', 'script2', 'script3'].includes(l.recommendedScript)
-              ? l.recommendedScript
-              : 'script1') as 'script1' | 'script2' | 'script3',
-            opportunityAngle: l.opportunityAngle || 'Oportunidade de site moderno e agendamento online',
-            selected: true,
-            isEditing: false,
-            originalLineNumber: i + 1,
-          };
-        });
-        runDeduplication(formatted);
-      } else {
-        const fallbackCandidates = parseRawTextHeuristic(rawText);
-        runDeduplication(fallbackCandidates);
-      }
-    } catch (err: any) {
-      console.warn('AI Analysis fallback triggered:', err);
-      const fallbackCandidates = parseRawTextHeuristic(rawText);
-      runDeduplication(fallbackCandidates);
-    } finally {
-      setIsAnalyzingAi(false);
-    }
   };
 
   const handleLoadSampleLeads = () => {
@@ -1694,13 +1530,17 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
       return;
     }
 
+    const targetNicheTitle = newNicheName.trim() || uploadedFile?.name?.replace(/\.[^/.]+$/, '') || activeNiche.name || 'Nova Campanha';
+    const targetSegment = newNicheSegment.trim() || targetNicheTitle;
+    const targetCity = newNicheCity.trim() || activeNiche.city;
+
     const payload: Omit<Lead, 'id' | 'nicheId' | 'createdAt' | 'notes'>[] = selected.map((c) => ({
       companyName: c.companyName,
       contactName: c.contactName,
       phone: c.phone,
       displayPhone: formatDisplayPhone(c.phone),
-      category: c.category,
-      city: c.city || activeNiche.city,
+      category: c.category || targetSegment,
+      city: c.city || targetCity,
       address: c.address,
       googleRating: c.googleRating,
       googleMapsUrl: c.googleMapsUrl,
@@ -1713,38 +1553,28 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
     const sheetMeta = {
       name:
         uploadedFile?.name ||
-        (destinationMode === 'current'
-          ? `Planilha Importada - ${activeNiche.name}`
-          : `Planilha - ${newNicheName.trim()}`),
+        `Planilha - ${targetNicheTitle}`,
       format: uploadedFile?.format || (inputMethod === 'file' ? 'Arquivo' : 'Texto Copiado'),
       size: uploadedFile?.size,
     };
 
-    if (destinationMode === 'current') {
-      onImportLeadsToNiche(activeNiche.id, payload, sheetMeta);
-    } else {
-      if (!newNicheName.trim()) {
-        setErrorMessage('Informe um nome para a nova campanha.');
-        return;
-      }
-      onCreateNicheWithLeads(
-        {
-          name: newNicheName.trim(),
-          segment: newNicheSegment.trim() || newNicheName.trim(),
-          city: newNicheCity.trim() || activeNiche.city,
-          emoji: newNicheEmoji || '💼',
-        },
-        payload,
-        sheetMeta
-      );
-    }
+    onCreateNicheWithLeads(
+      {
+        name: targetNicheTitle,
+        segment: targetSegment,
+        city: targetCity,
+        emoji: newNicheEmoji || '💆‍♀️',
+      },
+      payload,
+      sheetMeta
+    );
 
     setSuccessCount(payload.length);
     setRawParsedCandidates([]);
     setParsedCandidates([]);
     setDuplicateCandidates([]);
-    setAiExcludedLeads([]);
-    setAiFilterHistory([]);
+    setCategoryExcludedLeads([]);
+    setExcludedCategoriesList([]);
     setFilterUndoStack([]);
     setRawText('');
     setUploadedFile(null);
@@ -1777,7 +1607,7 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
     );
   });
 
-  const filteredAiExcluded = aiExcludedLeads.filter((item) => {
+  const filteredCategoryExcluded = categoryExcludedLeads.filter((item) => {
     if (!duplicateSearch.trim()) return true;
     const q = duplicateSearch.toLowerCase();
     return (
@@ -1786,7 +1616,8 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
       (item.candidate.category && item.candidate.category.toLowerCase().includes(q)) ||
       item.candidate.phone.includes(q) ||
       item.reason.toLowerCase().includes(q) ||
-      item.query.toLowerCase().includes(q)
+      item.query.toLowerCase().includes(q) ||
+      item.matchedCategory.toLowerCase().includes(q)
     );
   });
 
@@ -2076,16 +1907,6 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 �
                 <FileSpreadsheet className="w-3.5 h-3.5 text-slate-600" />
                 <span>Atualizar Prévia dos Dados</span>
               </button>
-
-              <button
-                type="button"
-                onClick={handleRunAiAnalysis}
-                disabled={isAnalyzingAi}
-                className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 active:bg-purple-800 rounded-lg shadow-2xs transition-colors cursor-pointer disabled:opacity-50"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>{isAnalyzingAi ? 'Analisando com IA (Gemini)...' : 'Enriquecer com IA (Gemini)'}</span>
-              </button>
             </div>
 
             {parsedCandidates.length > 0 && (
@@ -2097,123 +1918,109 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 �
           </div>
         </div>
 
-        {/* Right Column: Destination Config (Option A vs Option B) */}
-        <div className="lg:col-span-4 bg-white rounded-xl border border-slate-200 p-5 shadow-2xs space-y-4">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-700 block border-b border-slate-100 pb-2">
-            Destino dos Leads
-          </span>
-
-          <div className="space-y-2">
-            {/* Option A */}
-            <label
-              className={`block p-3 rounded-xl border cursor-pointer transition-all ${
-                destinationMode === 'current'
-                  ? 'border-blue-500 bg-blue-50/50 ring-1 ring-blue-300'
-                  : 'border-slate-200 hover:bg-slate-50'
-              }`}
-            >
-              <div className="flex items-start gap-2.5">
-                <input
-                  type="radio"
-                  name="destination"
-                  checked={destinationMode === 'current'}
-                  onChange={() => setDestinationMode('current')}
-                  className="mt-0.5 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                />
-                <div>
-                  <div className="text-xs font-bold text-slate-900">
-                    Opção A: Importar para o Nicho Atual
-                  </div>
-                  <div className="text-[11px] text-slate-600 mt-0.5">
-                    {activeNiche.emoji} {activeNiche.name} ({activeNiche.city})
-                  </div>
-                </div>
-              </div>
-            </label>
-
-            {/* Option B */}
-            <label
-              className={`block p-3 rounded-xl border cursor-pointer transition-all ${
-                destinationMode === 'new'
-                  ? 'border-blue-500 bg-blue-50/50 ring-1 ring-blue-300'
-                  : 'border-slate-200 hover:bg-slate-50'
-              }`}
-            >
-              <div className="flex items-start gap-2.5">
-                <input
-                  type="radio"
-                  name="destination"
-                  checked={destinationMode === 'new'}
-                  onChange={() => setDestinationMode('new')}
-                  className="mt-0.5 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                />
-                <div>
-                  <div className="text-xs font-bold text-slate-900">
-                    Opção B: Criar Novo Nicho Automático
-                  </div>
-                  <div className="text-[11px] text-slate-600 mt-0.5">
-                    Cria uma nova campanha isolada para esta planilha
-                  </div>
-                </div>
-              </div>
-            </label>
+        {/* Right Column: Destination Config (Nicho da Planilha) */}
+        <div className="lg:col-span-4 bg-white rounded-xl border border-slate-200 p-5 shadow-2xs space-y-3">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+              <Building2 className="w-4 h-4 text-blue-600" />
+              Destino dos Leads
+            </span>
+            <span className="text-[10px] bg-blue-100 text-blue-700 font-bold px-2 py-0.5 rounded-full">
+              Nicho da Planilha
+            </span>
           </div>
 
-          {/* New Niche Inputs (if Option B selected) */}
-          {destinationMode === 'new' && (
-            <div className="space-y-3 pt-2 border-t border-slate-100 animate-in fade-in duration-150">
-              <div className="grid grid-cols-4 gap-2">
-                <div className="col-span-1">
-                  <label className="block text-[11px] font-medium text-slate-700 mb-1">Emoji</label>
-                  <input
-                    type="text"
-                    value={newNicheEmoji}
-                    onChange={(e) => setNewNicheEmoji(e.target.value)}
-                    maxLength={2}
-                    className="w-full text-center text-sm px-2 py-1.5 border border-slate-300 rounded-lg text-slate-900"
-                  />
-                </div>
-                <div className="col-span-3">
-                  <label className="block text-[11px] font-medium text-slate-700 mb-1">
-                    Nome da Campanha *
-                  </label>
-                  <input
-                    type="text"
-                    value={newNicheName}
-                    onChange={(e) => setNewNicheName(e.target.value)}
-                    placeholder="Ex: Advogados - SP"
-                    className="w-full text-xs px-2.5 py-1.5 border border-slate-300 rounded-lg text-slate-900"
-                  />
-                </div>
-              </div>
+          <p className="text-[11px] text-slate-600">
+            Defina o nome da campanha onde os contatos desta planilha serão importados:
+          </p>
 
-              <div>
-                <label className="block text-[11px] font-medium text-slate-700 mb-1">
-                  Segmento de Mercado
-                </label>
+          <div className="space-y-3 pt-1">
+            <div className="grid grid-cols-4 gap-2">
+              <div className="col-span-1">
+                <label className="block text-[11px] font-semibold text-slate-700 mb-1">Ícone</label>
                 <input
                   type="text"
-                  value={newNicheSegment}
-                  onChange={(e) => setNewNicheSegment(e.target.value)}
-                  placeholder="Ex: Escritórios de Advocacia"
-                  className="w-full text-xs px-2.5 py-1.5 border border-slate-300 rounded-lg text-slate-900"
+                  value={newNicheEmoji}
+                  onChange={(e) => setNewNicheEmoji(e.target.value)}
+                  maxLength={2}
+                  className="w-full text-center text-sm px-2 py-1.5 border border-slate-300 rounded-lg text-slate-900 font-bold focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </div>
-
-              <div>
-                <label className="block text-[11px] font-medium text-slate-700 mb-1">
-                  Cidade Principal
+              <div className="col-span-3">
+                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                  Nome do Nicho / Campanha *
                 </label>
                 <input
                   type="text"
-                  value={newNicheCity}
-                  onChange={(e) => setNewNicheCity(e.target.value)}
-                  placeholder="Ex: São Paulo - SP"
-                  className="w-full text-xs px-2.5 py-1.5 border border-slate-300 rounded-lg text-slate-900"
+                  value={newNicheName}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setNewNicheName(val);
+                    if (!newNicheSegment && val) {
+                      const seg = val.split(/ em | no | na | - /i)[0].trim();
+                      if (seg) setNewNicheSegment(seg);
+                    }
+                  }}
+                  onBlur={() => {
+                    if (rawParsedCandidates.length > 0 && dedupCheckCategory) {
+                      runDeduplication(
+                        rawParsedCandidates,
+                        dedupCheckPhone,
+                        dedupCheckName,
+                        dedupCheckCrm,
+                        dedupAutoExclude,
+                        dedupCheckCategory
+                      );
+                    }
+                  }}
+                  placeholder="Ex: Clínicas de Estética em Arapiraca"
+                  className="w-full text-xs px-2.5 py-1.5 border border-slate-300 rounded-lg text-slate-900 font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </div>
             </div>
-          )}
+
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                Segmento / Especialidade
+              </label>
+              <input
+                type="text"
+                value={newNicheSegment}
+                onChange={(e) => setNewNicheSegment(e.target.value)}
+                onBlur={() => {
+                  if (rawParsedCandidates.length > 0 && dedupCheckCategory) {
+                    runDeduplication(
+                      rawParsedCandidates,
+                      dedupCheckPhone,
+                      dedupCheckName,
+                      dedupCheckCrm,
+                      dedupAutoExclude,
+                      dedupCheckCategory
+                    );
+                  }
+                }}
+                placeholder="Ex: Clínicas de Estética"
+                className="w-full text-xs px-2.5 py-1.5 border border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                Cidade Principal
+              </label>
+              <input
+                type="text"
+                value={newNicheCity}
+                onChange={(e) => setNewNicheCity(e.target.value)}
+                placeholder="Ex: Arapiraca - AL"
+                className="w-full text-xs px-2.5 py-1.5 border border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              />
+            </div>
+
+            <div className="text-[11px] text-blue-900 bg-blue-50/80 p-2.5 rounded-lg border border-blue-200/70">
+              💡 Os contatos aprovados serão salvos diretamente na campanha <strong>"{newNicheName.trim() || 'Nova Campanha'}"</strong>.
+            </div>
+          </div>
         </div>
       </div>
 
@@ -2250,13 +2057,18 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 �
                     )}
                   </div>
                   <p className="text-[11px] text-slate-600 mt-1">
-                    {categoryExclusions.length > 0 || duplicatesOnly.length > 0 ? (
+                    {categoryExclusions.length > 0 || duplicatesOnly.length > 0 || categoryExcludedLeads.length > 0 ? (
                       <span>
                         Analisamos {rawParsedCandidates.length} registros para a campanha{' '}
-                        <strong>{destinationMode === 'current' ? activeNiche.name : newNicheName || activeNiche.name}</strong>.
+                        <strong>{newNicheName.trim() || activeNiche.name}</strong>.
+                        {categoryExcludedLeads.length > 0 && (
+                          <span className="text-rose-700 font-medium">
+                            {' '}{categoryExcludedLeads.length} contatos de nichos/categorias excluídas foram removidos.{' '}
+                          </span>
+                        )}
                         {categoryExclusions.length > 0 && (
                           <span className="text-rose-700 font-medium">
-                            {' '}{categoryExclusions.length} estabelecimentos com categorias fora do nicho (como Academia, Loja de Suplementos) foram excluídos automaticamente.{' '}
+                            {' '}{categoryExclusions.length} contatos fora do nicho excluídos.{' '}
                           </span>
                         )}
                         {duplicatesOnly.length > 0 && (
@@ -2274,8 +2086,27 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 �
               </div>
 
               {/* Action buttons in header */}
-              {(duplicatesOnly.length > 0 || categoryExclusions.length > 0) && (
+              {(duplicatesOnly.length > 0 || categoryExclusions.length > 0 || categoryExcludedLeads.length > 0) && (
                 <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                  {categoryExcludedLeads.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setActiveCandidatesTab(activeCandidatesTab === 'category_excluded' ? 'unique' : 'category_excluded')}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border transition-all cursor-pointer shadow-2xs ${
+                        activeCandidatesTab === 'category_excluded'
+                          ? 'bg-rose-600 text-white border-rose-700 hover:bg-rose-700'
+                          : 'bg-white text-rose-800 border-rose-300 hover:bg-rose-50'
+                      }`}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>
+                        {activeCandidatesTab === 'category_excluded'
+                          ? 'Voltar aos Mantidos'
+                          : `Ver ${categoryExcludedLeads.length} Excluídos por Categoria`}
+                      </span>
+                    </button>
+                  )}
+
                   {duplicatesOnly.length > 0 && (
                     <button
                       type="button"
@@ -2289,27 +2120,8 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 �
                       <CopyX className="w-3.5 h-3.5" />
                       <span>
                         {activeCandidatesTab === 'duplicates'
-                          ? 'Voltar aos Únicos'
+                          ? 'Voltar aos Mantidos'
                           : `Ver ${duplicatesOnly.length} Repetidos`}
-                      </span>
-                    </button>
-                  )}
-
-                  {categoryExclusions.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setActiveCandidatesTab(activeCandidatesTab === 'incompatible_category' ? 'unique' : 'incompatible_category')}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border transition-all cursor-pointer shadow-2xs ${
-                        activeCandidatesTab === 'incompatible_category'
-                          ? 'bg-rose-600 text-white border-rose-700 hover:bg-rose-700'
-                          : 'bg-white text-rose-800 border-rose-300 hover:bg-rose-50'
-                      }`}
-                    >
-                      <Ban className="w-3.5 h-3.5" />
-                      <span>
-                        {activeCandidatesTab === 'incompatible_category'
-                          ? 'Voltar aos Únicos'
-                          : `Ver ${categoryExclusions.length} Fora do Nicho`}
                       </span>
                     </button>
                   )}
@@ -2354,21 +2166,9 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 �
                   />
                   <span className="text-[11px] font-bold text-rose-900 flex items-center gap-1">
                     <Ban className="w-3 h-3 text-rose-600" />
-                    Excluir Categorias Fora do Nicho ({activeNiche.name.split('&')[0].trim()})
+                    Excluir Categorias Fora do Nicho ({newNicheName.trim() || activeNiche.name})
                   </span>
                 </label>
-
-                {existingLeads && existingLeads.length > 0 && destinationMode === 'current' && (
-                  <label className="inline-flex items-center gap-1.5 cursor-pointer text-slate-700 hover:text-slate-900 select-none">
-                    <input
-                      type="checkbox"
-                      checked={dedupCheckCrm}
-                      onChange={(e) => handleToggleDedupCrm(e.target.checked)}
-                      className="rounded text-blue-600 focus:ring-blue-500 w-3.5 h-3.5 cursor-pointer"
-                    />
-                    <span className="text-[11px] font-medium">Checar com CRM Atual ({activeNiche.name})</span>
-                  </label>
-                )}
 
                 <label className="inline-flex items-center gap-1.5 cursor-pointer text-slate-700 hover:text-slate-900 select-none">
                   <input
@@ -2389,164 +2189,211 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 �
                   title="Restaurar todos os contatos excluídos para a lista de importação"
                 >
                   <Undo2 className="w-3 h-3" />
-                  <span>Restaurar todos os excluídos</span>
+                  <span>Restaurar todos os repetidos</span>
                 </button>
               )}
             </div>
           </div>
 
-          {/* Assistente de IA: Filtragem e Higienização de Serviços da Planilha */}
-          <div className="bg-gradient-to-r from-purple-50/80 via-indigo-50/60 to-blue-50/80 border border-purple-200/90 rounded-xl p-4 sm:p-5 shadow-2xs space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-purple-100/80 pb-3">
+          {/* Gerenciador de Filtro & Exclusão de Categorias da Planilha (100% Direto e Visual) */}
+          <div className="bg-gradient-to-r from-slate-50 via-blue-50/40 to-indigo-50/50 border border-slate-200 rounded-xl p-4 sm:p-5 shadow-2xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/80 pb-3">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-purple-600 text-white flex items-center justify-center shadow-xs shrink-0">
-                  <Sparkles className="w-5 h-5 text-purple-100" />
+                <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs shrink-0 font-bold">
+                  <Filter className="w-5 h-5 text-white" />
                 </div>
                 <div>
                   <h3 className="text-xs font-bold text-slate-900 flex items-center gap-2">
-                    <span>Assistente de IA: Filtrar e Higienizar Serviços da Planilha</span>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200">
-                      Inteligência Ativa
+                    <span>Filtro de Categorias & Nichos da Planilha</span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-200">
+                      Filtro Ativo
                     </span>
                   </h3>
                   <p className="text-[11px] text-slate-600 mt-0.5">
-                    Diga à IA para retirar contatos indesejados pelos serviços ou categorias (ex: <em>"retirar todos os que estão na categoria de oficina mecânica"</em>). A IA deixará apenas o que você não alterou!
+                    Selecione ou digite categorias indesejadas para remover da importação com 1 clique (ex: excluir <em>"Dentistas"</em> ou <em>"Consultório Odontológico"</em> e manter apenas <em>"{newNicheName.trim() || 'o nicho alvo'}"</em>).
                   </p>
                 </div>
               </div>
 
-              {filterUndoStack.length > 0 && (
+              <div className="flex items-center gap-2 shrink-0">
+                {filterUndoStack.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleUndoLastExclusion}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg shadow-2xs transition-colors cursor-pointer"
+                  >
+                    <Undo2 className="w-3.5 h-3.5 text-slate-600" />
+                    <span>Desfazer Última Exclusão</span>
+                  </button>
+                )}
+
                 <button
                   type="button"
-                  onClick={handleUndoLastAiFilter}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-purple-700 bg-white hover:bg-purple-100/70 border border-purple-300 rounded-lg shadow-2xs transition-colors cursor-pointer self-start sm:self-auto"
+                  onClick={handleExcludeAllOutOfNiche}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg shadow-2xs transition-colors cursor-pointer"
+                  title="Exclui automaticamente tudo que não combina com o nicho definido"
                 >
-                  <Undo2 className="w-3.5 h-3.5" />
-                  <span>Desfazer Última Filtragem</span>
+                  <Ban className="w-3.5 h-3.5" />
+                  <span>Excluir Fora do Nicho ({newNicheName.trim() || 'Alvo'})</span>
                 </button>
-              )}
+              </div>
             </div>
 
-            {/* Prompt Input Form */}
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleRunAiFilterLeads();
-              }}
-              className="flex items-center gap-2"
-            >
+            {/* Quick Action Input & Dropdown Selector */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              {/* Dropdown with all detected categories */}
+              <div className="sm:w-64 shrink-0">
+                <select
+                  value={categorySearchOrSelect}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setCategorySearchOrSelect(val);
+                    if (val) handleExcludeCategory(val);
+                  }}
+                  className="w-full text-xs px-3 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium shadow-2xs cursor-pointer"
+                >
+                  <option value="">▼ Selecionar nicho para excluir...</option>
+                  {detectedCategories.map((c) => (
+                    <option key={c.name} value={c.name}>
+                      Excluir: {c.name} ({c.count} contatos)
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Free-text input */}
               <div className="relative flex-1">
-                <Bot className="w-4 h-4 text-purple-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="text"
-                  value={aiFilterPrompt}
-                  onChange={(e) => setAiFilterPrompt(e.target.value)}
-                  placeholder="Diga à IA o que retirar... Ex: 'retirar todos os que estão na categoria de oficina mecânica' ou 'remover autopeças e borracharias'"
-                  className="w-full text-xs pl-9 pr-3 py-2.5 bg-white border border-purple-300/80 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs font-medium"
+                  value={categorySearchOrSelect}
+                  onChange={(e) => setCategorySearchOrSelect(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleExcludeCategory(categorySearchOrSelect);
+                    }
+                  }}
+                  placeholder="Ou digite o nome do nicho/categoria que quer excluir... Ex: Dentistas, Odontologia, Oficina"
+                  className="w-full text-xs pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs font-medium"
                 />
               </div>
 
               <button
-                type="submit"
-                disabled={isAiFiltering || !aiFilterPrompt.trim() || parsedCandidates.length === 0}
-                className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 active:bg-purple-800 disabled:opacity-50 rounded-xl shadow-2xs transition-all cursor-pointer shrink-0"
-              >
-                {isAiFiltering ? (
-                  <>
-                    <RotateCcw className="w-3.5 h-3.5 animate-spin" />
-                    <span>Filtrando...</span>
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>Filtrar com IA</span>
-                  </>
-                )}
-              </button>
-            </form>
-
-            {/* Quick Suggestions Chips */}
-            <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
-              <span className="text-[10px] font-semibold uppercase text-slate-400 mr-1">Sugestões rápidas:</span>
-              <button
                 type="button"
-                onClick={() => handleRunAiFilterLeads("retirar todos os que estão na categoria de oficina mecânica")}
-                disabled={isAiFiltering || parsedCandidates.length === 0}
-                className="text-[11px] px-2.5 py-1 bg-white hover:bg-purple-100/70 border border-purple-200 text-purple-900 font-medium rounded-lg shadow-2xs transition-colors cursor-pointer"
+                onClick={() => handleExcludeCategory(categorySearchOrSelect)}
+                disabled={!categorySearchOrSelect.trim()}
+                className="flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 active:bg-rose-800 disabled:opacity-50 rounded-xl shadow-2xs transition-all cursor-pointer shrink-0"
               >
-                ✂️ "Retirar todos da categoria de oficina mecânica"
-              </button>
-              <button
-                type="button"
-                onClick={() => handleRunAiFilterLeads("remover lojas de autopeças, borracharias e auto elétricas")}
-                disabled={isAiFiltering || parsedCandidates.length === 0}
-                className="text-[11px] px-2.5 py-1 bg-white hover:bg-purple-100/70 border border-purple-200 text-purple-900 font-medium rounded-lg shadow-2xs transition-colors cursor-pointer"
-              >
-                🚫 "Remover autopeças e borracharias"
-              </button>
-              <button
-                type="button"
-                onClick={() => handleRunAiFilterLeads("remover estabelecimentos que não prestam serviços do nicho de " + activeNiche.name)}
-                disabled={isAiFiltering || parsedCandidates.length === 0}
-                className="text-[11px] px-2.5 py-1 bg-white hover:bg-purple-100/70 border border-purple-200 text-purple-900 font-medium rounded-lg shadow-2xs transition-colors cursor-pointer"
-              >
-                🎯 "Remover quem for fora do nicho {activeNiche.name.split('&')[0].trim()}"
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Excluir da Planilha</span>
               </button>
             </div>
 
-            {/* Latest AI Conversation Balloon */}
-            {aiFilterHistory.length > 0 && (
-              <div className="mt-2 p-3.5 bg-white border border-purple-200/90 rounded-xl shadow-2xs space-y-2 animate-in fade-in duration-150">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-2.5">
-                    <div className="w-7 h-7 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center shrink-0 mt-0.5">
-                      <Bot className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-purple-950">
-                          Resposta do Assistente ({aiFilterHistory[0].timestamp})
+            {/* Visual Category Badges Found in Spreadsheet */}
+            {detectedCategories.length > 0 && (
+              <div className="space-y-2 pt-1">
+                <div className="flex items-center justify-between text-[11px] font-semibold text-slate-600">
+                  <span>Nichos e Categorias Detectados na Planilha ({detectedCategories.length}):</span>
+                  <span className="text-[10px] text-slate-400">Clique no botão [Excluir] para retirar todos os contatos do nicho</span>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {detectedCategories.map((c) => {
+                    const isTargetMatch =
+                      newNicheName &&
+                      c.name.toLowerCase().includes(newNicheSegment.toLowerCase() || newNicheName.toLowerCase());
+
+                    return (
+                      <div
+                        key={c.name}
+                        className={`inline-flex items-center gap-2 pl-3 pr-1.5 py-1.5 rounded-xl border text-xs transition-all shadow-2xs ${
+                          isTargetMatch
+                            ? 'bg-emerald-50/80 border-emerald-300 text-emerald-950 font-bold'
+                            : 'bg-white border-slate-200 text-slate-800'
+                        }`}
+                      >
+                        <Tag className={`w-3.5 h-3.5 ${isTargetMatch ? 'text-emerald-600' : 'text-slate-400'}`} />
+                        <span>
+                          <strong>{c.name}</strong> ({c.count})
                         </span>
-                        <span className="text-[10px] px-2 py-0.2 rounded-full font-bold bg-rose-100 text-rose-800 border border-rose-200">
-                          -{aiFilterHistory[0].removedCount} contatos retirados
-                        </span>
-                        <span className="text-[10px] px-2 py-0.2 rounded-full font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                          {parsedCandidates.length} contatos mantidos
-                        </span>
+
+                        {isTargetMatch && (
+                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 font-bold">
+                            Nicho Alvo
+                          </span>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => handleExcludeCategory(c.name)}
+                          className="px-2 py-0.5 text-[11px] font-bold text-rose-700 hover:text-white hover:bg-rose-600 rounded-lg transition-colors cursor-pointer ml-1 flex items-center gap-1 border border-rose-200"
+                          title={`Excluir todos os ${c.count} contatos de "${c.name}"`}
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          Excluir
+                        </button>
                       </div>
-                      <p className="text-xs text-slate-700 mt-1 leading-relaxed">
-                        {aiFilterHistory[0].explanation}
-                      </p>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
-                      {aiFilterHistory[0].removedCategories.length > 0 && (
-                        <div className="flex items-center gap-1.5 flex-wrap mt-2">
-                          <span className="text-[10px] font-semibold text-slate-400">Categorias removidas:</span>
-                          {aiFilterHistory[0].removedCategories.map((cat, cIdx) => (
-                            <span
-                              key={cIdx}
-                              className="text-[10px] px-2 py-0.5 rounded font-bold bg-rose-50 text-rose-700 border border-rose-200"
-                            >
-                              ✕ {cat}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
+            {/* Excluded Categories Summary */}
+            {categoryExcludedLeads.length > 0 && (
+              <div className="p-3 bg-rose-50/80 border border-rose-200/90 rounded-xl space-y-2 animate-in fade-in duration-150">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <span className="text-xs font-bold text-rose-950 flex items-center gap-1.5">
+                    <Ban className="w-3.5 h-3.5 text-rose-600" />
+                    Categorias Excluídas da Importação ({categoryExcludedLeads.length} contatos retirados):
+                  </span>
                   <button
                     type="button"
-                    onClick={() => setActiveCandidatesTab('ai_excluded')}
-                    className="text-xs font-semibold text-purple-700 hover:text-purple-900 bg-purple-50 hover:bg-purple-100 px-2.5 py-1.5 rounded-lg border border-purple-200 transition-colors shrink-0 cursor-pointer"
+                    onClick={handleRestoreAllExcludedCategories}
+                    className="text-xs font-bold text-rose-800 hover:text-rose-950 hover:underline cursor-pointer flex items-center gap-1"
                   >
-                    Ver Excluídos ({aiExcludedLeads.length})
+                    <Undo2 className="w-3 h-3" />
+                    Restaurar Todos os {categoryExcludedLeads.length} Contatos
                   </button>
                 </div>
+
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {excludedCategoriesSummary.map((item) => (
+                    <div
+                      key={item.name}
+                      className="inline-flex items-center gap-2 px-2.5 py-1 bg-white border border-rose-300 rounded-lg text-xs font-semibold text-rose-900 shadow-2xs"
+                    >
+                      <span>✕ {item.name} ({item.count})</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRestoreCategory(item.name)}
+                        className="text-[11px] text-blue-600 hover:text-blue-800 hover:underline font-bold cursor-pointer"
+                      >
+                        Restaurar
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Notification / Feedback Banner */}
+            {categoryFeedbackMessage && (
+              <div className="text-xs font-medium text-slate-800 bg-white/90 border border-slate-200 p-2.5 rounded-lg flex items-center justify-between gap-2 animate-in fade-in">
+                <span>{categoryFeedbackMessage}</span>
+                <button
+                  type="button"
+                  onClick={() => setCategoryFeedbackMessage(null)}
+                  className="text-slate-400 hover:text-slate-600 cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
               </div>
             )}
           </div>
 
-          {/* Navigation Tabs (Contatos no Nicho vs Excluídos pela IA vs Repetidos vs Fora do Nicho) */}
+          {/* Navigation Tabs (Contatos no Nicho vs Excluídos por Categoria vs Repetidos vs Fora do Nicho) */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
             <div className="flex items-center gap-2 flex-wrap">
               <button
@@ -2566,18 +2413,18 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 �
                 </span>
               </button>
 
-              {aiExcludedLeads.length > 0 && (
+              {categoryExcludedLeads.length > 0 && (
                 <button
                   type="button"
-                  onClick={() => setActiveCandidatesTab('ai_excluded')}
+                  onClick={() => setActiveCandidatesTab('category_excluded')}
                   className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                    activeCandidatesTab === 'ai_excluded'
-                      ? 'bg-purple-600 text-white shadow-2xs'
-                      : 'bg-purple-50 text-purple-800 border border-purple-200 hover:bg-purple-100'
+                    activeCandidatesTab === 'category_excluded'
+                      ? 'bg-rose-600 text-white shadow-2xs'
+                      : 'bg-rose-50 text-rose-800 border border-rose-200 hover:bg-rose-100'
                   }`}
                 >
-                  <Bot className="w-3.5 h-3.5" />
-                  <span>🤖 Excluídos pela IA ({aiExcludedLeads.length})</span>
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>🚫 Excluídos por Categoria ({categoryExcludedLeads.length})</span>
                 </button>
               )}
 
@@ -2607,7 +2454,7 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 �
                   }`}
                 >
                   <Ban className="w-3.5 h-3.5" />
-                  <span>🚫 Fora do Nicho Excluídos ({categoryExclusions.length})</span>
+                  <span>⚠️ Fora do Nicho Excluídos ({categoryExclusions.length})</span>
                 </button>
               )}
             </div>
@@ -2728,10 +2575,22 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 �
                             className="w-full text-xs px-2 py-1 border border-slate-300 rounded text-slate-800"
                           />
                         ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/60">
-                            <Tag className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
-                            <span className="truncate max-w-[120px]">{candidate.category || 'Nutricionista'}</span>
-                          </span>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-50 text-blue-800 border border-blue-200/60">
+                              <Tag className="w-2.5 h-2.5 text-blue-600 shrink-0" />
+                              <span className="truncate max-w-[130px]">{candidate.category || newNicheSegment || 'Geral'}</span>
+                            </span>
+                            {candidate.category && (
+                              <button
+                                type="button"
+                                onClick={() => handleExcludeCategory(candidate.category!)}
+                                className="text-[10px] text-rose-600 hover:text-rose-800 hover:bg-rose-50 px-1.5 py-0.5 rounded transition-colors cursor-pointer border border-rose-200 font-medium shrink-0"
+                                title={`Excluir todos os contatos da categoria "${candidate.category}"`}
+                              >
+                                ✕ Excluir
+                              </button>
+                            )}
+                          </div>
                         )}
                       </td>
 
@@ -3121,36 +2980,36 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 �
                 )}
               </div>
             ) : (
-              /* Excluídos pela IA Table */
+              /* Excluídos por Categoria / Nicho Table */
               <div>
-                {filteredAiExcluded.length === 0 ? (
-                  <div className="p-8 text-center bg-purple-50/40 rounded-lg border border-dashed border-purple-200 space-y-2">
-                    <CheckCircle2 className="w-8 h-8 text-purple-500 mx-auto" />
+                {filteredCategoryExcluded.length === 0 ? (
+                  <div className="p-8 text-center bg-rose-50/40 rounded-lg border border-dashed border-rose-200 space-y-2">
+                    <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto" />
                     <p className="text-xs font-semibold text-slate-800">
-                      {duplicateSearch ? 'Nenhum estabelecimento corresponde à sua busca.' : 'Nenhum contato excluído pela IA!'}
+                      {duplicateSearch ? 'Nenhum estabelecimento corresponde à sua busca.' : 'Nenhum contato excluído por categoria!'}
                     </p>
                     <p className="text-[11px] text-slate-500 max-w-sm mx-auto">
-                      Use o assistente acima para pedir à IA a retirada de contatos por serviço ou categoria (ex: "retirar oficina mecânica").
+                      Todos os contatos da planilha pertencem ao nicho mantido.
                     </p>
                   </div>
                 ) : (
                   <table className="w-full text-left text-xs border-collapse">
-                    <thead className="sticky top-0 bg-purple-100/80 text-purple-950 border-b border-purple-200 z-10">
+                    <thead className="sticky top-0 bg-rose-100/80 text-rose-950 border-b border-rose-200 z-10">
                       <tr>
                         <th className="py-2.5 px-3 w-16">Linha</th>
                         <th className="py-2.5 px-3 min-w-[200px]">Empresa / Contato</th>
-                        <th className="py-2.5 px-3 min-w-[160px]">Categoria Identificada</th>
+                        <th className="py-2.5 px-3 min-w-[160px]">Categoria Excluída</th>
                         <th className="py-2.5 px-3 min-w-[150px]">WhatsApp</th>
-                        <th className="py-2.5 px-3 min-w-[280px]">Motivo da Exclusão pela IA</th>
+                        <th className="py-2.5 px-3 min-w-[280px]">Motivo da Exclusão</th>
                         <th className="py-2.5 px-3 min-w-[130px]">Status</th>
                         <th className="py-2.5 px-3 min-w-[140px] text-right">Ação</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-purple-100/70 bg-purple-50/15">
-                      {filteredAiExcluded.map((exc) => (
-                        <tr key={exc.id} className="hover:bg-purple-50/40 transition-colors">
+                    <tbody className="divide-y divide-rose-100/70 bg-rose-50/15">
+                      {filteredCategoryExcluded.map((exc) => (
+                        <tr key={exc.id} className="hover:bg-rose-50/40 transition-colors">
                           <td className="py-2.5 px-3">
-                            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-purple-100 text-purple-800 border border-purple-200">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-rose-100 text-rose-800 border border-rose-200">
                               Linha {exc.originalIndex}
                             </span>
                           </td>
@@ -3160,14 +3019,14 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 �
                             </div>
                             {exc.candidate.contactName && (
                               <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
-                                <User className="w-3 h-3 text-purple-600" />
+                                <User className="w-3 h-3 text-rose-600" />
                                 <span>{exc.candidate.contactName}</span>
                               </div>
                             )}
                           </td>
                           <td className="py-2.5 px-3">
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-purple-100 text-purple-800 border border-purple-300">
-                              <Bot className="w-3 h-3 text-purple-600" />
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-rose-100 text-rose-800 border border-rose-300">
+                              <Tag className="w-3 h-3 text-rose-600" />
                               <span>{exc.candidate.category || exc.matchedCategory}</span>
                             </span>
                           </td>
@@ -3178,26 +3037,28 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 �
                           </td>
                           <td className="py-2.5 px-3">
                             <div className="space-y-1">
-                              <p className="text-[11px] text-purple-950 font-medium leading-tight">
+                              <p className="text-[11px] text-rose-950 font-medium leading-tight">
                                 {exc.reason}
                               </p>
-                              <span className="text-[10px] text-purple-600">
-                                Pedido pelo usuário: "{exc.query}"
-                              </span>
+                              {exc.query && (
+                                <span className="text-[10px] text-rose-600">
+                                  Filtro aplicado: "{exc.query}"
+                                </span>
+                              )}
                             </div>
                           </td>
                           <td className="py-2.5 px-3">
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-300">
-                              <Bot className="w-3 h-3" />
-                              Retirado pela IA
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300">
+                              <Ban className="w-3 h-3" />
+                              Excluído do Nicho
                             </span>
                           </td>
                           <td className="py-2.5 px-3 text-right">
                             <button
                               type="button"
-                              onClick={() => handleRestoreAiExcludedLead(exc)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-purple-700 bg-white hover:bg-purple-50 border border-purple-300 rounded-lg shadow-2xs transition-colors cursor-pointer"
-                              title="Restaurar este contato de volta para a lista mantida"
+                              onClick={() => handleRestoreSingleCategoryExcludedLead(exc)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-rose-700 bg-white hover:bg-rose-50 border border-rose-300 rounded-lg shadow-2xs transition-colors cursor-pointer"
+                              title="Restaurar este contato de volta para a lista de contatos mantidos"
                             >
                               <Undo2 className="w-3 h-3" />
                               <span>Restaurar</span>
@@ -3221,11 +3082,11 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 �
                   <strong className="text-slate-900 font-bold">
                     {parsedCandidates.filter((c) => c.selected).length} leads mantidos no nicho
                   </strong>{' '}
-                  {(duplicatesOnly.length > 0 || categoryExclusions.length > 0 || aiExcludedLeads.length > 0) && (
+                  {(duplicatesOnly.length > 0 || categoryExclusions.length > 0 || categoryExcludedLeads.length > 0) && (
                     <span className="text-slate-500 font-medium">
                       (
-                      {aiExcludedLeads.length > 0 ? `${aiExcludedLeads.length} retirados pela IA` : ''}
-                      {aiExcludedLeads.length > 0 && (duplicatesOnly.length > 0 || categoryExclusions.length > 0) ? ', ' : ''}
+                      {categoryExcludedLeads.length > 0 ? `${categoryExcludedLeads.length} excluídos por categoria` : ''}
+                      {categoryExcludedLeads.length > 0 && (duplicatesOnly.length > 0 || categoryExclusions.length > 0) ? ', ' : ''}
                       {duplicatesOnly.length > 0 ? `${duplicatesOnly.length} repetidos` : ''}
                       {duplicatesOnly.length > 0 && categoryExclusions.length > 0 ? ' e ' : ''}
                       {categoryExclusions.length > 0 ? `${categoryExclusions.length} fora do nicho excluídos automaticamente` : ''}
@@ -3241,26 +3102,24 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 �
                 >
                   <Check className="w-4 h-4" />
                   <span>
-                    {destinationMode === 'current'
-                      ? `Confirmar e Importar ${parsedCandidates.filter((c) => c.selected).length} Leads do Nicho para ${activeNiche.name}`
-                      : `Criar Novo Nicho e Importar ${parsedCandidates.filter((c) => c.selected).length} Leads do Nicho`}
+                    Criar Nicho "{newNicheName.trim() || 'Novo Nicho'}" e Importar {parsedCandidates.filter((c) => c.selected).length} Leads Mantidos
                   </span>
                 </button>
               </>
-            ) : activeCandidatesTab === 'ai_excluded' ? (
+            ) : activeCandidatesTab === 'category_excluded' ? (
               <>
-                <div className="text-xs text-purple-900 font-medium">
-                  {aiExcludedLeads.length} contatos foram retirados conforme as instruções passadas para a IA.
+                <div className="text-xs text-rose-900 font-medium">
+                  {categoryExcludedLeads.length} contatos foram excluídos pelo filtro de categoria/nicho da planilha.
                 </div>
 
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={handleRestoreAllAiExcluded}
-                    className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-purple-900 bg-purple-100 hover:bg-purple-200 border border-purple-300 rounded-lg transition-colors cursor-pointer"
+                    onClick={handleRestoreAllExcludedCategories}
+                    className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-rose-900 bg-rose-100 hover:bg-rose-200 border border-rose-300 rounded-lg transition-colors cursor-pointer"
                   >
                     <Undo2 className="w-3.5 h-3.5" />
-                    <span>Restaurar Todos os {aiExcludedLeads.length} Excluídos pela IA</span>
+                    <span>Restaurar Todos os {categoryExcludedLeads.length} Excluídos por Categoria</span>
                   </button>
 
                   <button
@@ -3300,7 +3159,7 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 �
             ) : (
               <>
                 <div className="text-xs text-rose-900 font-medium">
-                  {categoryExclusions.length} estabelecimentos com categorias fora do nicho (como Academia, Loja de Suplementos) foram excluídos da planilha.
+                  {categoryExclusions.length} estabelecimentos com categorias fora do nicho ({newNicheName.trim() || activeNiche.name}) foram excluídos da planilha.
                 </div>
 
                 <div className="flex items-center gap-2">
