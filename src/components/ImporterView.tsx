@@ -172,12 +172,12 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
     removedCategories: string[];
   } | null>(null);
 
-  // Antiduplication & Niche Category filters (active by default!)
+  // Antiduplication & Niche Category filters (disabled by default so all spreadsheet leads are preserved)
   const [dedupCheckPhone, setDedupCheckPhone] = useState(true);
-  const [dedupCheckName, setDedupCheckName] = useState(true);
-  const [dedupCheckCrm, setDedupCheckCrm] = useState(true);
-  const [dedupCheckCategory, setDedupCheckCategory] = useState(true);
-  const [dedupAutoExclude, setDedupAutoExclude] = useState(true);
+  const [dedupCheckName, setDedupCheckName] = useState(false);
+  const [dedupCheckCrm, setDedupCheckCrm] = useState(false);
+  const [dedupCheckCategory, setDedupCheckCategory] = useState(false);
+  const [dedupAutoExclude, setDedupAutoExclude] = useState(false);
 
   const [isAnalyzingAi, setIsAnalyzingAi] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -416,8 +416,8 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
       let matchType: 'phone' | 'name' | 'existing_crm' | 'incompatible_category' = 'phone';
       let matchedWith = '';
 
-      // 0. Check niche category compatibility
-      if (!isDuplicate && checkCategory) {
+      // 0. Check niche category compatibility (only if explicitly checked, autoExclude is on, and importing to current niche)
+      if (!isDuplicate && checkCategory && autoExclude && destinationMode === 'current') {
         const catCheck = checkNicheCategoryRelevance(candidate.category, candidate.companyName, activeNiche);
         if (catCheck.isIncompatible) {
           isDuplicate = true;
@@ -959,12 +959,17 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
 
     const candidates: ParsedLeadCandidate[] = [];
 
-    // Detect delimiter
+    // Detect delimiter by counting occurrences
     const firstLine = rawLines[0];
     const detectDelimiter = (line: string): string => {
-      if (line.includes('\t')) return '\t';
-      if (line.includes(';')) return ';';
-      if (line.includes(',')) return ',';
+      const tabs = (line.match(/\t/g) || []).length;
+      const semis = (line.match(/;/g) || []).length;
+      const commas = (line.match(/,/g) || []).length;
+      const pipes = (line.match(/\|/g) || []).length;
+      if (tabs >= semis && tabs >= commas && tabs >= pipes && tabs > 0) return '\t';
+      if (semis >= commas && semis >= pipes && semis > 0) return ';';
+      if (commas >= pipes && commas > 0) return ',';
+      if (pipes > 0) return '|';
       return '\t';
     };
 
@@ -982,13 +987,13 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
     let headerAddressIndex = -1;
     let headerRatingIndex = -1;
 
-    // Check sample rows to verify if columns have numbers/phones or names
-    const sampleRows = rawLines.slice(1, 20).map((l) => splitCsvOrTsvLine(l, delimiter));
+    // Check sample rows to verify if columns have numbers/phones or names (support 8 to 15 digits)
+    const sampleRows = rawLines.slice(0, 30).map((l) => splitCsvOrTsvLine(l, delimiter));
     const phoneCountPerCol: number[] = firstRowParts.map(() => 0);
     sampleRows.forEach((rowParts) => {
       rowParts.forEach((part, colIdx) => {
         const digits = part.replace(/\D/g, '');
-        if (digits.length >= 8 && digits.length <= 13) {
+        if (digits.length >= 8 && digits.length <= 15) {
           phoneCountPerCol[colIdx] = (phoneCountPerCol[colIdx] || 0) + 1;
         }
       });
@@ -997,7 +1002,7 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
     firstRowParts.forEach((part, idx) => {
       const norm = normalizeHeader(part);
 
-      // Phone (explicit phone names or WhatsApp)
+      // Phone (explicit phone names, celulares or WhatsApp)
       if (
         norm.includes('tel') ||
         norm.includes('cel') ||
@@ -1006,9 +1011,15 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
         norm.includes('phone') ||
         norm.includes('mobile') ||
         norm.includes('zap') ||
+        norm.includes('wpp') ||
         norm.includes('numero') ||
+        norm.includes('num') ||
         norm === 'contatotel' ||
-        norm === 'contatowhats'
+        norm === 'contatowhats' ||
+        norm === 'telefone' ||
+        norm === 'celular' ||
+        norm === 'whatsapp' ||
+        norm === 'fone'
       ) {
         if (headerPhoneIndex === -1) headerPhoneIndex = idx;
       }
@@ -1027,9 +1038,12 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
         norm.includes('socio') ||
         norm.includes('pessoa') ||
         norm.includes('doutor') ||
+        norm.includes('doutora') ||
+        norm.includes('dr') ||
+        norm.includes('dra') ||
         norm.includes('contact') ||
         norm.includes('owner') ||
-        norm.includes('nutri')
+        norm.includes('atendente')
       ) {
         if (headerContactIndex === -1) headerContactIndex = idx;
       }
@@ -1046,7 +1060,8 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
         norm.includes('company') ||
         norm.includes('title') ||
         norm.includes('cliente') ||
-        norm.includes('paciente')
+        norm.includes('paciente') ||
+        norm.includes('loja')
       ) {
         if (headerCompanyIndex === -1) headerCompanyIndex = idx;
       }
@@ -1127,8 +1142,31 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
       }
     }
 
-    const hasHeaderMatch = headerPhoneIndex !== -1 || headerCompanyIndex !== -1;
-    const startIndex = hasHeaderMatch ? 1 : 0;
+    // Check if the first row contains phone numbers (indicating it's data rather than header)
+    const firstRowHasPhone = firstRowParts.some((part) => {
+      const d = part.replace(/\D/g, '');
+      return d.length >= 8 && d.length <= 15;
+    });
+
+    const hasRecognizedHeader =
+      headerPhoneIndex !== -1 ||
+      headerCompanyIndex !== -1 ||
+      firstRowParts.some((part) => {
+        const norm = normalizeHeader(part);
+        return (
+          norm.includes('empresa') ||
+          norm.includes('nome') ||
+          norm.includes('cliente') ||
+          norm.includes('telefone') ||
+          norm.includes('celular') ||
+          norm.includes('categoria') ||
+          norm.includes('cidade') ||
+          norm.includes('endereco')
+        );
+      });
+
+    // If recognized header AND does not look like pure data row with phone, skip row 0; otherwise include row 0!
+    const startIndex = hasRecognizedHeader && !firstRowHasPhone ? 1 : (hasRecognizedHeader ? 1 : 0);
 
     for (let i = startIndex; i < rawLines.length; i++) {
       const line = rawLines[i];
@@ -1213,10 +1251,10 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
           }
         }
 
-        // Detect phone
+        // Detect phone in any cell if not found by header
         if (!phoneCandidate) {
           const digits = p.replace(/\D/g, '');
-          if (digits.length >= 8 && digits.length <= 13) {
+          if (digits.length >= 8 && digits.length <= 15) {
             phoneCandidate = digits;
           }
         }
@@ -1224,7 +1262,7 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
 
       // Regex fallback for phone in full line
       if (!phoneCandidate) {
-        const matchDigits = line.match(/(?:\+?55\s?)?(?:\(?\d{2}\)?\s?)?(?:9\s?)?\d{4}[-\s]?\d{4}/);
+        const matchDigits = line.match(/(?:\+?55\s?)?(?:\(?\d{2}\)?\s?)?(?:9\s?)?\d{4}[-\s]?\d{4}|\b\d{8,15}\b/);
         if (matchDigits) {
           phoneCandidate = matchDigits[0].replace(/\D/g, '');
         }
@@ -1291,11 +1329,11 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
     return candidates;
   };
 
-  // Validate and read spreadsheet file (strict blocking of Word, Slides, PDFs)
+  // Validate and read spreadsheet file (.xlsx, .xls, .csv, .tsv, .txt, .ods, .xlsm, .xlsb)
   const validateAndProcessFile = (file: File) => {
     const ext = '.' + (file.name.split('.').pop() || '').toLowerCase();
 
-    // 1. Explicitly block Word, Slides, PDFs
+    // 1. Explicitly block non-spreadsheets (Word, Slides, PDFs, Media)
     const disallowedWord = ['.doc', '.docx', '.odt', '.rtf', '.pages', '.dot', '.dotx'];
     const disallowedPresentation = ['.ppt', '.pptx', '.pps', '.ppsx', '.odp', '.key'];
     const disallowedPdf = ['.pdf'];
@@ -1303,7 +1341,7 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
 
     if (disallowedWord.includes(ext)) {
       setErrorMessage(
-        `❌ O arquivo "${file.name}" é um documento do Word (.doc/.docx). O sistema só aceita planilhas (.xlsx, .xls, .csv, .tsv). Por favor, exporte como planilha ou copie as linhas.`
+        `❌ O arquivo "${file.name}" é um documento de texto (.doc/.docx). O sistema aceita apenas planilhas (.xlsx, .xls, .csv, .tsv, .ods). Por favor, exporte como planilha ou copie as linhas.`
       );
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
@@ -1311,7 +1349,7 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
 
     if (disallowedPresentation.includes(ext)) {
       setErrorMessage(
-        `❌ O arquivo "${file.name}" é uma apresentação de slides (.ppt/.pptx). Não é permitido. Envie um arquivo de planilha (.xlsx, .xls ou .csv).`
+        `❌ O arquivo "${file.name}" é uma apresentação de slides (.ppt/.pptx). Por favor, envie um arquivo de planilha (.xlsx, .xls ou .csv).`
       );
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
@@ -1319,7 +1357,7 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
 
     if (disallowedPdf.includes(ext)) {
       setErrorMessage(
-        `❌ O arquivo "${file.name}" é um documento PDF. O sistema requer planilha estruturada (.xlsx, .xls ou .csv).`
+        `❌ O arquivo "${file.name}" é um PDF. Por favor, exporte como planilha (.xlsx, .csv).`
       );
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
@@ -1327,17 +1365,7 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
 
     if (disallowedMedia.includes(ext)) {
       setErrorMessage(
-        `❌ Arquivo "${file.name}" inválido. Envie apenas planilhas (.xlsx, .xls, .csv ou .tsv).`
-      );
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      return;
-    }
-
-    // 2. Validate allowed spreadsheet extensions
-    const allowedExtensions = ['.xlsx', '.xls', '.csv', '.tsv', '.txt'];
-    if (!allowedExtensions.includes(ext)) {
-      setErrorMessage(
-        `❌ Formato não suportado (${ext || 'sem extensão'}). Formatos aceitos: Excel (.xlsx, .xls) ou CSV (.csv, .tsv).`
+        `❌ O arquivo "${file.name}" não é uma planilha. Envie arquivos de planilha (.xlsx, .xls, .csv, .ods).`
       );
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
@@ -1346,95 +1374,138 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
     setErrorMessage(null);
     setIsReadingFile(true);
 
-    // 3. Process Excel formats (.xlsx, .xls) via SheetJS
-    if (ext === '.xlsx' || ext === '.xls') {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const data = new Uint8Array(e.target?.result as ArrayBuffer);
-          const workbook = XLSX.read(data, { type: 'array' });
-          const firstSheetName = workbook.SheetNames[0];
-
-          if (!firstSheetName) {
-            throw new Error('A planilha está vazia ou não possui abas válidas.');
-          }
-
-          const worksheet = workbook.Sheets[firstSheetName];
-          const tsvText = XLSX.utils.sheet_to_csv(worksheet, { FS: '\t' });
-
-          if (!tsvText.trim()) {
-            throw new Error(`A aba "${firstSheetName}" da planilha está vazia.`);
-          }
-
-          const lines = tsvText.split(/\r?\n/).filter((l) => l.trim().length > 0);
-          setRawText(tsvText);
-          setUploadedFile({
-            name: file.name,
-            size: file.size,
-            format: ext === '.xlsx' ? 'Excel (.xlsx)' : 'Excel (.xls)',
-            sheetName: firstSheetName,
-            rowCount: Math.max(0, lines.length - 1),
-          });
-
-          // Immediate extraction & preview with antiduplication
-          const candidates = parseRawTextHeuristic(tsvText);
-          if (candidates.length > 0) {
-            runDeduplication(candidates);
-          } else {
-            setParsedCandidates([]);
-            setDuplicateCandidates([]);
-            setErrorMessage('Nenhum telefone válido foi detectado automaticamente. Você pode usar a análise com IA.');
-          }
-        } catch (err: any) {
-          setErrorMessage(`Falha ao ler planilha Excel: ${err.message || 'Arquivo corrompido ou ilegível'}`);
-        } finally {
-          setIsReadingFile(false);
-        }
-      };
-      reader.onerror = () => {
-        setErrorMessage('Erro ao ler arquivo do computador.');
-        setIsReadingFile(false);
-      };
-      reader.readAsArrayBuffer(file);
-    } else {
-      // 4. Process text-based spreadsheets (.csv, .tsv, .txt)
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const text = (e.target?.result as string) || '';
-          if (!text.trim()) {
-            throw new Error('O arquivo CSV selecionado está vazio.');
-          }
-          const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
-          setRawText(text);
-          setUploadedFile({
-            name: file.name,
-            size: file.size,
-            format: ext === '.csv' ? 'CSV (.csv)' : ext === '.tsv' ? 'TSV (.tsv)' : 'Texto (.txt)',
-            rowCount: Math.max(0, lines.length - 1),
-          });
-
-          // Immediate extraction & preview with antiduplication
-          const candidates = parseRawTextHeuristic(text);
-          if (candidates.length > 0) {
-            runDeduplication(candidates);
-          } else {
-            setParsedCandidates([]);
-            setDuplicateCandidates([]);
-            setErrorMessage('Nenhum telefone válido foi detectado automaticamente. Você pode usar a análise com IA.');
-          }
-        } catch (err: any) {
-          setErrorMessage(`Falha ao ler arquivo CSV: ${err.message || 'Erro de leitura'}`);
-        } finally {
-          setIsReadingFile(false);
-        }
-      };
-      reader.onerror = () => {
-        setErrorMessage('Erro ao ler arquivo do computador.');
-        setIsReadingFile(false);
-      };
-      reader.readAsText(file, 'UTF-8');
+    // Auto-populate new campaign name and segment from the file name
+    const cleanFileName = file.name
+      .replace(/\.[^/.]+$/, '')
+      .replace(/[_\-]+/g, ' ')
+      .trim();
+    if (cleanFileName) {
+      const suggestedName = cleanFileName.charAt(0).toUpperCase() + cleanFileName.slice(1);
+      setNewNicheName((prev) => (prev && prev !== 'Nova Campanha' ? prev : suggestedName));
+      setNewNicheSegment((prev) => (prev ? prev : suggestedName));
     }
+
+    // Process all formats (.xlsx, .xls, .ods, .csv, .tsv, .txt) via ArrayBuffer + SheetJS
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+
+        if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+          throw new Error('A planilha está vazia ou não possui abas legíveis.');
+        }
+
+        // Find the sheet that actually has text/data rows (handles empty first sheet)
+        let chosenSheetName = workbook.SheetNames[0];
+        let tsvText = '';
+
+        for (const sName of workbook.SheetNames) {
+          const ws = workbook.Sheets[sName];
+          if (ws) {
+            const candidateCsv = XLSX.utils.sheet_to_csv(ws, { FS: '\t' });
+            if (candidateCsv.trim().length > 0) {
+              chosenSheetName = sName;
+              tsvText = candidateCsv;
+              break;
+            }
+          }
+        }
+
+        // If sheet_to_csv produced nothing, try reading as raw text (fallback for unusual CSVs)
+        if (!tsvText.trim()) {
+          try {
+            const decoder = new TextDecoder('utf-8');
+            tsvText = decoder.decode(data);
+          } catch {
+            // ignore
+          }
+        }
+
+        if (!tsvText.trim()) {
+          throw new Error(`A planilha selecionada está vazia (nenhuma linha encontrada).`);
+        }
+
+        const lines = tsvText.split(/\r?\n/).filter((l) => l.trim().length > 0);
+        setRawText(tsvText);
+        setUploadedFile({
+          name: file.name,
+          size: file.size,
+          format:
+            ext === '.xlsx'
+              ? 'Excel (.xlsx)'
+              : ext === '.xls'
+              ? 'Excel (.xls)'
+              : ext === '.ods'
+              ? 'OpenDocument (.ods)'
+              : ext === '.csv'
+              ? 'CSV (.csv)'
+              : ext === '.tsv'
+              ? 'TSV (.tsv)'
+              : 'Planilha / Texto',
+          sheetName: chosenSheetName,
+          rowCount: Math.max(0, lines.length - 1),
+        });
+
+        // Extract candidates & run antiduplication
+        const candidates = parseRawTextHeuristic(tsvText);
+        if (candidates.length > 0) {
+          runDeduplication(candidates);
+          setErrorMessage(null);
+        } else {
+          setParsedCandidates([]);
+          setDuplicateCandidates([]);
+          setErrorMessage('Nenhum telefone válido foi detectado automaticamente nas linhas da planilha. Você pode usar a análise com IA para extrair.');
+        }
+      } catch (err: any) {
+        // Fallback for CSV files if SheetJS throws
+        if (ext === '.csv' || ext === '.tsv' || ext === '.txt') {
+          const textReader = new FileReader();
+          textReader.onload = (ev) => {
+            try {
+              const text = (ev.target?.result as string) || '';
+              if (!text.trim()) throw new Error('O arquivo está vazio.');
+              const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+              setRawText(text);
+              setUploadedFile({
+                name: file.name,
+                size: file.size,
+                format: ext === '.csv' ? 'CSV (.csv)' : ext === '.tsv' ? 'TSV (.tsv)' : 'Texto (.txt)',
+                rowCount: Math.max(0, lines.length - 1),
+              });
+              const candidates = parseRawTextHeuristic(text);
+              if (candidates.length > 0) {
+                runDeduplication(candidates);
+                setErrorMessage(null);
+              } else {
+                setErrorMessage('Nenhum telefone detectado no arquivo.');
+              }
+            } catch (innerErr: any) {
+              setErrorMessage(`Falha ao ler arquivo: ${innerErr.message || 'Erro de leitura'}`);
+            } finally {
+              setIsReadingFile(false);
+            }
+          };
+          textReader.onerror = () => {
+            setErrorMessage('Erro ao ler arquivo do computador.');
+            setIsReadingFile(false);
+          };
+          textReader.readAsText(file);
+          return;
+        }
+
+        setErrorMessage(`Falha ao ler planilha: ${err.message || 'Arquivo corrompido ou formato ilegível'}`);
+      } finally {
+        setIsReadingFile(false);
+      }
+    };
+
+    reader.onerror = () => {
+      setErrorMessage('Erro ao ler arquivo do computador.');
+      setIsReadingFile(false);
+    };
+
+    reader.readAsArrayBuffer(file);
   };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
