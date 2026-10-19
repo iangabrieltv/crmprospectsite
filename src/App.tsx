@@ -96,12 +96,12 @@ export default function App() {
       setIsCloudSynced(true);
       if (remoteNiches.length > 0) {
         const upgradedNiches = remoteNiches.map((n) => {
-          if (n.scripts?.script2?.title?.includes('Diagnóstico Google') || !n.scripts?.script2) {
+          if (!n.scripts?.script_mensagem || !n.scripts?.script_ligacao || Object.keys(n.scripts || {}).length !== 2) {
             const updated = {
               ...n,
               scripts: {
-                ...n.scripts,
-                script2: DEFAULT_SCRIPTS.script2,
+                script_mensagem: n.scripts?.script_mensagem || DEFAULT_SCRIPTS.script_mensagem,
+                script_ligacao: n.scripts?.script_ligacao || DEFAULT_SCRIPTS.script_ligacao,
               },
             };
             syncNicheToFirestore(updated).catch(console.error);

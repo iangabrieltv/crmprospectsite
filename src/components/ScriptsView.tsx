@@ -68,13 +68,10 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
   onFastWhatsAppContacted,
 }) => {
   const scriptKeys = Object.keys(niche.scripts);
-  const isNutriInitial =
-    niche.name.toLowerCase().includes('nutri') ||
-    niche.segment.toLowerCase().includes('nutri');
   const [selectedScriptId, setSelectedScriptId] = useState<string>(() => {
-    if (isNutriInitial && niche.scripts.script_nutri) return 'script_nutri';
-    if (niche.scripts.script2) return 'script2';
-    return scriptKeys[0] || 'script1';
+    if (niche.scripts.script_mensagem) return 'script_mensagem';
+    if (niche.scripts.script_ligacao) return 'script_ligacao';
+    return scriptKeys[0] || 'script_mensagem';
   });
 
   // Custom simulator variables adapting automatically to the active niche
@@ -145,13 +142,18 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
   // Active script
   const activeScript: ScriptDefinition =
     niche.scripts[selectedScriptId] ||
-    niche.scripts.script1 ||
-    SCRIPT_1_MOCKUP;
+    niche.scripts.script_mensagem ||
+    niche.scripts.script_ligacao ||
+    DEFAULT_SCRIPTS.script_mensagem;
 
   // Set of open stage tab IDs
   const [openStageIds, setOpenStageIds] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
-    const defaultScript = niche.scripts[selectedScriptId] || niche.scripts.script1 || SCRIPT_1_MOCKUP;
+    const defaultScript =
+      niche.scripts[selectedScriptId] ||
+      niche.scripts.script_mensagem ||
+      niche.scripts.script_ligacao ||
+      DEFAULT_SCRIPTS.script_mensagem;
     (defaultScript.stages || []).forEach((st) => {
       initial[st.id] = true;
     });
@@ -257,15 +259,11 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
   useEffect(() => {
     const keys = Object.keys(niche.scripts || {});
     if (keys.length > 0) {
-      const isNutri =
-        niche.name.toLowerCase().includes('nutri') ||
-        niche.segment.toLowerCase().includes('nutri');
-
       let targetId = keys[0];
-      if (isNutri && niche.scripts.script_nutri) {
-        targetId = 'script_nutri';
-      } else if (niche.scripts[selectedScriptId]) {
+      if (selectedScriptId && niche.scripts[selectedScriptId]) {
         targetId = selectedScriptId;
+      } else if (niche.scripts.script_mensagem) {
+        targetId = 'script_mensagem';
       }
       handleSelectScript(targetId);
     }
@@ -923,32 +921,43 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
         </div>
       )}
 
-      {/* Script Tab Switcher */}
+      {/* Script Tab Switcher: Exatamente os 2 Scripts Oficiais */}
       <div className="flex items-center gap-2 p-1.5 bg-slate-200/70 rounded-2xl flex-wrap">
         {scriptKeys.map((sId) => {
           const s = niche.scripts[sId];
           const isSelected = selectedScriptId === sId;
-          const isAudio = sId === 'script_nutri' || s?.title?.toLowerCase().includes('áudio');
-          const isMsg = sId === 'script_nutri_mensagens' || s?.title?.toLowerCase().includes('mensagem');
+          const isLigacao = sId === 'script_ligacao' || s?.title?.toLowerCase().includes('ligação') || s?.category?.toLowerCase().includes('ligação');
+          
           return (
             <button
               key={sId}
               type="button"
               onClick={() => handleSelectScript(sId)}
-              className={`flex-1 min-w-[220px] py-2.5 px-3.5 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 ${
+              className={`flex-1 min-w-[240px] py-3 px-4 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2.5 ${
                 isSelected
-                  ? 'bg-white text-slate-900 shadow-sm border border-slate-200 ring-2 ring-blue-500/20'
+                  ? isLigacao
+                    ? 'bg-white text-blue-950 shadow-sm border border-blue-200 ring-2 ring-blue-500/20'
+                    : 'bg-white text-emerald-950 shadow-sm border border-emerald-200 ring-2 ring-emerald-500/20'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
               }`}
             >
-              {isAudio && <Mic className="w-3.5 h-3.5 text-amber-600 shrink-0" />}
-              {isMsg && <MessageSquare className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
+              {isLigacao ? (
+                <PhoneCall className={`w-4 h-4 ${isSelected ? 'text-blue-600' : 'text-slate-400'}`} />
+              ) : (
+                <MessageCircle className={`w-4 h-4 ${isSelected ? 'text-emerald-600' : 'text-slate-400'}`} />
+              )}
+              <span className="truncate">{s?.title || (isLigacao ? 'Script de Ligação' : 'Script de Mensagem')}</span>
               <span
-                className={`w-2 h-2 rounded-full shrink-0 ${
-                  isSelected ? 'bg-blue-600' : 'bg-slate-400'
+                className={`text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full ${
+                  isSelected
+                    ? isLigacao
+                      ? 'bg-blue-100 text-blue-800'
+                      : 'bg-emerald-100 text-emerald-800'
+                    : 'bg-slate-100 text-slate-500'
                 }`}
-              />
-              <span className="truncate">{s?.title || sId}</span>
+              >
+                {s?.stages?.length || 6} passos
+              </span>
             </button>
           );
         })}
@@ -1339,6 +1348,18 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
                                 )}
                               </button>
 
+                              {selectedScriptId === 'script_ligacao' && targetPhone && (
+                                <a
+                                  href={`tel:${targetPhone.replace(/\D/g, '')}`}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors cursor-pointer shadow-2xs"
+                                  title="Discar / Ligar agora para este lead"
+                                >
+                                  <PhoneCall className="w-3 h-3 text-white" />
+                                  <span>Ligar</span>
+                                </a>
+                              )}
+
                               <button
                                 type="button"
                                 onClick={() => {
@@ -1646,10 +1667,10 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                  {selectedScriptId === 'script3' ? (
+                  {(selectedScriptId === 'script_ligacao' || selectedScriptId === 'script3') ? (
                     <>
                       <PhoneCall className="w-4 h-4 text-blue-600" />
-                      <span>Roteiro de Fala / Ligação</span>
+                      <span>Roteiro de Fala / Ligação Telefônica</span>
                     </>
                   ) : (
                     <>
@@ -1663,7 +1684,7 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
                 </span>
               </div>
 
-              {selectedScriptId === 'script3' ? (
+              {(selectedScriptId === 'script_ligacao' || selectedScriptId === 'script3') ? (
                 <a
                   href={`tel:${targetPhone.replace(/\D/g, '')}`}
                   className="text-[10px] font-mono text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded-full font-bold flex items-center gap-1 transition-colors"
@@ -1679,7 +1700,7 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
             </div>
 
             {/* Script Display Canvas */}
-            {selectedScriptId === 'script3' ? (
+            {(selectedScriptId === 'script_ligacao' || selectedScriptId === 'script3') ? (
               <div className="bg-slate-900 text-white rounded-2xl border border-slate-800 overflow-hidden shadow-xs">
                 {/* Cold Call Telephony Header */}
                 <div className="bg-slate-800 px-3.5 py-2.5 flex items-center justify-between text-xs border-b border-slate-700/80">
@@ -1801,13 +1822,23 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
                   )}
                 </button>
 
+                {(selectedScriptId === 'script_ligacao' || selectedScriptId === 'script3') && targetPhone && (
+                  <a
+                    href={`tel:${targetPhone.replace(/\D/g, '')}`}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-lg shadow-xs transition-colors cursor-pointer"
+                  >
+                    <PhoneCall className="w-3.5 h-3.5" />
+                    <span>Ligar Agora</span>
+                  </a>
+                )}
+
                 <button
                   type="button"
                   onClick={() => handleSendViaWhatsApp()}
                   className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-lg shadow-xs transition-colors cursor-pointer"
                 >
                   <MessageCircle className="w-3.5 h-3.5 fill-white/20" />
-                  <span>{selectedScriptId === 'script3' ? 'Mandar no WhatsApp' : 'Abrir no WhatsApp'}</span>
+                  <span>{(selectedScriptId === 'script_ligacao' || selectedScriptId === 'script3') ? 'Mandar no WhatsApp' : 'Abrir no WhatsApp'}</span>
                 </button>
               </div>
 

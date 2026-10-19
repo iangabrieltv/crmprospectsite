@@ -1,7 +1,333 @@
 import { NicheCampaign, Lead, ScriptDefinition } from '../types/crm';
 import { cleanPhoneForWhatsApp, formatDisplayPhone } from './phone';
 
-export const SCRIPT_1_MOCKUP: ScriptDefinition = {
+export const SCRIPT_LIGACAO: ScriptDefinition = {
+  id: 'script_ligacao',
+  title: 'Script de Ligação (Cold Call)',
+  subtitle: 'Abertura rápida → Validação do responsável → Diagnóstico de Google → Presença e Site → Confiança Online → Convite Reunião 15 min',
+  description: 'Roteiro estruturado para contato telefônico direto e qualificação rápida — Kaizen Visual.',
+  category: 'Ligação Telefônica',
+  goldenRule: {
+    order: 'Abertura rápida → Confirmar responsável → Diagnóstico Google vs Indicação → Estrutura de site atual → Confiança online → Convite 15 min',
+    primaryGoal: 'Conectar diretamente com o tomador de decisão da empresa e entender sua presença digital.',
+    insight: 'Seja natural, consulte e termine com pergunta curta. Mostre que uma conversa de 15 min trará uma análise prática de oportunidades.',
+  },
+  structure: {
+    hook: 'Oi, bom dia! Tudo bem? Com quem eu falo, por favor? Prazer! Meu nome é {SeuNome}, sou da Kaizen Visual. Você consegue falar comigo por dois minutinhos ou tá num momento corrido aí?',
+    problem: 'Queria entender uma coisa: hoje vocês recebem clientes pelo Google, quando alguém pesquisa por empresas de {nicho} aqui na região, ou a maior parte dos clientes chega por indicação?',
+    solution: 'Eu queria fazer uma análise rápida da presença digital de vocês e te mostrar alguns pontos que podem ser melhorados, caso existam oportunidades.',
+    cta: 'Seria uma conversa rápida, de uns 15 minutos. Você conseguiria conversar comigo amanhã ou teria algum outro dia melhor?',
+  },
+  template: `Oi, bom dia! Tudo bem? Com quem eu falo, por favor?
+
+Prazer! Meu nome é {SeuNome}, sou da Kaizen Visual.
+
+Você consegue falar comigo por dois minutinhos ou tá num momento corrido aí?`,
+  followUp1: `Oi, tudo bem? Aqui é o {SeuNome} da Kaizen Visual. Conversamos rapidamente por telefone sobre a análise da presença digital da {empresa}. Conseguiu verificar sua agenda para amanhã?`,
+  followUp2: `Oi, tudo bem? Para ser bem breve: queria te mostrar rapidamente os pontos de oportunidade que encontrei na presença digital de vocês. Qual o melhor dia para conversarmos 15 minutos?`,
+  objections: [
+    {
+      id: 'obj-lig-sobre-o-que',
+      trigger: 'Sobre o que é a ligação?',
+      title: 'Se perguntarem: "Sobre o que é a ligação?"',
+      response: `É sobre uma análise rápida que fiz da presença digital da empresa no Google e queria explicar rapidinho para o responsável. Você consegue falar comigo dois minutinhos?`,
+    },
+    {
+      id: 'obj-lig-nao-disponivel',
+      trigger: 'O responsável não está no momento',
+      title: 'Se o responsável não estiver no momento',
+      response: `Tudo bem, sem problema nenhum!
+
+Você sabe me dizer qual horário costuma ser melhor para eu conseguir falar com ele(a)?
+
+E, caso seja mais fácil, você consegue me passar o WhatsApp dele(a) para eu mandar uma mensagem?`,
+    },
+    {
+      id: 'obj-lig-ja-temos-site',
+      trigger: 'Nós já temos site ou quem cuide',
+      title: 'Se disserem: "Nós já temos site"',
+      response: `Que ótimo! O objetivo não é descartar o que vocês já têm, e sim fazer um diagnóstico de como ele está performando no Google quando clientes pesquisam na região. Se puder te mostrar em 15 minutos, faz sentido batermos esse papo?`,
+    },
+    {
+      id: 'obj-lig-manda-whats',
+      trigger: 'Pode mandar as informações pelo WhatsApp?',
+      title: 'Se pedirem: "Pode mandar pelo WhatsApp?"',
+      response: `Claro, com certeza! Esse número mesmo é o seu WhatsApp? Vou mandar um resumo do que encontrei e marcamos uma conversa rápida de 15 minutos.`,
+    },
+    {
+      id: 'obj-lig-quanto-custa',
+      trigger: 'Quanto custa o serviço de vocês?',
+      title: 'Se perguntarem: "Quanto custa?"',
+      response: `Essa primeira análise é 100% gratuita! A ideia é justamente te mostrar o cenário real da empresa na internet. Se vocês quiserem implementar as melhorias com a Kaizen Visual, temos soluções sob medida bem acessíveis.`,
+    },
+  ],
+  stages: [
+    {
+      id: 'etapa-lig-1',
+      stageTitle: 'MENSAGEM 1 — ABERTURA',
+      description: 'Gatilho: Primeiro envio para iniciar o contato',
+      steps: [
+        {
+          id: 'lig-step-1',
+          title: 'Mensagem 1 — Abertura',
+          condition: 'Primeiro envio para iniciar o contato',
+          message: `Oi, bom dia! Tudo bem? Com quem eu falo, por favor?
+
+Prazer! Meu nome é {SeuNome}, sou da Kaizen Visual.
+
+Você consegue falar comigo por dois minutinhos ou tá num momento corrido aí?`,
+          tip: 'Mensagem simples e inocente para confirmação.',
+          format: 'texto',
+        },
+      ],
+    },
+    {
+      id: 'etapa-lig-2',
+      stageTitle: 'MENSAGEM 2 — SE RESPONDER “SIM”',
+      description: 'Gatilho: Quando confirmarem o contato',
+      steps: [
+        {
+          id: 'lig-step-2',
+          title: 'Mensagem 2 — Se responder “sim”',
+          condition: 'Quando confirmarem o contato',
+          message: `Legal! Eu tô entrando em contato porque estava conhecendo algumas empresas de {nicho} aqui da região e encontrei a de vocês. Queria entender uma coisa: é você mesmo quem cuida dessa parte de divulgação e presença da empresa na internet, ou seria outra pessoa?`,
+          tip: 'Solicitação direta e educada para falar com a profissional.',
+          format: 'texto',
+        },
+      ],
+    },
+    {
+      id: 'etapa-lig-3',
+      stageTitle: 'MENSAGEM 3 — APRESENTAÇÃO & DIAGNÓSTICO',
+      description: 'Gatilho: Momento ideal de envio',
+      steps: [
+        {
+          id: 'lig-step-3',
+          title: 'Nova Mensagem / Passo — Diagnóstico de Clientes',
+          condition: 'Momento ideal de envio',
+          message: `Ah, legal! Prazer!
+
+Então, eu trabalho com a parte de presença digital das empresas, principalmente com sites profissionais e a presença delas no Google.
+
+Eu queria entender uma coisa: hoje vocês recebem clientes pelo Google, quando alguém pesquisa por {nicho} aqui na região, ou a maior parte dos clientes chega por indicação?`,
+          tip: 'Seja natural, consulte e termine com pergunta curta.',
+          format: 'texto',
+        },
+      ],
+    },
+    {
+      id: 'etapa-lig-4',
+      stageTitle: 'MENSAGEM 4 — ESTRUTURA ATUAL',
+      description: 'Gatilho: Momento ideal de envio',
+      steps: [
+        {
+          id: 'lig-step-4',
+          title: 'Nova Mensagem / Passo — Presença e Site Atual',
+          condition: 'Momento ideal de envio',
+          message: `Ah, bacana! E vocês têm um site próprio também ou trabalham mais com o perfil da empresa no Google e o WhatsApp?`,
+          tip: 'Seja natural, consulte e termine com pergunta curta.',
+          format: 'texto',
+        },
+      ],
+    },
+    {
+      id: 'etapa-lig-5',
+      stageTitle: 'MENSAGEM 5 — CONFIANÇA NA INTERNET',
+      description: 'Gatilho: Momento ideal de envio',
+      steps: [
+        {
+          id: 'lig-step-5',
+          title: 'Nova Mensagem / Passo — Confiança na Internet',
+          condition: 'Momento ideal de envio',
+          message: `Entendi! E quando alguém que ainda não conhece a empresa pesquisa vocês na internet, você sente que a empresa consegue transmitir a mesma confiança que transmite pessoalmente?`,
+          tip: 'Seja natural, consulte e termine com pergunta curta.',
+          format: 'texto',
+        },
+      ],
+    },
+    {
+      id: 'etapa-lig-6',
+      stageTitle: 'MENSAGEM 6 — CONVITE PARA A REUNIÃO',
+      description: 'Gatilho: Momento ideal de envio',
+      steps: [
+        {
+          id: 'lig-step-6',
+          title: 'Nova Mensagem / Passo — Convite para Reunião de 15 Min',
+          condition: 'Momento ideal de envio',
+          message: `Entendi! Olha, a ideia do meu contato é justamente essa.
+
+Eu queria fazer uma análise rápida da presença digital de vocês e te mostrar alguns pontos que podem ser melhorados, caso existam oportunidades.
+
+Aí consigo entender melhor o que vocês precisam e explicar como a Kaizen Visual poderia ajudar.
+
+Seria uma conversa rápida, de uns 15 minutos. Você conseguiria conversar comigo amanhã ou teria algum outro dia melhor?`,
+          tip: 'Proponha uma conversa rápida de 15 minutos amanhã ou outro dia melhor.',
+          format: 'texto',
+        },
+      ],
+    },
+  ],
+};
+
+export const SCRIPT_MENSAGEM: ScriptDefinition = {
+  id: 'script_mensagem',
+  title: 'Script de Mensagem (WhatsApp)',
+  subtitle: 'Abertura profissional → Validação do responsável → Diagnóstico de Google → Investigação de estrutura → Percepção de valor → Convite Reunião 15 min',
+  description: 'Roteiro oficial de prospecção por WhatsApp da Kaizen Visual.',
+  category: 'WhatsApp / Mensagem',
+  goldenRule: {
+    order: 'Abertura objetiva → Validar responsável → Diagnóstico Google vs Redes → Investigar estrutura → Proposta de valor → Convite 15 min',
+    primaryGoal: 'Identificar a pessoa responsável pela divulgação/comercial e agendar uma análise rápida de 15 minutos.',
+    insight: 'Nunca envie texto longo no primeiro contato. Faça perguntas curtas que estimulem respostas e facilitem o diálogo.',
+  },
+  structure: {
+    hook: 'Oi, bom dia! Tudo bem? Meu nome é {SeuNome}, sou da Kaizen Visual. Encontrei a empresa de vocês enquanto pesquisava empresas de {nicho} aqui da região e queria falar rapidinho com o responsável pela parte comercial ou de divulgação. Você consegue me ajudar?',
+    problem: 'Queria te perguntar uma coisa: hoje vocês conseguem receber contatos de clientes pelo Google ou a maior parte chega por indicação e redes sociais?',
+    solution: 'Eu queria fazer uma análise rápida da presença digital de vocês e mostrar alguns pontos que podem ser melhorados, caso existam oportunidades.',
+    cta: 'Seria uma conversa rápida, de uns 15 minutos. Você teria disponibilidade amanhã ou em algum outro dia desta semana?',
+  },
+  template: `Oi, bom dia! Tudo bem?
+
+Meu nome é {SeuNome}, sou da Kaizen Visual.
+
+Encontrei a empresa de vocês enquanto pesquisava empresas de {nicho} aqui da região e queria falar rapidinho com o responsável pela parte comercial ou de divulgação. Você consegue me ajudar?`,
+  followUp1: `Oi, tudo bem? Aqui é o {SeuNome} da Kaizen Visual. Passando rapidinho para retomar a mensagem sobre a análise da presença digital da {empresa}. Consegue falar dois minutinhos hoje?`,
+  followUp2: `Oi, tudo bem? Para ser bem breve: queria te mostrar rapidamente os pontos que encontrei da presença digital de vocês no Google. Qual dia desta semana fica melhor para você?`,
+  objections: [
+    {
+      id: 'obj-msg-nao-interesse',
+      trigger: 'Não temos interesse no momento',
+      title: 'Se disserem: "Não tenho interesse"',
+      response: `Entendo perfeitamente! Não quero tomar seu tempo. Posso apenas deixar meu contato caso no futuro vocês queiram melhorar a presença no Google e atrair novos clientes pela internet?`,
+    },
+    {
+      id: 'obj-msg-ja-temos',
+      trigger: 'Já temos equipe ou agência',
+      title: 'Se disserem: "Já temos agência/equipe"',
+      response: `Muito bom! O objetivo não é substituir o trabalho atual de vocês, mas sim compartilhar um diagnóstico independente da presença no Google. Se achar útil, posso te mandar um resumo sem compromisso!`,
+    },
+    {
+      id: 'obj-msg-qual-preco',
+      trigger: 'Qual é o valor do serviço?',
+      title: 'Se perguntarem o valor',
+      response: `A nossa análise diagnóstica inicial de 15 minutos é 100% gratuita! Caso vocês queiram implementar as melhorias com a Kaizen Visual, nossos projetos são bem acessíveis e personalizados. Você tem 15 minutinhos amanhã para vermos isso juntos?`,
+    },
+  ],
+  stages: [
+    {
+      id: 'etapa-msg-1',
+      stageTitle: 'MENSAGEM 1 — ABERTURA',
+      description: 'Gatilho: Primeiro contato com a empresa.',
+      steps: [
+        {
+          id: 'msg-step-1',
+          title: 'Mensagem 1 — Abertura',
+          condition: 'Primeiro contato com a empresa.',
+          message: `Oi, bom dia! Tudo bem?
+
+Meu nome é {SeuNome}, sou da Kaizen Visual.
+
+Encontrei a empresa de vocês enquanto pesquisava empresas de {nicho} aqui da região e queria falar rapidinho com o responsável pela parte comercial ou de divulgação. Você consegue me ajudar?`,
+          tip: 'Primeiro contato com a empresa.',
+          format: 'texto',
+        },
+      ],
+    },
+    {
+      id: 'etapa-msg-2',
+      stageTitle: 'MENSAGEM 2 — SE A PESSOA RESPONDER',
+      description: 'Gatilho: Quando responderem à primeira mensagem.',
+      steps: [
+        {
+          id: 'msg-step-2',
+          title: 'Mensagem 2 — Se a pessoa responder',
+          condition: 'Quando responderem à primeira mensagem.',
+          message: `Obrigado! É com você mesmo que posso falar sobre essa parte ou teria outra pessoa responsável?`,
+          tip: 'Quando responderem à primeira mensagem.',
+          format: 'texto',
+        },
+      ],
+    },
+    {
+      id: 'etapa-msg-3',
+      stageTitle: 'MENSAGEM 3 — SE ESTIVER FALANDO COM O RESPONSÁVEL',
+      description: 'Gatilho: Quando confirmarem que é a pessoa responsável.',
+      steps: [
+        {
+          id: 'msg-step-3',
+          title: 'Mensagem 3 — Se estiver falando com o responsável',
+          condition: 'Quando confirmarem que é a pessoa responsável.',
+          message: `Prazer! Então, eu trabalho com a presença digital das empresas, principalmente com sites profissionais e a presença delas no Google.
+
+Queria te perguntar uma coisa: hoje vocês conseguem receber contatos de clientes pelo Google ou a maior parte chega por indicação e redes sociais?`,
+          tip: 'Quando confirmarem que é a pessoa responsável.',
+          format: 'texto',
+        },
+      ],
+    },
+    {
+      id: 'etapa-msg-4',
+      stageTitle: 'MENSAGEM 4 — ENTENDER A ESTRUTURA ATUAL',
+      description: 'Gatilho: Depois que a pessoa responder.',
+      steps: [
+        {
+          id: 'msg-step-4',
+          title: 'Mensagem 4 — Entender a estrutura atual',
+          condition: 'Depois que a pessoa responder.',
+          message: `Entendi! E vocês já têm um site próprio para apresentar os projetos e serviços de vocês ou trabalham mais com o Instagram e o perfil da empresa no Google?`,
+          tip: 'Depois que a pessoa responder.',
+          format: 'texto',
+        },
+      ],
+    },
+    {
+      id: 'etapa-msg-5',
+      stageTitle: 'MENSAGEM 5 — INVESTIGAR UMA OPORTUNIDADE',
+      description: 'Gatilho: Quando fizer sentido continuar a conversa.',
+      steps: [
+        {
+          id: 'msg-step-5',
+          title: 'Mensagem 5 — Investigar uma oportunidade',
+          condition: 'Quando fizer sentido continuar a conversa.',
+          message: `Legal! Pergunto porque, quando alguém está pesquisando por {nicho}, ter informações claras sobre a empresa, os serviços e como solicitar um orçamento pode ajudar bastante na decisão.
+
+Vocês estão satisfeitos com a forma como a empresa aparece hoje na internet?`,
+          tip: 'Quando fizer sentido continuar a conversa.',
+          format: 'texto',
+        },
+      ],
+    },
+    {
+      id: 'etapa-msg-6',
+      stageTitle: 'MENSAGEM 6 — CONVIDAR PARA A REUNIÃO',
+      description: 'Gatilho: Quando houver abertura e interesse na conversa.',
+      steps: [
+        {
+          id: 'msg-step-6',
+          title: 'Mensagem 6 — Convidar para a reunião',
+          condition: 'Quando houver abertura e interesse na conversa.',
+          message: `Entendi! Olha, a ideia do meu contato é justamente essa.
+
+Eu queria fazer uma análise rápida da presença digital de vocês e mostrar alguns pontos que podem ser melhorados, caso existam oportunidades.
+
+Aí consigo entender melhor o que vocês precisam e explicar como a Kaizen Visual poderia ajudar.
+
+Seria uma conversa rápida, de uns 15 minutos. Você teria disponibilidade amanhã ou em algum outro dia desta semana?`,
+          tip: 'Quando houver abertura e interesse na conversa.',
+          format: 'texto',
+        },
+      ],
+    },
+  ],
+};
+
+// Aliases for backwards compatibility with any legacy references
+export const SCRIPT_1_MOCKUP = SCRIPT_MENSAGEM;
+export const SCRIPT_2_VALIDACAO_PROPOSTA = SCRIPT_MENSAGEM;
+export const SCRIPT_2_DIAGNOSTICO_GOOGLE = SCRIPT_MENSAGEM;
+export const SCRIPT_3_COLD_CALL = SCRIPT_LIGACAO;
+export const SCRIPT_NUTRICIONISTA = SCRIPT_LIGACAO;
+export const SCRIPT_NUTRICIONISTA_MENSAGENS = SCRIPT_MENSAGEM;
   id: 'script1',
   title: 'Script 1 — Método Mockup (Prévia de Site)',
   subtitle: 'Contato → Confiança → Permissão → Mockup → Opinião → Interesse → Proposta → Preço',
@@ -1988,11 +2314,8 @@ Quer que eu te mande a lista novamente para facilitar?`,
 };
 
 export const DEFAULT_SCRIPTS: Record<string, ScriptDefinition> = {
-  script_nutri: SCRIPT_NUTRICIONISTA,
-  script_nutri_mensagens: SCRIPT_NUTRICIONISTA_MENSAGENS,
-  script1: SCRIPT_1_MOCKUP,
-  script2: SCRIPT_2_DIAGNOSTICO_GOOGLE,
-  script3: SCRIPT_3_COLD_CALL,
+  script_mensagem: SCRIPT_MENSAGEM,
+  script_ligacao: SCRIPT_LIGACAO,
 };
 
 export const INITIAL_NICHES: NicheCampaign[] = [
@@ -2006,9 +2329,8 @@ export const INITIAL_NICHES: NicheCampaign[] = [
     targetMrr: 6000,
     createdAt: new Date().toISOString(),
     scripts: {
-      script2: SCRIPT_2_VALIDACAO_PROPOSTA,
-      script1: SCRIPT_1_MOCKUP,
-      script3: SCRIPT_3_COLD_CALL,
+      script_mensagem: SCRIPT_MENSAGEM,
+      script_ligacao: SCRIPT_LIGACAO,
     },
   },
   {
@@ -2021,9 +2343,8 @@ export const INITIAL_NICHES: NicheCampaign[] = [
     targetMrr: 7000,
     createdAt: new Date().toISOString(),
     scripts: {
-      script2: SCRIPT_2_VALIDACAO_PROPOSTA,
-      script1: SCRIPT_1_MOCKUP,
-      script3: SCRIPT_3_COLD_CALL,
+      script_mensagem: SCRIPT_MENSAGEM,
+      script_ligacao: SCRIPT_LIGACAO,
     },
   },
   {
@@ -2036,10 +2357,8 @@ export const INITIAL_NICHES: NicheCampaign[] = [
     targetMrr: 6000,
     createdAt: new Date().toISOString(),
     scripts: {
-      script_nutri: SCRIPT_NUTRICIONISTA,
-      script_nutri_mensagens: SCRIPT_NUTRICIONISTA_MENSAGENS,
-      script2: SCRIPT_2_VALIDACAO_PROPOSTA,
-      script1: SCRIPT_1_MOCKUP,
+      script_mensagem: SCRIPT_MENSAGEM,
+      script_ligacao: SCRIPT_LIGACAO,
     },
   },
   {
@@ -2052,10 +2371,8 @@ export const INITIAL_NICHES: NicheCampaign[] = [
     targetMrr: 5000,
     createdAt: new Date().toISOString(),
     scripts: {
-      script2: SCRIPT_2_VALIDACAO_PROPOSTA,
-      script1: SCRIPT_1_MOCKUP,
-      script3: SCRIPT_3_COLD_CALL,
-      script_nutri: SCRIPT_NUTRICIONISTA,
+      script_mensagem: SCRIPT_MENSAGEM,
+      script_ligacao: SCRIPT_LIGACAO,
     },
   },
 ];

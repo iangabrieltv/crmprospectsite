@@ -47,19 +47,7 @@ export const NewNicheModal: React.FC<NewNicheModalProps> = ({ onClose, onCreateN
     e.preventDefault();
     if (!name.trim()) return;
 
-    const isNutri =
-      templateType === 'nutri' ||
-      name.toLowerCase().includes('nutri') ||
-      segment.toLowerCase().includes('nutri');
-
-    const nicheScripts = isNutri
-      ? {
-          script_nutri: SCRIPT_NUTRICIONISTA,
-          script_nutri_mensagens: SCRIPT_NUTRICIONISTA_MENSAGENS,
-          script2: DEFAULT_SCRIPTS.script2,
-          script1: DEFAULT_SCRIPTS.script1,
-        }
-      : { ...DEFAULT_SCRIPTS };
+    const nicheScripts = { ...DEFAULT_SCRIPTS };
 
     const newNiche: NicheCampaign = {
       id: 'niche-' + Date.now(),

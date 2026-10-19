@@ -187,8 +187,8 @@ export function interpolateScript(
 ): string {
   let result = template;
   const empresaVal = variables.empresa || 'sua empresa';
-  const contatoVal = variables.contato || 'Camila';
-  const seuNomeVal = variables.seuNome || 'Ian';
+  const contatoVal = variables.contato || '';
+  const seuNomeVal = variables.seuNome || 'Gabriel';
   const posicaoVal = variables.posicaoGoogle || '6ª';
   const h1Val = variables.horario1 || 'quinta às 14h';
   const h2Val = variables.horario2 || 'sexta às 10h';

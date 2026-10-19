@@ -54,11 +54,11 @@ export const LeadCard: React.FC<LeadCardProps> = ({
   const scriptKey =
     lead.scriptUsed !== 'none' && niche.scripts[lead.scriptUsed]
       ? lead.scriptUsed
-      : Object.keys(niche.scripts)[0] || 'script1';
+      : Object.keys(niche.scripts)[0] || 'script_mensagem';
   const scriptDef =
     niche.scripts[scriptKey] ||
     Object.values(niche.scripts)[0] ||
-    DEFAULT_SCRIPTS.script1;
+    DEFAULT_SCRIPTS.script_mensagem;
 
   const interpolatedMessage = interpolateScript(scriptDef.template, {
     empresa: lead.companyName,

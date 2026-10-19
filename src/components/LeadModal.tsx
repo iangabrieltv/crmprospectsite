@@ -107,7 +107,7 @@ export const LeadModal: React.FC<LeadModalProps> = ({
   const [copied, setCopied] = useState(false);
 
   // Script calculation
-  const defaultNicheScriptKey = Object.keys(niche.scripts)[0] || 'script1';
+  const defaultNicheScriptKey = Object.keys(niche.scripts)[0] || 'script_mensagem';
   const activeScriptKey =
     scriptUsed && scriptUsed !== 'none' && niche.scripts[scriptUsed]
       ? scriptUsed
@@ -115,7 +115,7 @@ export const LeadModal: React.FC<LeadModalProps> = ({
   const currentScriptDef =
     niche.scripts[activeScriptKey] ||
     Object.values(niche.scripts)[0] ||
-    niche.scripts.script1;
+    DEFAULT_SCRIPTS.script_mensagem;
 
   const leadVars = {
     empresa: companyName || lead.companyName,
@@ -1059,7 +1059,7 @@ export const LeadModal: React.FC<LeadModalProps> = ({
                     <span>Ver no Script</span>
                   </button>
                 )}
-                {scriptUsed === 'script3' && phone && (
+                {(scriptUsed === 'script_ligacao' || scriptUsed === 'script3') && phone && (
                   <a
                     href={`tel:${phone.replace(/\D/g, '')}`}
                     className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-lg shadow-sm transition-colors cursor-pointer"
