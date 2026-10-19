@@ -49,6 +49,7 @@ export const NewNicheModal: React.FC<NewNicheModalProps> = ({ onClose, onCreateN
 
     const nicheScripts = { ...DEFAULT_SCRIPTS };
 
+    const isNutri = name.toLowerCase().includes('nutri') || segment.toLowerCase().includes('nutri');
     const newNiche: NicheCampaign = {
       id: 'niche-' + Date.now(),
       name: name.trim(),

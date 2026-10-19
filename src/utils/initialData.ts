@@ -321,13 +321,7 @@ Seria uma conversa rápida, de uns 15 minutos. Você teria disponibilidade amanh
   ],
 };
 
-// Aliases for backwards compatibility with any legacy references
-export const SCRIPT_1_MOCKUP = SCRIPT_MENSAGEM;
-export const SCRIPT_2_VALIDACAO_PROPOSTA = SCRIPT_MENSAGEM;
-export const SCRIPT_2_DIAGNOSTICO_GOOGLE = SCRIPT_MENSAGEM;
-export const SCRIPT_3_COLD_CALL = SCRIPT_LIGACAO;
-export const SCRIPT_NUTRICIONISTA = SCRIPT_LIGACAO;
-export const SCRIPT_NUTRICIONISTA_MENSAGENS = SCRIPT_MENSAGEM;
+export const SCRIPT_1_MOCKUP: ScriptDefinition = {
   id: 'script1',
   title: 'Script 1 — Método Mockup (Prévia de Site)',
   subtitle: 'Contato → Confiança → Permissão → Mockup → Opinião → Interesse → Proposta → Preço',

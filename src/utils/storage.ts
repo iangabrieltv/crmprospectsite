@@ -22,7 +22,7 @@ export function loadStoredNiches(): NicheCampaign[] {
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed) && parsed.length > 0) {
       // Auto-migrate: ensure every niche has exactly the two official scripts: script_mensagem and script_ligacao
-      let upgraded = parsed.map((niche: NicheCampaign) => {
+      let upgraded: NicheCampaign[] = parsed.map((niche: NicheCampaign): NicheCampaign => {
         return {
           ...niche,
           scripts: {

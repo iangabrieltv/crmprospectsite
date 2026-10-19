@@ -14,6 +14,7 @@ import {
   buildWhatsAppLink,
   interpolateScript
 } from '../utils/phone';
+import { DEFAULT_SCRIPTS } from '../utils/initialData';
 import {
   X,
   MessageCircle,
