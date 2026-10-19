@@ -351,6 +351,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ niche, leads }) =>
                         ? 'bg-purple-500'
                         : stage.id === 'nao_atendida' || stage.id === 'nao_respondida'
                         ? 'bg-amber-500'
+                        : stage.id === 'mandei_mensagem'
+                        ? 'bg-sky-500'
                         : stage.id === 'primeiro_contato'
                         ? 'bg-blue-600'
                         : 'bg-slate-400'

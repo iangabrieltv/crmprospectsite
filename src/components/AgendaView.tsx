@@ -30,7 +30,10 @@ import {
   Filter,
   Phone,
   Bookmark,
-  CalendarDays
+  CalendarDays,
+  PhoneCall,
+  Bell,
+  BellRing
 } from 'lucide-react';
 
 interface AgendaViewProps {
@@ -92,6 +95,136 @@ export const AgendaView: React.FC<AgendaViewProps> = ({
   // Quick picker to move another lead into "reuniao_marcada"
   const [isQuickPickerOpen, setIsQuickPickerOpen] = useState(false);
   const [quickSearchTerm, setQuickSearchTerm] = useState('');
+
+  // Section toggle: 'all' | 'callbacks' | 'meetings'
+  const [agendaSection, setAgendaSection] = useState<'all' | 'callbacks' | 'meetings'>('all');
+
+  // Callback modal & quick picker state (Ligar Mais Tarde / Entrar em Contato Outra Hora)
+  const [editingCallbackLead, setEditingCallbackLead] = useState<Lead | null>(null);
+  const [editCallbackDate, setEditCallbackDate] = useState('');
+  const [editCallbackTime, setEditCallbackTime] = useState('15:30');
+  const [editCallbackNotes, setEditCallbackNotes] = useState('');
+  const [editCallbackStatus, setEditCallbackStatus] = useState<'pendente' | 'realizado' | 'cancelado'>('pendente');
+  const [isCallbackPickerOpen, setIsCallbackPickerOpen] = useState(false);
+  const [callbackPickerSearch, setCallbackPickerSearch] = useState('');
+  const [callbackFilterTab, setCallbackFilterTab] = useState<'all' | 'today' | 'overdue' | 'done'>('all');
+
+  const todayDateString = useMemo(() => new Date().toISOString().split('T')[0], []);
+
+  // Leads that requested a callback (pediram para entrar em contato outra hora)
+  const callbackLeads = useMemo(() => {
+    return sourcePool.filter((l) => Boolean(l.callbackDate));
+  }, [sourcePool]);
+
+  // Callbacks due today
+  const todayPendingCallbacks = useMemo(() => {
+    return callbackLeads.filter(
+      (l) => l.callbackDate === todayDateString && l.callbackStatus !== 'realizado' && l.callbackStatus !== 'cancelado'
+    );
+  }, [callbackLeads, todayDateString]);
+
+  // Overdue callbacks
+  const overduePendingCallbacks = useMemo(() => {
+    return callbackLeads.filter(
+      (l) => (l.callbackDate || '') < todayDateString && l.callbackStatus !== 'realizado' && l.callbackStatus !== 'cancelado'
+    );
+  }, [callbackLeads, todayDateString]);
+
+  // Completed callbacks
+  const completedCallbacks = useMemo(() => {
+    return callbackLeads.filter((l) => l.callbackStatus === 'realizado');
+  }, [callbackLeads]);
+
+  // Group callbacks by date
+  const callbacksByDate = useMemo(() => {
+    const map = new Map<string, Lead[]>();
+    callbackLeads.forEach((lead) => {
+      if (lead.callbackDate) {
+        const existing = map.get(lead.callbackDate) || [];
+        existing.push(lead);
+        map.set(lead.callbackDate, existing);
+      }
+    });
+    return map;
+  }, [callbackLeads]);
+
+  const handleOpenCallbackEditor = (lead: Lead) => {
+    setEditingCallbackLead(lead);
+    setEditCallbackDate(lead.callbackDate || selectedDayString || todayDateString);
+    setEditCallbackTime(lead.callbackTime || '15:30');
+    setEditCallbackNotes(lead.callbackNotes || '');
+    setEditCallbackStatus(lead.callbackStatus || 'pendente');
+  };
+
+  const handleSaveCallback = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCallbackLead) return;
+
+    const formattedDate = editCallbackDate
+      ? new Date(editCallbackDate + 'T00:00:00').toLocaleDateString('pt-BR')
+      : 'Hoje';
+
+    const updated: Lead = {
+      ...editingCallbackLead,
+      callbackDate: editCallbackDate || undefined,
+      callbackTime: editCallbackTime || undefined,
+      callbackNotes: editCallbackNotes.trim() || undefined,
+      callbackStatus: editCallbackStatus,
+      lastContactDate: new Date().toISOString(),
+      notes: [
+        {
+          id: 'note-cb-' + Date.now(),
+          date: `${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`,
+          text: `Agendado retorno (pediu para ligar mais tarde): ${formattedDate} às ${editCallbackTime || 'horário comercial'}.${editCallbackNotes ? ` Motivo: "${editCallbackNotes}"` : ''}`,
+          author: userName,
+        },
+        ...editingCallbackLead.notes,
+      ],
+    };
+
+    onUpdateLead(updated);
+    if (editCallbackDate) {
+      setSelectedDayString(editCallbackDate);
+    }
+    setEditingCallbackLead(null);
+  };
+
+  const handleMarkCallbackDone = (lead: Lead) => {
+    const updated: Lead = {
+      ...lead,
+      callbackStatus: 'realizado',
+      lastContactDate: new Date().toISOString(),
+      notes: [
+        {
+          id: 'note-cb-done-' + Date.now(),
+          date: `${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`,
+          text: `✅ Retorno realizado com sucesso: ligação/contato concluído com o cliente.`,
+          author: userName,
+        },
+        ...lead.notes,
+      ],
+    };
+    onUpdateLead(updated);
+  };
+
+  const handleRemoveCallback = (lead: Lead) => {
+    const updated: Lead = {
+      ...lead,
+      callbackDate: undefined,
+      callbackTime: undefined,
+      callbackNotes: undefined,
+      callbackStatus: undefined,
+    };
+    onUpdateLead(updated);
+    if (editingCallbackLead?.id === lead.id) {
+      setEditingCallbackLead(null);
+    }
+  };
+
+  const handleSelectLeadForCallback = (lead: Lead) => {
+    setIsCallbackPickerOpen(false);
+    handleOpenCallbackEditor(lead);
+  };
 
   // Open meeting editor helper
   const handleOpenMeetingEditor = (lead: Lead) => {
@@ -295,6 +428,47 @@ export const AgendaView: React.FC<AgendaViewProps> = ({
     return leadsByDate.get(selectedDayString) || [];
   }, [selectedDayString, leadsByDate]);
 
+  // Callbacks for the selected day
+  const selectedDayCallbacks = useMemo(() => {
+    if (!selectedDayString) return [];
+    return callbacksByDate.get(selectedDayString) || [];
+  }, [selectedDayString, callbacksByDate]);
+
+  // Filtered callbacks list for dedicated callbacks view
+  const filteredCallbackList = useMemo(() => {
+    return callbackLeads.filter((l) => {
+      if (callbackFilterTab === 'today') {
+        if (l.callbackDate !== todayDateString || l.callbackStatus === 'realizado') return false;
+      } else if (callbackFilterTab === 'overdue') {
+        if ((l.callbackDate || '') >= todayDateString || l.callbackStatus === 'realizado') return false;
+      } else if (callbackFilterTab === 'done') {
+        if (l.callbackStatus !== 'realizado') return false;
+      }
+      if (!searchTerm.trim()) return true;
+      const q = searchTerm.toLowerCase();
+      return (
+        l.companyName.toLowerCase().includes(q) ||
+        (l.contactName && l.contactName.toLowerCase().includes(q)) ||
+        l.phone.includes(q) ||
+        (l.callbackNotes && l.callbackNotes.toLowerCase().includes(q))
+      );
+    });
+  }, [callbackLeads, callbackFilterTab, todayDateString, searchTerm]);
+
+  // Available leads in source pool to schedule callback
+  const filteredCallbackPickers = useMemo(() => {
+    return sourcePool.filter((l) => {
+      if (!callbackPickerSearch.trim()) return true;
+      const q = callbackPickerSearch.toLowerCase();
+      return (
+        l.companyName.toLowerCase().includes(q) ||
+        (l.contactName && l.contactName.toLowerCase().includes(q)) ||
+        l.phone.includes(q) ||
+        (l.city && l.city.toLowerCase().includes(q))
+      );
+    });
+  }, [sourcePool, callbackPickerSearch]);
+
   // Filtered contacts list in the pipeline drawer
   const filteredMeetingDrawerLeads = useMemo(() => {
     return meetingLeads.filter((l) => {
@@ -337,12 +511,10 @@ export const AgendaView: React.FC<AgendaViewProps> = ({
               <span className="text-xs text-slate-300">• Multi-nicho sincronizado</span>
             </div>
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
-              Agenda de Reuniões Marcadas
+              Agenda de Reuniões & Retornos
             </h1>
             <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-              Quando você marcar uma reunião por ligação no <strong>Pipeline (Kanban)</strong>, coloque o contato na coluna{' '}
-              <span className="text-emerald-300 font-semibold underline underline-offset-2">Reunião Marcada</span>. 
-              Ele aparecerá aqui automaticamente para você definir o <strong>dia, horário e observações para o estudo de caso e perfil do cliente</strong>.
+              Acompanhe suas <strong>Reuniões Marcadas</strong> e receba alertas automáticos para <strong>ligar mais tarde</strong> para os contatos que pediram retorno em outro horário.
             </p>
           </div>
 
@@ -350,11 +522,20 @@ export const AgendaView: React.FC<AgendaViewProps> = ({
           <div className="flex items-center gap-2 flex-wrap shrink-0">
             <button
               type="button"
+              onClick={() => setIsCallbackPickerOpen(true)}
+              className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold shadow-sm transition-all flex items-center gap-2 cursor-pointer"
+            >
+              <PhoneCall className="w-4 h-4" />
+              <span>+ Ligar Mais Tarde (Retorno)</span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => setIsQuickPickerOpen(true)}
               className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-sm transition-all flex items-center gap-2 cursor-pointer"
             >
               <Plus className="w-4 h-4" />
-              <span>Marcar Reunião da Pipeline</span>
+              <span>Marcar Reunião</span>
             </button>
 
             <button
@@ -362,7 +543,7 @@ export const AgendaView: React.FC<AgendaViewProps> = ({
               onClick={onSwitchToKanban}
               className="px-3.5 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-semibold backdrop-blur-xs transition-colors flex items-center gap-1.5 cursor-pointer"
             >
-              <span>Ver Pipeline (Kanban)</span>
+              <span>Ver Pipeline</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -371,6 +552,128 @@ export const AgendaView: React.FC<AgendaViewProps> = ({
         {/* Decorative background glow */}
         <div className="absolute right-0 top-0 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
       </div>
+
+      {/* PROMINENT INFORMATIVE ALERT BANNER: Ligar mais tarde hoje */}
+      {(todayPendingCallbacks.length > 0 || overduePendingCallbacks.length > 0) && (
+        <div className="max-w-7xl mx-auto w-full mb-5 bg-gradient-to-r from-amber-50 via-orange-50 to-amber-100/90 border-2 border-amber-300 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3 animate-in fade-in duration-200">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-amber-200/80 pb-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs animate-bounce">
+                <BellRing className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-sm font-bold text-amber-950">
+                    {todayPendingCallbacks.length > 0
+                      ? `🔔 AVISO DA AGENDA: Você tem ${todayPendingCallbacks.length} contato(s) para entrar em contato mais tarde hoje!`
+                      : '🔔 AVISO DA AGENDA: Contatos pendentes de retorno!'}
+                  </h3>
+                  {todayPendingCallbacks.length > 0 && (
+                    <span className="text-[10px] font-bold bg-amber-500 text-white px-2 py-0.5 rounded-full animate-pulse">
+                      Hoje ({todayPendingCallbacks.length})
+                    </span>
+                  )}
+                  {overduePendingCallbacks.length > 0 && (
+                    <span className="text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300 px-2 py-0.5 rounded-full">
+                      {overduePendingCallbacks.length} atrasado(s)
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-amber-900 mt-0.5">
+                  Estes clientes pediram para falar outra hora. Clique em <strong>Ligar / WhatsApp</strong> para dar sequência no fechamento:
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsCallbackPickerOpen(true)}
+              className="self-start sm:self-auto px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition-colors shadow-2xs flex items-center gap-1.5 cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Agendar Novo Retorno</span>
+            </button>
+          </div>
+
+          {/* Cards dos retornos de hoje */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {[...todayPendingCallbacks, ...overduePendingCallbacks].map((lead) => {
+              const isToday = lead.callbackDate === todayDateString;
+              return (
+                <div
+                  key={lead.id}
+                  className={`bg-white rounded-xl p-3.5 border shadow-2xs space-y-2.5 transition-all hover:shadow-md ${
+                    isToday ? 'border-amber-300 ring-1 ring-amber-200' : 'border-rose-200 bg-rose-50/20'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="truncate">
+                      <h4 className="text-xs font-bold text-slate-900 truncate">{lead.companyName}</h4>
+                      <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                        {lead.contactName || 'Responsável'} • {formatDisplayPhone(lead.phone)}
+                      </p>
+                    </div>
+
+                    <span
+                      className={`text-[11px] font-mono font-bold px-2 py-0.5 rounded-md shrink-0 flex items-center gap-1 ${
+                        isToday
+                          ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                          : 'bg-rose-100 text-rose-800 border border-rose-300'
+                      }`}
+                    >
+                      <Clock className="w-3 h-3" />
+                      <span>{lead.callbackTime || 'Horário'}</span>
+                    </span>
+                  </div>
+
+                  {lead.callbackNotes ? (
+                    <div className="text-[11px] text-amber-950 bg-amber-50/80 p-2 rounded-lg border border-amber-200/60 font-medium line-clamp-2">
+                      💬 "{lead.callbackNotes}"
+                    </div>
+                  ) : (
+                    <div className="text-[11px] text-slate-400 italic">
+                      Cliente pediu para ligar mais tarde.
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-1.5 pt-1.5 border-t border-slate-100">
+                    <a
+                      href={buildWhatsAppLink(
+                        lead.phone,
+                        `Olá ${lead.contactName || ''}! Conforme combinamos, estou retornando o contato agora com relação ao projeto da ${lead.companyName}. Podemos conversar um instante?`
+                      )}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 py-1.5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+                    >
+                      <PhoneCall className="w-3.5 h-3.5" />
+                      <span>Ligar / WhatsApp</span>
+                    </a>
+
+                    <button
+                      type="button"
+                      onClick={() => handleMarkCallbackDone(lead)}
+                      className="p-1.5 bg-slate-100 hover:bg-emerald-100 text-slate-700 hover:text-emerald-800 rounded-lg text-xs font-semibold cursor-pointer transition-colors"
+                      title="Marcar como Falado (Concluído)"
+                    >
+                      <Check className="w-4 h-4 text-emerald-600" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleOpenCallbackEditor(lead)}
+                      className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs cursor-pointer transition-colors"
+                      title="Remarcar horário"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Metrics & Scope Control Bar */}
       <div className="max-w-7xl mx-auto w-full mb-5 flex flex-col md:flex-row md:items-center justify-between gap-3">
@@ -385,17 +688,22 @@ export const AgendaView: React.FC<AgendaViewProps> = ({
           </div>
 
           <div className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200/90 rounded-xl shadow-2xs text-xs">
-            <Clock className="w-3.5 h-3.5 text-blue-600" />
-            <span className="text-slate-600 font-medium">Com Horário Definido:</span>
-            <span className="font-bold font-mono text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md">
-              {scheduledLeads.length}
+            <PhoneCall className="w-3.5 h-3.5 text-amber-600" />
+            <span className="text-slate-600 font-medium">Ligar Mais Tarde:</span>
+            <span className="font-bold font-mono text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md">
+              {callbackLeads.length}
             </span>
+            {todayPendingCallbacks.length > 0 && (
+              <span className="font-bold text-[10px] text-amber-900 bg-amber-200 px-1.5 py-0.2 rounded-full animate-pulse">
+                {todayPendingCallbacks.length} hoje!
+              </span>
+            )}
           </div>
 
           {unscheduledLeads.length > 0 && (
             <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-xl shadow-2xs text-xs text-amber-900">
               <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
-              <span className="font-medium">Aguardando Dia/Hora:</span>
+              <span className="font-medium">Reuniões sem Horário:</span>
               <span className="font-bold font-mono text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md">
                 {unscheduledLeads.length}
               </span>
@@ -403,8 +711,41 @@ export const AgendaView: React.FC<AgendaViewProps> = ({
           )}
         </div>
 
-        {/* Scope Selector & Mode switch */}
+        {/* Scope Selector, Section Switcher & Mode switch */}
         <div className="flex items-center gap-2 flex-wrap">
+          {/* Section Switcher Tabs: Tudo / Reuniões / Ligar mais tarde */}
+          <div className="flex items-center bg-white p-0.5 rounded-xl border border-slate-200 text-xs shadow-2xs">
+            <button
+              type="button"
+              onClick={() => setAgendaSection('all')}
+              className={`px-3 py-1.5 rounded-lg font-semibold transition-colors cursor-pointer ${
+                agendaSection === 'all' ? 'bg-slate-900 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Visão Completa
+            </button>
+            <button
+              type="button"
+              onClick={() => setAgendaSection('meetings')}
+              className={`flex items-center gap-1 px-3 py-1.5 rounded-lg font-semibold transition-colors cursor-pointer ${
+                agendaSection === 'meetings' ? 'bg-slate-900 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <CalendarCheck className="w-3 h-3 text-emerald-400" />
+              <span>Reuniões ({meetingLeads.length})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setAgendaSection('callbacks')}
+              className={`flex items-center gap-1 px-3 py-1.5 rounded-lg font-semibold transition-colors cursor-pointer ${
+                agendaSection === 'callbacks' ? 'bg-slate-900 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <PhoneCall className="w-3 h-3 text-amber-400" />
+              <span>Ligar Mais Tarde ({callbackLeads.length})</span>
+            </button>
+          </div>
+
           {/* Scope Selector */}
           <div className="flex items-center bg-white p-0.5 rounded-xl border border-slate-200 text-xs shadow-2xs">
             <button
@@ -694,6 +1035,7 @@ export const AgendaView: React.FC<AgendaViewProps> = ({
                 const dayNum = i + 1;
                 const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
                 const dayLeads = leadsByDate.get(dateKey) || [];
+                const dayCallbacks = callbacksByDate.get(dateKey) || [];
                 const isToday = new Date().toISOString().split('T')[0] === dateKey;
                 const isSelected = selectedDayString === dateKey;
 
@@ -721,14 +1063,28 @@ export const AgendaView: React.FC<AgendaViewProps> = ({
                       >
                         {dayNum}
                       </span>
-                      {dayLeads.length > 0 && (
-                        <span className="text-[10px] font-bold font-mono px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300/80">
-                          {dayLeads.length}
-                        </span>
-                      )}
+                      <div className="flex items-center gap-1">
+                        {dayLeads.length > 0 && (
+                          <span
+                            className="text-[10px] font-bold font-mono px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300/80"
+                            title={`${dayLeads.length} Reunião(ões)`}
+                          >
+                            {dayLeads.length}
+                          </span>
+                        )}
+                        {dayCallbacks.length > 0 && (
+                          <span
+                            className="text-[10px] font-bold font-mono px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-0.5"
+                            title={`${dayCallbacks.length} Retorno(s) / Ligar mais tarde`}
+                          >
+                            <PhoneCall className="w-2.5 h-2.5" />
+                            <span>{dayCallbacks.length}</span>
+                          </span>
+                        )}
+                      </div>
                     </div>
 
-                    {/* Meetings chips inside day cell */}
+                    {/* Meetings & Callbacks chips inside day cell */}
                     <div className="space-y-1 mt-1 overflow-hidden">
                       {dayLeads.slice(0, 2).map((l) => (
                         <div
@@ -738,7 +1094,7 @@ export const AgendaView: React.FC<AgendaViewProps> = ({
                             handleOpenMeetingEditor(l);
                           }}
                           className="px-1.5 py-0.5 bg-emerald-100/90 hover:bg-emerald-200 text-emerald-900 border border-emerald-300 rounded text-[10px] font-semibold truncate flex items-center gap-1 transition-colors"
-                          title={`${l.meetingTime || ''} - ${l.companyName}: ${l.meetingNotes || 'Clique para ver estudo de caso e pauta'}`}
+                          title={`Reunião: ${l.meetingTime || ''} - ${l.companyName}: ${l.meetingNotes || 'Clique para ver estudo de caso e pauta'}`}
                         >
                           <span className="font-mono text-[9px] text-emerald-700 shrink-0">
                             {l.meetingTime || '10:00'}
@@ -746,9 +1102,32 @@ export const AgendaView: React.FC<AgendaViewProps> = ({
                           <span className="truncate">{l.companyName}</span>
                         </div>
                       ))}
-                      {dayLeads.length > 2 && (
+
+                      {dayCallbacks.slice(0, 2).map((l) => (
+                        <div
+                          key={'cb-cell-' + l.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenCallbackEditor(l);
+                          }}
+                          className={`px-1.5 py-0.5 border rounded text-[10px] font-semibold truncate flex items-center gap-1 transition-colors ${
+                            l.callbackStatus === 'realizado'
+                              ? 'bg-slate-100 text-slate-500 border-slate-200 line-through'
+                              : 'bg-amber-100/90 hover:bg-amber-200 text-amber-950 border-amber-300'
+                          }`}
+                          title={`Retorno: ${l.callbackTime || ''} - ${l.companyName}: ${l.callbackNotes || 'Ligar mais tarde'}`}
+                        >
+                          <PhoneCall className="w-2.5 h-2.5 text-amber-700 shrink-0" />
+                          <span className="font-mono text-[9px] text-amber-800 shrink-0">
+                            {l.callbackTime || '15:30'}
+                          </span>
+                          <span className="truncate">{l.companyName}</span>
+                        </div>
+                      ))}
+
+                      {dayLeads.length + dayCallbacks.length > 2 && (
                         <span className="text-[9px] font-bold text-slate-500 px-1 block">
-                          +{dayLeads.length - 2} mais
+                          +{dayLeads.length + dayCallbacks.length - 2} mais
                         </span>
                       )}
                     </div>
@@ -1038,6 +1417,98 @@ export const AgendaView: React.FC<AgendaViewProps> = ({
                 )}
               </div>
             )}
+
+            {/* Contatos para Ligar Mais Tarde no Dia Selecionado */}
+            <div className="pt-3 border-t border-slate-100 mt-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1.5">
+                  <PhoneCall className="w-3.5 h-3.5 text-amber-600" />
+                  <span className="text-xs font-bold text-slate-800">
+                    Ligar Mais Tarde neste Dia ({selectedDayCallbacks.length})
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditCallbackDate(selectedDayString);
+                    setIsCallbackPickerOpen(true);
+                  }}
+                  className="text-[10px] font-bold text-amber-800 hover:text-amber-950 bg-amber-50 hover:bg-amber-100 px-2 py-0.5 rounded cursor-pointer border border-amber-200 transition-colors"
+                >
+                  + Agendar Retorno
+                </button>
+              </div>
+
+              {selectedDayCallbacks.length > 0 ? (
+                <div className="space-y-2">
+                  {selectedDayCallbacks.map((lead) => (
+                    <div
+                      key={'sel-cb-' + lead.id}
+                      className="p-3 bg-amber-50/70 rounded-xl border border-amber-200/80 space-y-2"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="truncate">
+                          <h4 className="text-xs font-bold text-slate-900 truncate">{lead.companyName}</h4>
+                          <p className="text-[11px] text-slate-600 truncate">
+                            {lead.contactName || 'Responsável'} • {formatDisplayPhone(lead.phone)}
+                          </p>
+                        </div>
+                        <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-950 border border-amber-300 shrink-0">
+                          ⏰ {lead.callbackTime || '15:30'}
+                        </span>
+                      </div>
+
+                      {lead.callbackNotes && (
+                        <p className="text-[11px] text-amber-950 bg-white p-2 rounded-lg border border-amber-200">
+                          💬 "{lead.callbackNotes}"
+                        </p>
+                      )}
+
+                      <div className="flex items-center gap-1.5 pt-1">
+                        <a
+                          href={buildWhatsAppLink(
+                            lead.phone,
+                            `Olá ${lead.contactName || ''}! Conforme combinamos, estou retornando o contato agora com relação ao projeto da ${lead.companyName}. Podemos falar um instante?`
+                          )}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex-1 py-1 px-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1 shadow-2xs"
+                        >
+                          <PhoneCall className="w-3 h-3" />
+                          <span>Ligar Agora</span>
+                        </a>
+
+                        <button
+                          type="button"
+                          onClick={() => handleMarkCallbackDone(lead)}
+                          className={`p-1.5 rounded-lg text-xs font-semibold cursor-pointer ${
+                            lead.callbackStatus === 'realizado'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : 'bg-white hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 border border-slate-200'
+                          }`}
+                          title={lead.callbackStatus === 'realizado' ? 'Retorno Concluído' : 'Marcar como Concluído'}
+                        >
+                          <Check className="w-3.5 h-3.5 text-emerald-600" />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleOpenCallbackEditor(lead)}
+                          className="p-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-xs cursor-pointer"
+                          title="Editar horário do retorno"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[11px] text-slate-400 italic py-1">
+                  Nenhum retorno agendado para este dia.
+                </p>
+              )}
+            </div>
           </div>
 
           {/* Quick Checklist for Sales Calls & Demo Meetings */}
@@ -1390,6 +1861,254 @@ export const AgendaView: React.FC<AgendaViewProps> = ({
               <button
                 type="button"
                 onClick={() => setIsQuickPickerOpen(false)}
+                className="px-3.5 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: EDIT CALLBACK DETAILS (Ligar Mais Tarde) */}
+      {editingCallbackLead && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full max-h-[92vh] overflow-y-auto animate-in fade-in zoom-in-95">
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white z-10">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 bg-amber-100 text-amber-800 rounded-xl flex items-center justify-center font-bold shrink-0">
+                  <PhoneCall className="w-5 h-5 text-amber-700" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 truncate max-w-[280px]">
+                    Ligar Mais Tarde: {editingCallbackLead.companyName}
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    {editingCallbackLead.contactName || 'Responsável'} • {formatDisplayPhone(editingCallbackLead.phone)} • {editingCallbackLead.city || niche.city}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setEditingCallbackLead(null)}
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer text-xs font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveCallback} className="p-4 sm:p-6 space-y-4">
+              {/* Quick time shortcuts */}
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-700 mb-1.5">
+                  Atalhos de Horário Rápido:
+                </label>
+                <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditCallbackDate(todayDateString);
+                      const now = new Date();
+                      const nextH = (now.getHours() + 1) % 24;
+                      setEditCallbackTime(`${String(nextH).padStart(2, '0')}:00`);
+                    }}
+                    className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-lg font-semibold cursor-pointer"
+                  >
+                    Hoje +1 hora
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditCallbackDate(todayDateString);
+                      setEditCallbackTime('15:00');
+                    }}
+                    className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-lg font-semibold cursor-pointer"
+                  >
+                    Hoje às 15:00
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditCallbackDate(todayDateString);
+                      setEditCallbackTime('17:00');
+                    }}
+                    className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-lg font-semibold cursor-pointer"
+                  >
+                    Hoje às 17:00
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const tom = new Date();
+                      tom.setDate(tom.getDate() + 1);
+                      setEditCallbackDate(tom.toISOString().split('T')[0]);
+                      setEditCallbackTime('09:30');
+                    }}
+                    className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-lg font-semibold cursor-pointer"
+                  >
+                    Amanhã às 09:30
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Data do Retorno *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={editCallbackDate}
+                    onChange={(e) => setEditCallbackDate(e.target.value)}
+                    className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 font-mono font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Horário Previsto *
+                  </label>
+                  <input
+                    type="time"
+                    required
+                    value={editCallbackTime}
+                    onChange={(e) => setEditCallbackTime(e.target.value)}
+                    className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 font-mono font-bold"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Motivo / Observação do Cliente *
+                </label>
+                <textarea
+                  rows={2}
+                  value={editCallbackNotes}
+                  onChange={(e) => setEditCallbackNotes(e.target.value)}
+                  placeholder="Ex: Está em atendimento agora. Pediu para ligar às 16h pois o médico já estará livre."
+                  className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Status do Retorno
+                </label>
+                <select
+                  value={editCallbackStatus}
+                  onChange={(e) => setEditCallbackStatus(e.target.value as any)}
+                  className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 font-semibold"
+                >
+                  <option value="pendente">⏳ Pendente (Aguardando horário)</option>
+                  <option value="realizado">✅ Realizado (Contato efetuado)</option>
+                  <option value="cancelado">❌ Cancelado</option>
+                </select>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => handleRemoveCallback(editingCallbackLead)}
+                  className="px-3 py-1.5 text-xs text-rose-600 hover:bg-rose-50 rounded-lg font-semibold transition-colors cursor-pointer"
+                >
+                  Excluir Retorno
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingCallbackLead(null)}
+                    className="px-3 py-2 text-xs text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-xs flex items-center gap-1.5"
+                  >
+                    <Check className="w-4 h-4" />
+                    <span>Salvar Retorno</span>
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: PICK ANY LEAD FROM CAMPAIGN TO SCHEDULE CALLBACK */}
+      {isCallbackPickerOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full p-5 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center">
+                  <PhoneCall className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">
+                    Agendar Retorno (Ligar Mais Tarde)
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Selecione o contato que pediu para você ligar em outro horário:
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCallbackPickerOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 text-xs font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="relative mb-3">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Buscar por empresa, responsável ou telefone..."
+                value={callbackPickerSearch}
+                onChange={(e) => setCallbackPickerSearch(e.target.value)}
+                className="w-full text-xs pl-8 pr-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                autoFocus
+              />
+            </div>
+
+            <div className="max-h-72 overflow-y-auto space-y-1.5 pr-1">
+              {filteredCallbackPickers.slice(0, 15).map((l) => (
+                <div
+                  key={l.id}
+                  onClick={() => handleSelectLeadForCallback(l)}
+                  className="p-2.5 rounded-xl hover:bg-amber-50/70 border border-slate-200 hover:border-amber-300 transition-colors flex items-center justify-between group cursor-pointer"
+                >
+                  <div className="truncate pr-2">
+                    <p className="text-xs font-bold text-slate-900 group-hover:text-amber-700 truncate">
+                      {l.companyName}
+                    </p>
+                    <p className="text-[11px] text-slate-500 truncate">
+                      {l.contactName || 'Sem contato'} • {formatDisplayPhone(l.phone)} • {l.city || niche.city}
+                    </p>
+                  </div>
+                  <span className="text-[11px] font-bold text-amber-800 bg-amber-100 group-hover:bg-amber-600 group-hover:text-white px-2.5 py-1 rounded-lg border border-amber-300 shrink-0 transition-colors flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    <span>Ligar Mais Tarde</span>
+                  </span>
+                </div>
+              ))}
+              {filteredCallbackPickers.length === 0 && (
+                <p className="text-xs text-slate-400 text-center py-6">
+                  Nenhum contato encontrado com esse nome.
+                </p>
+              )}
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-end">
+              <button
+                type="button"
+                onClick={() => setIsCallbackPickerOpen(false)}
                 className="px-3.5 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
               >
                 Fechar

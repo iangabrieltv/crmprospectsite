@@ -20,7 +20,8 @@ import {
   Copy,
   Check,
   Send,
-  Calendar
+  Calendar,
+  PhoneCall
 } from 'lucide-react';
 import { DEFAULT_SCRIPTS } from '../utils/initialData';
 
@@ -334,6 +335,36 @@ export const LeadCard: React.FC<LeadCardProps> = ({
           </div>
           <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/90 px-1.5 py-0.2 rounded shrink-0">
             {lead.meetingDate ? 'Agendada' : 'Agendar 📅'}
+          </span>
+        </div>
+      )}
+
+      {/* Callback schedule tag (Pediu para falar outra hora / Ligar mais tarde) */}
+      {lead.callbackDate && lead.callbackStatus !== 'realizado' && lead.callbackStatus !== 'cancelado' && (
+        <div
+          onClick={(e) => {
+            if (onOpenAgenda) {
+              e.stopPropagation();
+              onOpenAgenda(lead.id);
+            }
+          }}
+          className={`mt-2 p-1.5 rounded-lg flex items-center justify-between text-[11px] transition-colors border ${
+            lead.callbackDate === new Date().toISOString().split('T')[0]
+              ? 'bg-amber-100 text-amber-950 border-amber-300 ring-1 ring-amber-400 font-semibold'
+              : 'bg-amber-50 text-amber-900 border-amber-200/80 hover:bg-amber-100'
+          } ${onOpenAgenda ? 'cursor-pointer' : ''}`}
+          title="Pediu para entrar em contato outra hora. Clique para gerenciar na Agenda."
+        >
+          <div className="flex items-center gap-1.5 font-semibold truncate">
+            <PhoneCall className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+            <span className="truncate">
+              {lead.callbackDate === new Date().toISOString().split('T')[0]
+                ? `Ligar Hoje${lead.callbackTime ? ` às ${lead.callbackTime}` : ''}`
+                : `Retorno: ${new Date(lead.callbackDate + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}${lead.callbackTime ? ` às ${lead.callbackTime}` : ''}`}
+            </span>
+          </div>
+          <span className="text-[10px] font-bold bg-amber-200/90 text-amber-900 px-1.5 py-0.2 rounded shrink-0">
+            {lead.callbackNotes ? lead.callbackNotes.slice(0, 14) + (lead.callbackNotes.length > 14 ? '...' : '') : 'Retorno 📞'}
           </span>
         </div>
       )}

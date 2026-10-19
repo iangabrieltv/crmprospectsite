@@ -36,7 +36,8 @@ import {
   ChevronUp,
   ChevronRight,
   Layers,
-  ShieldAlert
+  ShieldAlert,
+  PhoneCall
 } from 'lucide-react';
 
 interface LeadModalProps {
@@ -92,7 +93,12 @@ export const LeadModal: React.FC<LeadModalProps> = ({
   const [meetingLink, setMeetingLink] = useState(lead.meetingLink || '');
   const [meetingStatus, setMeetingStatus] = useState<'agendada' | 'realizada' | 'remarcada' | 'cancelada'>(lead.meetingStatus || 'agendada');
   
-  // AI Pitch state
+  // Callback (Ligar mais tarde / Entrar em contato outra hora) state
+  const [hasCallback, setHasCallback] = useState(Boolean(lead.callbackDate));
+  const [callbackDate, setCallbackDate] = useState(lead.callbackDate || '');
+  const [callbackTime, setCallbackTime] = useState(lead.callbackTime || '15:00');
+  const [callbackNotes, setCallbackNotes] = useState(lead.callbackNotes || '');
+  const [callbackStatus, setCallbackStatus] = useState<'pendente' | 'realizado' | 'cancelado'>(lead.callbackStatus || 'pendente');
   const [aiPitch, setAiPitch] = useState(lead.aiPitch || '');
   const [isGeneratingPitch, setIsGeneratingPitch] = useState(false);
   const [pitchError, setPitchError] = useState<string | null>(null);
@@ -225,7 +231,25 @@ export const LeadModal: React.FC<LeadModalProps> = ({
       meetingNotes: meetingNotes.trim() || undefined,
       meetingLink: meetingLink.trim() || undefined,
       meetingStatus,
-      notes,
+      callbackDate: hasCallback && callbackDate ? callbackDate : undefined,
+      callbackTime: hasCallback && callbackTime ? callbackTime : undefined,
+      callbackNotes: hasCallback && callbackNotes.trim() ? callbackNotes.trim() : undefined,
+      callbackStatus: hasCallback ? callbackStatus : undefined,
+      notes:
+        hasCallback && callbackDate && callbackDate !== lead.callbackDate
+          ? [
+              {
+                id: 'note-callback-' + Date.now(),
+                date:
+                  new Date().toLocaleDateString('pt-BR') +
+                  ' ' +
+                  new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+                text: `⏰ Agendado retorno (pediu para ligar mais tarde): ${new Date(callbackDate + 'T00:00:00').toLocaleDateString('pt-BR')}${callbackTime ? ` às ${callbackTime}` : ''}.${callbackNotes ? ` Motivo: "${callbackNotes}"` : ''}`,
+                author: userName,
+              },
+              ...notes,
+            ]
+          : notes,
       aiPitch: aiPitch.trim() || undefined,
     };
     onUpdateLead(updated);
@@ -742,6 +766,154 @@ export const LeadModal: React.FC<LeadModalProps> = ({
                   </div>
                 </div>
               )}
+
+              {/* Ligar Mais Tarde / Retorno Agendado (quando pede para falar outra hora) */}
+              <div className="p-3.5 bg-amber-50/70 border border-amber-200/90 rounded-xl space-y-3">
+                <div className="flex items-center justify-between pb-1.5 border-b border-amber-200/60">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-amber-950">
+                    <PhoneCall className="w-4 h-4 text-amber-600" />
+                    <span>Ligar Mais Tarde / Entrar em Contato Outra Hora</span>
+                  </div>
+                  <label className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-900 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={hasCallback}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setHasCallback(checked);
+                        if (checked && !callbackDate) {
+                          setCallbackDate(new Date().toISOString().split('T')[0]);
+                        }
+                      }}
+                      className="rounded text-amber-600 focus:ring-amber-500 w-3.5 h-3.5 cursor-pointer"
+                    />
+                    <span>Ativar Retorno</span>
+                  </label>
+                </div>
+
+                {hasCallback ? (
+                  <div className="space-y-2.5 animate-in fade-in duration-150">
+                    {/* Quick shortcuts */}
+                    <div className="flex flex-wrap items-center gap-1 text-[10px]">
+                      <span className="text-amber-800 font-medium mr-1">Atalhos rápidos:</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const today = new Date().toISOString().split('T')[0];
+                          const now = new Date();
+                          const futureHour = (now.getHours() + 1) % 24;
+                          setCallbackDate(today);
+                          setCallbackTime(`${String(futureHour).padStart(2, '0')}:00`);
+                        }}
+                        className="px-2 py-0.5 bg-white border border-amber-300 hover:bg-amber-100 rounded text-amber-900 font-semibold cursor-pointer"
+                      >
+                        Hoje +1h
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCallbackDate(new Date().toISOString().split('T')[0]);
+                          setCallbackTime('15:00');
+                        }}
+                        className="px-2 py-0.5 bg-white border border-amber-300 hover:bg-amber-100 rounded text-amber-900 font-semibold cursor-pointer"
+                      >
+                        Hoje às 15:00
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCallbackDate(new Date().toISOString().split('T')[0]);
+                          setCallbackTime('17:00');
+                        }}
+                        className="px-2 py-0.5 bg-white border border-amber-300 hover:bg-amber-100 rounded text-amber-900 font-semibold cursor-pointer"
+                      >
+                        Hoje às 17:00
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const tomorrow = new Date();
+                          tomorrow.setDate(tomorrow.getDate() + 1);
+                          setCallbackDate(tomorrow.toISOString().split('T')[0]);
+                          setCallbackTime('09:30');
+                        }}
+                        className="px-2 py-0.5 bg-white border border-amber-300 hover:bg-amber-100 rounded text-amber-900 font-semibold cursor-pointer"
+                      >
+                        Amanhã 09:30
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-amber-950 mb-1">
+                          Data do Retorno *
+                        </label>
+                        <input
+                          type="date"
+                          value={callbackDate}
+                          onChange={(e) => setCallbackDate(e.target.value)}
+                          className="w-full text-xs px-2.5 py-1.5 bg-white border border-amber-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 font-mono text-slate-900 font-semibold"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-amber-950 mb-1">
+                          Horário Previsto *
+                        </label>
+                        <input
+                          type="time"
+                          value={callbackTime}
+                          onChange={(e) => setCallbackTime(e.target.value)}
+                          className="w-full text-xs px-2.5 py-1.5 bg-white border border-amber-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 font-mono text-slate-900 font-semibold"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-amber-950 mb-1">
+                        O que foi combinado / Motivo
+                      </label>
+                      <input
+                        type="text"
+                        value={callbackNotes}
+                        onChange={(e) => setCallbackNotes(e.target.value)}
+                        placeholder="Ex: Está em atendimento, secretária pediu retorno às 15:30"
+                        className="w-full text-xs px-2.5 py-1.5 bg-white border border-amber-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 text-slate-900"
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1">
+                      <div className="flex items-center gap-2">
+                        <label className="text-[11px] font-semibold text-amber-950">Status:</label>
+                        <select
+                          value={callbackStatus}
+                          onChange={(e) => setCallbackStatus(e.target.value as any)}
+                          className="text-xs px-2 py-1 bg-white border border-amber-300 rounded-lg text-amber-900 font-semibold"
+                        >
+                          <option value="pendente">⏳ Pendente</option>
+                          <option value="realizado">✅ Realizado (Já liguei)</option>
+                          <option value="cancelado">❌ Cancelado</option>
+                        </select>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setHasCallback(false);
+                          setCallbackDate('');
+                          setCallbackNotes('');
+                        }}
+                        className="text-[10px] text-rose-700 hover:text-rose-900 font-semibold cursor-pointer"
+                      >
+                        Remover retorno
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-amber-800">
+                    O cliente estava ocupado ou pediu para falar mais tarde? Marque <strong>Ativar Retorno</strong> para a Agenda te avisar no horário exato!
+                  </p>
+                )}
+              </div>
 
               {/* Objection Box (Active if stage is nao_interessado) */}
               <div>

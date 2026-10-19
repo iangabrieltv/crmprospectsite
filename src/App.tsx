@@ -165,6 +165,12 @@ export default function App() {
   // Total meetings count across all active leads in "reuniao_marcada"
   const meetingLeadsCount = leads.filter((l) => l.stage === 'reuniao_marcada').length;
 
+  // Total callbacks scheduled for today
+  const todayDateStr = new Date().toISOString().split('T')[0];
+  const todayCallbacksCount = leads.filter(
+    (l) => l.callbackDate === todayDateStr && l.callbackStatus !== 'realizado' && l.callbackStatus !== 'cancelado'
+  ).length;
+
   // Persistence effects
   useEffect(() => {
     saveStoredNiches(niches);
@@ -526,6 +532,7 @@ export default function App() {
         onUpdateUserName={(name) => setUserName(name)}
         totalLeadsCount={activeNicheLeads.length}
         meetingsCount={meetingLeadsCount}
+        callbacksCount={todayCallbacksCount}
         onLogout={handleLogout}
         isCloudSynced={isCloudSynced}
         onClearAllContacts={handleClearAllContacts}

@@ -22,7 +22,8 @@ import {
   Cloud,
   Trash2,
   AlertTriangle,
-  RotateCcw
+  RotateCcw,
+  PhoneCall
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -37,6 +38,7 @@ interface HeaderProps {
   onUpdateUserName: (name: string) => void;
   totalLeadsCount: number;
   meetingsCount?: number;
+  callbacksCount?: number;
   onLogout?: () => void;
   isCloudSynced?: boolean;
   onClearAllContacts?: () => Promise<void> | void;
@@ -54,6 +56,7 @@ export const Header: React.FC<HeaderProps> = ({
   onUpdateUserName,
   totalLeadsCount,
   meetingsCount = 0,
+  callbacksCount = 0,
   onLogout,
   isCloudSynced = true,
   onClearAllContacts,
@@ -76,14 +79,23 @@ export const Header: React.FC<HeaderProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const navItems: { tab: AppTab; label: string; icon: React.ReactNode; badge?: number }[] = [
+  const totalAgendaAlerts = meetingsCount + callbacksCount;
+
+  const navItems: {
+    tab: AppTab;
+    label: string;
+    icon: React.ReactNode;
+    badge?: number;
+    hasCallbacks?: boolean;
+  }[] = [
     { tab: 'kanban', label: 'Pipeline', icon: <Kanban className="w-4 h-4 shrink-0" /> },
     { tab: 'dashboard', label: 'Dashboard', icon: <BarChart3 className="w-4 h-4 shrink-0" /> },
     {
       tab: 'agenda',
       label: 'Agenda',
       icon: <Calendar className="w-4 h-4 shrink-0" />,
-      badge: meetingsCount,
+      badge: totalAgendaAlerts,
+      hasCallbacks: callbacksCount > 0,
     },
     { tab: 'scripts', label: 'Scripts', icon: <FileText className="w-4 h-4 shrink-0" /> },
     { tab: 'importer', label: 'Importador', icon: <Upload className="w-4 h-4 shrink-0" /> },
@@ -196,11 +208,16 @@ export const Header: React.FC<HeaderProps> = ({
                 <span>{item.label}</span>
                 {item.badge !== undefined && item.badge > 0 && (
                   <span
-                    className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold leading-none ${
-                      isActive ? 'bg-emerald-500 text-white' : 'bg-emerald-100 text-emerald-800'
+                    className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold leading-none flex items-center gap-0.5 ${
+                      item.hasCallbacks
+                        ? 'bg-amber-500 text-white animate-pulse'
+                        : isActive
+                        ? 'bg-emerald-500 text-white'
+                        : 'bg-emerald-100 text-emerald-800'
                     }`}
                   >
-                    {item.badge}
+                    {item.hasCallbacks && <PhoneCall className="w-2.5 h-2.5" />}
+                    <span>{item.badge}</span>
                   </span>
                 )}
               </button>
@@ -297,11 +314,16 @@ export const Header: React.FC<HeaderProps> = ({
               <span>{item.label}</span>
               {item.badge !== undefined && item.badge > 0 && (
                 <span
-                  className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-mono font-bold leading-none ${
-                    isActive ? 'bg-emerald-500 text-white' : 'bg-emerald-100 text-emerald-800'
+                  className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-mono font-bold leading-none flex items-center gap-0.5 ${
+                    item.hasCallbacks
+                      ? 'bg-amber-500 text-white animate-pulse'
+                      : isActive
+                      ? 'bg-emerald-500 text-white'
+                      : 'bg-emerald-100 text-emerald-800'
                   }`}
                 >
-                  {item.badge}
+                  {item.hasCallbacks && <PhoneCall className="w-2 h-2" />}
+                  <span>{item.badge}</span>
                 </span>
               )}
             </button>

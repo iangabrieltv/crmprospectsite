@@ -1896,7 +1896,7 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
             </div>
           )}
 
-          {/* Action Buttons: Fast Heuristic vs Gemini AI */}
+          {/* Action Buttons: Atualizar Pr√©via dos Dados */}
           <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100">
             <div className="flex items-center gap-2">
               <button

@@ -2,6 +2,7 @@ export type FunnelStageId =
   | 'leads_sem_contato'
   | 'primeiro_contato'
   | 'nao_atendida'
+  | 'mandei_mensagem'
   | 'follow_up_1'
   | 'follow_up_2'
   | 'reuniao_marcada'
@@ -27,19 +28,19 @@ export interface FunnelStageConfig {
 export const FUNNEL_STAGES: FunnelStageConfig[] = [
   {
     id: 'leads_sem_contato',
-    name: '1. Leads sem Contato',
-    shortName: 'Sem Contato',
+    name: '1. Leads Encontrados',
+    shortName: 'Leads Encontrados',
     order: 1,
-    description: 'Leads cadastrados ou importados aguardando primeiro contato.',
+    description: 'Leads cadastrados ou importados da planilha aguardando abordagem inicial.',
     colorBadge: 'bg-slate-100 text-slate-700',
     borderAccent: 'border-l-slate-400',
   },
   {
     id: 'primeiro_contato',
-    name: '2. Primeiro Contato',
-    shortName: '1º Contato',
+    name: '2. Primeiro Contato (Ligação)',
+    shortName: '1ª Ligação',
     order: 2,
-    description: 'Primeira mensagem ou abordagem inicial realizada no WhatsApp.',
+    description: 'Primeira ligação direta ou tentativa de contato inicial com o lead.',
     colorBadge: 'bg-blue-50 text-blue-700',
     borderAccent: 'border-l-blue-500',
   },
@@ -48,42 +49,51 @@ export const FUNNEL_STAGES: FunnelStageConfig[] = [
     name: '3. Não Atendida',
     shortName: 'Não Atendida',
     order: 3,
-    description: 'Mensagem sem resposta, ligação não atendida ou contato não completado.',
+    description: 'Ligação não atendida, chamada ocupada ou caiu na caixa postal.',
     colorBadge: 'bg-amber-50 text-amber-700',
     borderAccent: 'border-l-amber-500',
   },
   {
-    id: 'follow_up_1',
-    name: '4. Follow-up 1',
-    shortName: 'Follow 1',
+    id: 'mandei_mensagem',
+    name: '4. Mandei Mensagem',
+    shortName: 'Mensagem',
     order: 4,
-    description: 'Primeiro lembrete/toque estratégico enviado após 24h a 48h.',
+    description: 'Mensagem de WhatsApp enviada após a ligação não ser atendida.',
+    colorBadge: 'bg-sky-50 text-sky-700',
+    borderAccent: 'border-l-sky-500',
+  },
+  {
+    id: 'follow_up_1',
+    name: '5. Follow-up 1',
+    shortName: 'Follow 1',
+    order: 5,
+    description: 'Primeiro lembrete/toque estratégico enviado após 24h a 48h da mensagem.',
     colorBadge: 'bg-purple-50 text-purple-700',
     borderAccent: 'border-l-purple-500',
   },
   {
     id: 'follow_up_2',
-    name: '5. Follow-up 2',
+    name: '6. Follow-up 2',
     shortName: 'Follow 2',
-    order: 5,
+    order: 6,
     description: 'Segundo toque ou follow-up direto com pergunta clara.',
     colorBadge: 'bg-indigo-50 text-indigo-700',
     borderAccent: 'border-l-indigo-500',
   },
   {
     id: 'reuniao_marcada',
-    name: '6. Reunião Marcada',
-    shortName: 'Reunião Marcada',
-    order: 6,
-    description: 'Demonstração rápida ou reunião de 10 minutos agendada com o cliente.',
+    name: '7. Reunião Marcada',
+    shortName: 'Reunião',
+    order: 7,
+    description: 'Demonstração rápida ou reunião comercial agendada com o cliente.',
     colorBadge: 'bg-emerald-50 text-emerald-700',
     borderAccent: 'border-l-emerald-500',
   },
   {
     id: 'fechado',
-    name: '7. Fechado',
-    shortName: 'Fechado',
-    order: 7,
+    name: '8. Fechamento',
+    shortName: 'Fechamento',
+    order: 8,
     description: 'Contrato fechado! Valor de criação e mensalidade ativados.',
     colorBadge: 'bg-green-100 text-green-800 font-semibold',
     borderAccent: 'border-l-green-600',
@@ -91,7 +101,7 @@ export const FUNNEL_STAGES: FunnelStageConfig[] = [
 ];
 
 /**
- * Normaliza qualquer stage antigo para a nova sequência de 7 etapas
+ * Normaliza qualquer stage antigo para a nova sequência de 8 etapas
  */
 export function normalizeStageId(stage: string | undefined): FunnelStageId {
   if (!stage) return 'leads_sem_contato';
@@ -99,13 +109,18 @@ export function normalizeStageId(stage: string | undefined): FunnelStageId {
     case 'nao_iniciada':
     case 'nao_tem_contato':
     case 'leads_sem_contato':
+    case 'leads_encontrados':
       return 'leads_sem_contato';
     case 'primeiro_contato':
+    case 'primeira_ligacao':
       return 'primeiro_contato';
     case 'nao_atendida':
     case 'nao_respondida':
-    case 'nao_interessado':
       return 'nao_atendida';
+    case 'mandei_mensagem':
+    case 'mensagem':
+    case 'mensagem_enviada':
+      return 'mandei_mensagem';
     case 'follow_up_1':
       return 'follow_up_1';
     case 'follow_up_2':
@@ -115,7 +130,10 @@ export function normalizeStageId(stage: string | undefined): FunnelStageId {
     case 'interessado':
       return 'reuniao_marcada';
     case 'fechado':
+    case 'fechamento':
       return 'fechado';
+    case 'nao_interessado':
+      return 'nao_atendida';
     default:
       return 'leads_sem_contato';
   }
@@ -211,6 +229,11 @@ export interface Lead {
   meetingNotes?: string; // Observações da reunião (o que tem, o que fazer, pauta)
   meetingLink?: string; // Link da sala de videochamada (Google Meet / Zoom / WhatsApp)
   meetingStatus?: 'agendada' | 'realizada' | 'remarcada' | 'cancelada';
+  // Agenda: Contatos que pediram para entrar em contato outra hora (Ligar mais tarde / Retorno)
+  callbackDate?: string; // YYYY-MM-DD (ex: "2026-10-19")
+  callbackTime?: string; // HH:MM (ex: "15:30")
+  callbackNotes?: string; // Motivo/observação (ex: "Pediu para ligar às 15:30, ocupado no momento")
+  callbackStatus?: 'pendente' | 'realizado' | 'cancelado';
 }
 
 export interface NicheCampaign {
