@@ -224,6 +224,14 @@ export function interpolateScript(
   result = result.replace(/\[SERVICOSNICHO\]/gi, servicosVal);
   result = result.replace(/\[SERVICOS\]/gi, servicosVal);
 
+  // Company / Professional Name ("Nome da Empresa / Profissional *")
+  if (empresaVal && empresaVal !== 'sua empresa') {
+    result = result.replace(/\{Empresa\}/gi, empresaVal);
+  } else {
+    result = result.replace(/Olá,\s*bom\s*dia\s*\{Empresa\}!?/gi, 'Olá, bom dia!');
+    result = result.replace(/\{Empresa\}/gi, empresaVal || '');
+  }
+
   // Direct Greeting support
   if (cleanNameOnly) {
     result = result.replace(/\{NomeContato\}/gi, cleanNameOnly);

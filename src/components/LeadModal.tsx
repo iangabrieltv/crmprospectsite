@@ -139,7 +139,9 @@ export const LeadModal: React.FC<LeadModalProps> = ({
 
   const [activeMessageChoice, setActiveMessageChoice] = useState<'opening' | 'fu1' | 'fu2' | 'fu3'>('opening');
 
-  const contactGreeting = getContactGreetingMessage(contactName?.trim() || lead.contactName?.trim());
+  // Direct WhatsApp greeting using "Nome da Empresa / Profissional *" (companyName)
+  const businessOrProName = (companyName?.trim() || lead.companyName?.trim() || '').trim();
+  const contactGreeting = getContactGreetingMessage(businessOrProName);
 
   const getSelectedTemplate = () => {
     switch (activeMessageChoice) {

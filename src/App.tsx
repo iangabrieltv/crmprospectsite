@@ -100,7 +100,9 @@ export default function App() {
             n.scripts?.script_mensagem?.template?.includes('Kaizen Visual') ||
             n.scripts?.script_ligacao?.template?.includes('Kaizen Visual') ||
             n.scripts?.script_mensagem?.template?.includes('dois minutinhos') ||
-            n.scripts?.script_ligacao?.template?.includes('dois minutinhos');
+            n.scripts?.script_ligacao?.template?.includes('dois minutinhos') ||
+            n.scripts?.script_mensagem?.template?.includes('{NomeContato}') ||
+            n.scripts?.script_ligacao?.template?.includes('{NomeContato}');
 
           if (!n.scripts?.script_mensagem || !n.scripts?.script_ligacao || Object.keys(n.scripts || {}).length !== 2 || hasOldTemplate) {
             const updated = {

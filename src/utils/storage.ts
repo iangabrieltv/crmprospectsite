@@ -27,7 +27,9 @@ export function loadStoredNiches(): NicheCampaign[] {
           niche.scripts?.script_mensagem?.template?.includes('Kaizen Visual') ||
           niche.scripts?.script_ligacao?.template?.includes('Kaizen Visual') ||
           niche.scripts?.script_mensagem?.template?.includes('dois minutinhos') ||
-          niche.scripts?.script_ligacao?.template?.includes('dois minutinhos');
+          niche.scripts?.script_ligacao?.template?.includes('dois minutinhos') ||
+          niche.scripts?.script_mensagem?.template?.includes('{NomeContato}') ||
+          niche.scripts?.script_ligacao?.template?.includes('{NomeContato}');
 
         return {
           ...niche,
