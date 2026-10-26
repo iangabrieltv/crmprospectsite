@@ -3,6 +3,7 @@ import { Lead, FunnelStageId, FUNNEL_STAGES, NicheCampaign } from '../types/crm'
 import {
   isInactiveOver48h,
   buildWhatsAppLink,
+  getContactGreetingMessage,
   interpolateScript,
   formatDisplayPhone,
   formatFriendlyTime
@@ -60,17 +61,9 @@ export const LeadCard: React.FC<LeadCardProps> = ({
     Object.values(niche.scripts)[0] ||
     DEFAULT_SCRIPTS.script_mensagem;
 
-  const interpolatedMessage = interpolateScript(scriptDef.template, {
-    empresa: lead.companyName,
-    contato: lead.contactName,
-    nicho: niche.segment,
-    cidade: lead.city || niche.city,
-    linkMockup: lead.mockupUrl,
-    notaGoogle: lead.googleRating,
-    seuNome: userName,
-  });
-
-  const waLink = buildWhatsAppLink(lead.phone, interpolatedMessage);
+  // Direct WhatsApp greeting message: "Olá, bom dia (nome do contato)! Tudo bem?"
+  const contactGreetingMessage = getContactGreetingMessage(lead.contactName);
+  const waLink = buildWhatsAppLink(lead.phone, contactGreetingMessage);
 
   const handleWhatsAppClick = (e: React.MouseEvent) => {
     e.stopPropagation();

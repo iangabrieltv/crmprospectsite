@@ -96,12 +96,18 @@ export default function App() {
       setIsCloudSynced(true);
       if (remoteNiches.length > 0) {
         const upgradedNiches = remoteNiches.map((n) => {
-          if (!n.scripts?.script_mensagem || !n.scripts?.script_ligacao || Object.keys(n.scripts || {}).length !== 2) {
+          const hasOldTemplate =
+            n.scripts?.script_mensagem?.template?.includes('Kaizen Visual') ||
+            n.scripts?.script_ligacao?.template?.includes('Kaizen Visual') ||
+            n.scripts?.script_mensagem?.template?.includes('dois minutinhos') ||
+            n.scripts?.script_ligacao?.template?.includes('dois minutinhos');
+
+          if (!n.scripts?.script_mensagem || !n.scripts?.script_ligacao || Object.keys(n.scripts || {}).length !== 2 || hasOldTemplate) {
             const updated = {
               ...n,
               scripts: {
-                script_mensagem: n.scripts?.script_mensagem || DEFAULT_SCRIPTS.script_mensagem,
-                script_ligacao: n.scripts?.script_ligacao || DEFAULT_SCRIPTS.script_ligacao,
+                script_mensagem: hasOldTemplate ? DEFAULT_SCRIPTS.script_mensagem : (n.scripts?.script_mensagem || DEFAULT_SCRIPTS.script_mensagem),
+                script_ligacao: hasOldTemplate ? DEFAULT_SCRIPTS.script_ligacao : (n.scripts?.script_ligacao || DEFAULT_SCRIPTS.script_ligacao),
               },
             };
             syncNicheToFirestore(updated).catch(console.error);

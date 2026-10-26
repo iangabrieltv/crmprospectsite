@@ -63,6 +63,18 @@ export function formatDisplayPhone(phone: string): string {
 }
 
 /**
+ * Generate standard direct WhatsApp greeting for a contact
+ * e.g. "Olá, bom dia João! Tudo bem?" or "Olá, bom dia! Tudo bem?"
+ */
+export function getContactGreetingMessage(contactName?: string): string {
+  const clean = (contactName || '').trim();
+  if (clean) {
+    return `Olá, bom dia ${clean}! Tudo bem?`;
+  }
+  return `Olá, bom dia! Tudo bem?`;
+}
+
+/**
  * Generate wa.me link with encoded message
  */
 export function buildWhatsAppLink(phone: string, message: string): string {
@@ -212,10 +224,21 @@ export function interpolateScript(
   result = result.replace(/\[SERVICOSNICHO\]/gi, servicosVal);
   result = result.replace(/\[SERVICOS\]/gi, servicosVal);
 
-  // Curly braces support {Var}
-  result = result.replace(/\{Empresa\}/gi, empresaVal);
-  result = result.replace(/\{NomeContato\}/gi, cleanNameOnly);
-  result = result.replace(/\{Nome\}/gi, cleanNameOnly);
+  // Direct Greeting support
+  if (cleanNameOnly) {
+    result = result.replace(/\{NomeContato\}/gi, cleanNameOnly);
+    result = result.replace(/\{contato\}/gi, cleanNameOnly);
+    result = result.replace(/\{Nome\}/gi, cleanNameOnly);
+  } else {
+    // If contact name is not provided, prevent awkward "Olá, bom dia ! Tudo bem?"
+    result = result.replace(/Olá,\s*bom\s*dia\s*\{NomeContato\}!?/gi, 'Olá, bom dia!');
+    result = result.replace(/Olá,\s*bom\s*dia\s*\{contato\}!?/gi, 'Olá, bom dia!');
+    result = result.replace(/Olá,\s*bom\s*dia\s*\{Nome\}!?/gi, 'Olá, bom dia!');
+    result = result.replace(/\{NomeContato\}\s*/gi, '');
+    result = result.replace(/\{contato\}\s*/gi, '');
+    result = result.replace(/\{Nome\}\s*/gi, '');
+  }
+  result = result.replace(/\{SaudacaoContato\}/gi, getContactGreetingMessage(contatoVal));
   result = result.replace(/\{Nicho\}/gi, cleanNicho);
   result = result.replace(/\{Cidade\}/gi, variables.cidade || 'sua região');
   result = result.replace(/\{LinkMockup\}/gi, mockupVal);

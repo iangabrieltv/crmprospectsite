@@ -13,16 +13,12 @@ export const SCRIPT_LIGACAO: ScriptDefinition = {
     insight: 'Seja natural, consulte e termine com pergunta curta. Mostre que uma conversa de 15 min trará uma análise prática de oportunidades.',
   },
   structure: {
-    hook: 'Oi, bom dia! Tudo bem? Com quem eu falo, por favor? Prazer! Meu nome é {SeuNome}, sou da Kaizen Visual. Você consegue falar comigo por dois minutinhos ou tá num momento corrido aí?',
+    hook: 'Olá, bom dia {NomeContato}! Tudo bem?',
     problem: 'Queria entender uma coisa: hoje vocês recebem clientes pelo Google, quando alguém pesquisa por empresas de {nicho} aqui na região, ou a maior parte dos clientes chega por indicação?',
     solution: 'Eu queria fazer uma análise rápida da presença digital de vocês e te mostrar alguns pontos que podem ser melhorados, caso existam oportunidades.',
     cta: 'Seria uma conversa rápida, de uns 15 minutos. Você conseguiria conversar comigo amanhã ou teria algum outro dia melhor?',
   },
-  template: `Oi, bom dia! Tudo bem? Com quem eu falo, por favor?
-
-Prazer! Meu nome é {SeuNome}, sou da Kaizen Visual.
-
-Você consegue falar comigo por dois minutinhos ou tá num momento corrido aí?`,
+  template: `Olá, bom dia {NomeContato}! Tudo bem?`,
   followUp1: `Oi, tudo bem? Aqui é o {SeuNome} da Kaizen Visual. Conversamos rapidamente por telefone sobre a análise da presença digital da {empresa}. Conseguiu verificar sua agenda para amanhã?`,
   followUp2: `Oi, tudo bem? Para ser bem breve: queria te mostrar rapidamente os pontos de oportunidade que encontrei na presença digital de vocês. Qual o melhor dia para conversarmos 15 minutos?`,
   objections: [
@@ -71,11 +67,7 @@ E, caso seja mais fácil, você consegue me passar o WhatsApp dele(a) para eu ma
           id: 'lig-step-1',
           title: 'Mensagem 1 — Abertura',
           condition: 'Primeiro envio para iniciar o contato',
-          message: `Oi, bom dia! Tudo bem? Com quem eu falo, por favor?
-
-Prazer! Meu nome é {SeuNome}, sou da Kaizen Visual.
-
-Você consegue falar comigo por dois minutinhos ou tá num momento corrido aí?`,
+          message: `Olá, bom dia {NomeContato}! Tudo bem?`,
           tip: 'Mensagem simples e inocente para confirmação.',
           format: 'texto',
         },
@@ -181,16 +173,12 @@ export const SCRIPT_MENSAGEM: ScriptDefinition = {
     insight: 'Nunca envie texto longo no primeiro contato. Faça perguntas curtas que estimulem respostas e facilitem o diálogo.',
   },
   structure: {
-    hook: 'Oi, bom dia! Tudo bem? Meu nome é {SeuNome}, sou da Kaizen Visual. Encontrei a empresa de vocês enquanto pesquisava empresas de {nicho} aqui da região e queria falar rapidinho com o responsável pela parte comercial ou de divulgação. Você consegue me ajudar?',
+    hook: 'Olá, bom dia {NomeContato}! Tudo bem?',
     problem: 'Queria te perguntar uma coisa: hoje vocês conseguem receber contatos de clientes pelo Google ou a maior parte chega por indicação e redes sociais?',
     solution: 'Eu queria fazer uma análise rápida da presença digital de vocês e mostrar alguns pontos que podem ser melhorados, caso existam oportunidades.',
     cta: 'Seria uma conversa rápida, de uns 15 minutos. Você teria disponibilidade amanhã ou em algum outro dia desta semana?',
   },
-  template: `Oi, bom dia! Tudo bem?
-
-Meu nome é {SeuNome}, sou da Kaizen Visual.
-
-Encontrei a empresa de vocês enquanto pesquisava empresas de {nicho} aqui da região e queria falar rapidinho com o responsável pela parte comercial ou de divulgação. Você consegue me ajudar?`,
+  template: `Olá, bom dia {NomeContato}! Tudo bem?`,
   followUp1: `Oi, tudo bem? Aqui é o {SeuNome} da Kaizen Visual. Passando rapidinho para retomar a mensagem sobre a análise da presença digital da {empresa}. Consegue falar dois minutinhos hoje?`,
   followUp2: `Oi, tudo bem? Para ser bem breve: queria te mostrar rapidamente os pontos que encontrei da presença digital de vocês no Google. Qual dia desta semana fica melhor para você?`,
   objections: [
@@ -223,11 +211,7 @@ Encontrei a empresa de vocês enquanto pesquisava empresas de {nicho} aqui da re
           id: 'msg-step-1',
           title: 'Mensagem 1 — Abertura',
           condition: 'Primeiro contato com a empresa.',
-          message: `Oi, bom dia! Tudo bem?
-
-Meu nome é {SeuNome}, sou da Kaizen Visual.
-
-Encontrei a empresa de vocês enquanto pesquisava empresas de {nicho} aqui da região e queria falar rapidinho com o responsável pela parte comercial ou de divulgação. Você consegue me ajudar?`,
+          message: `Olá, bom dia {NomeContato}! Tudo bem?`,
           tip: 'Primeiro contato com a empresa.',
           format: 'texto',
         },

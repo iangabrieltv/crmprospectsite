@@ -12,6 +12,7 @@ import {
   cleanPhoneForWhatsApp,
   formatDisplayPhone,
   buildWhatsAppLink,
+  getContactGreetingMessage,
   interpolateScript
 } from '../utils/phone';
 import { DEFAULT_SCRIPTS } from '../utils/initialData';
@@ -138,22 +139,28 @@ export const LeadModal: React.FC<LeadModalProps> = ({
 
   const [activeMessageChoice, setActiveMessageChoice] = useState<'opening' | 'fu1' | 'fu2' | 'fu3'>('opening');
 
+  const contactGreeting = getContactGreetingMessage(contactName?.trim() || lead.contactName?.trim());
+
   const getSelectedTemplate = () => {
     switch (activeMessageChoice) {
+      case 'opening':
+        return contactGreeting;
       case 'fu1':
-        return currentScriptDef?.followUp1 || currentScriptDef?.template || '';
+        return currentScriptDef?.followUp1 || currentScriptDef?.template || contactGreeting;
       case 'fu2':
-        return currentScriptDef?.followUp2 || currentScriptDef?.template || '';
+        return currentScriptDef?.followUp2 || currentScriptDef?.template || contactGreeting;
       case 'fu3':
-        return currentScriptDef?.followUp3 || currentScriptDef?.followUp2 || currentScriptDef?.template || '';
+        return currentScriptDef?.followUp3 || currentScriptDef?.followUp2 || currentScriptDef?.template || contactGreeting;
       default:
-        return currentScriptDef?.template || '';
+        return contactGreeting;
     }
   };
 
   const currentMessage = aiPitch
     ? aiPitch
-    : interpolateScript(getSelectedTemplate(), leadVars);
+    : activeMessageChoice === 'opening'
+      ? contactGreeting
+      : interpolateScript(getSelectedTemplate(), leadVars);
 
   const waLink = buildWhatsAppLink(phone, currentMessage);
 
