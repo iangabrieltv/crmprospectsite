@@ -340,3 +340,90 @@ export async function clearAllImportedSheetsFromFirestore(): Promise<number> {
     throw err;
   }
 }
+
+/**
+ * Remove nichos antigos legados (advogados, clínicas de estética, carros, etc.) da nuvem
+ */
+export async function purgeOldSampleNichesFromFirestore(
+  cleanBaselineNiches: NicheCampaign[]
+): Promise<void> {
+  try {
+    const nichesCol = collection(db, 'workspaces', WORKSPACE_ID, 'niches');
+    const snap = await getDocs(nichesCol);
+    if (snap.empty) return;
+
+    const isOldSample = (id: string, name: string) => {
+      const lowerId = (id || '').toLowerCase();
+      const lowerName = (name || '').toLowerCase();
+      return (
+        lowerId.includes('estetica-automotiva') ||
+        lowerId.includes('clinicas-locais') ||
+        lowerId.includes('nutricionistas') ||
+        lowerId.includes('odontologia') ||
+        lowerName.includes('estética automotiva') ||
+        lowerName.includes('clínicas & consultórios') ||
+        lowerName.includes('advogad') ||
+        lowerName.includes('advocacia') ||
+        lowerName.includes('carro') ||
+        lowerName.includes('automot')
+      );
+    };
+
+    const batch = writeBatch(db);
+    let deletedCount = 0;
+    for (const d of snap.docs) {
+      const data = d.data() as NicheCampaign;
+      if (isOldSample(d.id, data.name || '')) {
+        batch.delete(d.ref);
+        deletedCount++;
+      }
+    }
+
+    // Ensure clean baseline niche exists
+    for (const clean of cleanBaselineNiches) {
+      const ref = doc(db, 'workspaces', WORKSPACE_ID, 'niches', clean.id);
+      batch.set(ref, sanitizeForFirestore(clean), { merge: true });
+    }
+
+    if (deletedCount > 0) {
+      await batch.commit();
+      console.log(`[Firestore] ${deletedCount} nichos legados removidos com sucesso.`);
+    }
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, `workspaces/${WORKSPACE_ID}/niches (purge)`);
+  }
+}
+
+/**
+ * Reseta o banco de dados inteiro para o estado inicial 100% limpo:
+ * - Remove todos os leads (500 contatos, contatados, etc.)
+ * - Remove todas as planilhas importadas
+ * - Limpa todos os nichos e mantém apenas o nicho padrão de prospecção
+ */
+export async function resetFirestoreToCleanBaseline(
+  cleanBaselineNiches: NicheCampaign[]
+): Promise<void> {
+  try {
+    await clearAllLeadsFromFirestore();
+    await clearAllImportedSheetsFromFirestore();
+
+    const nichesCol = collection(db, 'workspaces', WORKSPACE_ID, 'niches');
+    const snap = await getDocs(nichesCol);
+    const batch = writeBatch(db);
+
+    for (const d of snap.docs) {
+      batch.delete(d.ref);
+    }
+
+    for (const clean of cleanBaselineNiches) {
+      const ref = doc(db, 'workspaces', WORKSPACE_ID, 'niches', clean.id);
+      batch.set(ref, sanitizeForFirestore(clean));
+    }
+
+    await batch.commit();
+    console.log('[Firestore] Banco de dados resetado para o estado limpo inicial.');
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, `workspaces/${WORKSPACE_ID}/resetToClean`);
+    throw err;
+  }
+}

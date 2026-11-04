@@ -63,15 +63,40 @@ export function formatDisplayPhone(phone: string): string {
 }
 
 /**
+ * Retorna a saudação de acordo com o horário atual:
+ * - Das 00:00 às 11:59: "Bom dia"
+ * - Das 12:00 às 18:00: "Boa tarde"
+ * - Das 18:00 às 00:00: "Boa noite"
+ */
+export function getTimeBasedGreeting(): string {
+  const now = new Date();
+  const hours = now.getHours();
+  const minutes = now.getMinutes();
+  const totalMinutes = hours * 60 + minutes;
+
+  // 00:00 (0 min) até 11:59 (719 min) => Bom dia
+  if (totalMinutes < 12 * 60) {
+    return 'Bom dia';
+  }
+  // 12:00 (720 min) até 18:00 (1080 min inclusive) => Boa tarde
+  if (totalMinutes <= 18 * 60) {
+    return 'Boa tarde';
+  }
+  // Das 18:01 até 23:59 (e até 00:00) => Boa noite
+  return 'Boa noite';
+}
+
+/**
  * Generate standard direct WhatsApp greeting for a contact
- * e.g. "Olá, bom dia João! Tudo bem?" or "Olá, bom dia! Tudo bem?"
+ * e.g. "Olá, bom dia [Nome]! Tudo bem?", "Olá, boa tarde [Nome]! Tudo bem?", "Olá, boa noite [Nome]! Tudo bem?"
  */
 export function getContactGreetingMessage(contactName?: string): string {
   const clean = (contactName || '').trim();
+  const greeting = getTimeBasedGreeting();
   if (clean) {
-    return `Olá, bom dia ${clean}! Tudo bem?`;
+    return `Olá, ${greeting.toLowerCase()} ${clean}! Tudo bem?`;
   }
-  return `Olá, bom dia! Tudo bem?`;
+  return `Olá, ${greeting.toLowerCase()}! Tudo bem?`;
 }
 
 /**
@@ -224,11 +249,14 @@ export function interpolateScript(
   result = result.replace(/\[SERVICOSNICHO\]/gi, servicosVal);
   result = result.replace(/\[SERVICOS\]/gi, servicosVal);
 
+  const currentGreeting = getTimeBasedGreeting().toLowerCase();
+
   // Company / Professional Name ("Nome da Empresa / Profissional *")
   if (empresaVal && empresaVal !== 'sua empresa') {
     result = result.replace(/\{Empresa\}/gi, empresaVal);
+    result = result.replace(/Olá,\s*(?:bom\s*dia|boa\s*tarde|boa\s*noite)/gi, `Olá, ${currentGreeting}`);
   } else {
-    result = result.replace(/Olá,\s*bom\s*dia\s*\{Empresa\}!?/gi, 'Olá, bom dia!');
+    result = result.replace(/Olá,\s*(?:bom\s*dia|boa\s*tarde|boa\s*noite)\s*\{Empresa\}!?/gi, `Olá, ${currentGreeting}!`);
     result = result.replace(/\{Empresa\}/gi, empresaVal || '');
   }
 
@@ -239,9 +267,9 @@ export function interpolateScript(
     result = result.replace(/\{Nome\}/gi, cleanNameOnly);
   } else {
     // If contact name is not provided, prevent awkward "Olá, bom dia ! Tudo bem?"
-    result = result.replace(/Olá,\s*bom\s*dia\s*\{NomeContato\}!?/gi, 'Olá, bom dia!');
-    result = result.replace(/Olá,\s*bom\s*dia\s*\{contato\}!?/gi, 'Olá, bom dia!');
-    result = result.replace(/Olá,\s*bom\s*dia\s*\{Nome\}!?/gi, 'Olá, bom dia!');
+    result = result.replace(/Olá,\s*(?:bom\s*dia|boa\s*tarde|boa\s*noite)\s*\{NomeContato\}!?/gi, `Olá, ${currentGreeting}!`);
+    result = result.replace(/Olá,\s*(?:bom\s*dia|boa\s*tarde|boa\s*noite)\s*\{contato\}!?/gi, `Olá, ${currentGreeting}!`);
+    result = result.replace(/Olá,\s*(?:bom\s*dia|boa\s*tarde|boa\s*noite)\s*\{Nome\}!?/gi, `Olá, ${currentGreeting}!`);
     result = result.replace(/\{NomeContato\}\s*/gi, '');
     result = result.replace(/\{contato\}\s*/gi, '');
     result = result.replace(/\{Nome\}\s*/gi, '');

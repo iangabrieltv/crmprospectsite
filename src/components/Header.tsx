@@ -385,23 +385,23 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
               <div>
                 <h3 className="text-sm font-bold text-slate-900">
-                  Começar do Zero — Limpar Nuvem
+                  Começar do Zero — Resetar Todo o Banco
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Banco de dados em nuvem (Firestore)
+                  Limpa contatos, planilhas e nichos de teste (carros, advogados, estética)
                 </p>
               </div>
             </div>
 
             <div className="space-y-2 mb-5 text-xs text-slate-600 leading-relaxed bg-slate-50 p-3.5 rounded-lg border border-slate-200/80">
               <p>
-                Deseja <strong>remover todos os contatos</strong> (já contatados, pendentes ou importados anteriormente) da nuvem e do dispositivo para começar 100% do zero?
+                Deseja <strong>remover todos os contatos e nichos antigos</strong> da nuvem e do dispositivo para começar 100% zerado?
               </p>
               <p className="text-slate-500">
-                • A base de contatos ficará com <strong>0 leads</strong>, pronta para suas novas importações.
+                • A base de contatos ficará com <strong>0 leads</strong>, pronta para sua lista de 500 contatos.
               </p>
               <p className="text-slate-500">
-                • Seus <strong>nichos/campanhas e scripts de vendas serão preservados</strong>.
+                • Os nichos de teste (carros, estética, advogados) serão removidos e restará a campanha limpa pronta para prospecção.
               </p>
             </div>
 

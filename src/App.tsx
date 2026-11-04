@@ -50,8 +50,11 @@ import {
   deleteImportedSheetFromFirestore,
   seedFirestoreIfEmpty,
   clearAllLeadsFromFirestore,
-  clearAllImportedSheetsFromFirestore
+  clearAllImportedSheetsFromFirestore,
+  purgeOldSampleNichesFromFirestore,
+  resetFirestoreToCleanBaseline
 } from './utils/firebase';
+import { resetAllDataToCleanBaseline } from './utils/storage';
 
 export default function App() {
   // Authentication gatekeeper (restricts access to authorized credentials kaizenvisual123 / adm123)
@@ -88,6 +91,9 @@ export default function App() {
       setIsCloudSynced(connected);
     });
 
+    // Clean legacy sample niches from Firestore (advogados, carros, clinicas)
+    purgeOldSampleNichesFromFirestore(INITIAL_NICHES).catch(console.error);
+
     // Seed database if cloud collection is currently empty
     seedFirestoreIfEmpty(INITIAL_NICHES, INITIAL_LEADS);
 
@@ -95,37 +101,82 @@ export default function App() {
     const unsubNiches = subscribeToNiches((remoteNiches) => {
       setIsCloudSynced(true);
       if (remoteNiches.length > 0) {
-        const upgradedNiches = remoteNiches.map((n) => {
-          const hasOldTemplate =
-            n.scripts?.script_mensagem?.template?.includes('Kaizen Visual') ||
-            n.scripts?.script_ligacao?.template?.includes('Kaizen Visual') ||
-            n.scripts?.script_mensagem?.template?.includes('dois minutinhos') ||
-            n.scripts?.script_ligacao?.template?.includes('dois minutinhos') ||
-            n.scripts?.script_mensagem?.template?.includes('{NomeContato}') ||
-            n.scripts?.script_ligacao?.template?.includes('{NomeContato}');
-
-          if (!n.scripts?.script_mensagem || !n.scripts?.script_ligacao || Object.keys(n.scripts || {}).length !== 2 || hasOldTemplate) {
-            const updated = {
-              ...n,
-              scripts: {
-                script_mensagem: hasOldTemplate ? DEFAULT_SCRIPTS.script_mensagem : (n.scripts?.script_mensagem || DEFAULT_SCRIPTS.script_mensagem),
-                script_ligacao: hasOldTemplate ? DEFAULT_SCRIPTS.script_ligacao : (n.scripts?.script_ligacao || DEFAULT_SCRIPTS.script_ligacao),
-              },
-            };
-            syncNicheToFirestore(updated).catch(console.error);
-            return updated;
-          }
-          return n;
+        // Filter out legacy sample niches if present in remote
+        const cleanRemote = remoteNiches.filter((n) => {
+          const lowerName = (n.name || '').toLowerCase();
+          const lowerId = (n.id || '').toLowerCase();
+          return (
+            !lowerId.includes('estetica-automotiva') &&
+            !lowerId.includes('clinicas-locais') &&
+            !lowerId.includes('nutricionistas') &&
+            !lowerId.includes('odontologia') &&
+            !lowerName.includes('estética automotiva') &&
+            !lowerName.includes('advogad') &&
+            !lowerName.includes('advocacia') &&
+            !lowerName.includes('carro') &&
+            !lowerName.includes('automot')
+          );
         });
-        setNiches(upgradedNiches);
+
+        if (cleanRemote.length > 0) {
+          const upgradedNiches = cleanRemote.map((n) => {
+            const hasOldTemplate =
+              n.scripts?.script_mensagem?.template?.includes('Kaizen Visual') ||
+              n.scripts?.script_ligacao?.template?.includes('Kaizen Visual') ||
+              n.scripts?.script_mensagem?.template?.includes('dois minutinhos') ||
+              n.scripts?.script_ligacao?.template?.includes('dois minutinhos') ||
+              n.scripts?.script_mensagem?.template?.includes('{NomeContato}') ||
+              n.scripts?.script_ligacao?.template?.includes('{NomeContato}');
+
+            if (!n.scripts?.script_mensagem || !n.scripts?.script_ligacao || Object.keys(n.scripts || {}).length !== 2 || hasOldTemplate) {
+              const updated = {
+                ...n,
+                scripts: {
+                  script_mensagem: hasOldTemplate ? DEFAULT_SCRIPTS.script_mensagem : (n.scripts?.script_mensagem || DEFAULT_SCRIPTS.script_mensagem),
+                  script_ligacao: hasOldTemplate ? DEFAULT_SCRIPTS.script_ligacao : (n.scripts?.script_ligacao || DEFAULT_SCRIPTS.script_ligacao),
+                },
+              };
+              syncNicheToFirestore(updated).catch(console.error);
+              return updated;
+            }
+            return n;
+          });
+
+          setNiches((prev) => {
+            const map = new Map<string, NicheCampaign>();
+            upgradedNiches.forEach((n) => map.set(n.id, n));
+            // Keep newly created local niches
+            prev.forEach((p) => {
+              if (!map.has(p.id) && !cleanRemote.some((r) => r.id === p.id)) {
+                map.set(p.id, p);
+              }
+            });
+            return Array.from(map.values());
+          });
+        }
       }
     });
 
     // Subscribe to real-time leads updates across devices and tabs
     const unsubLeads = subscribeToLeads((remoteLeads) => {
       setIsCloudSynced(true);
-      setLeads(remoteLeads);
-      saveStoredLeads(remoteLeads);
+      setLeads((prev) => {
+        // Protect newly imported leads from being temporarily wiped before remote acknowledges
+        if (remoteLeads.length === 0 && prev.length > 0) {
+          return prev;
+        }
+        const map = new Map<string, Lead>();
+        remoteLeads.forEach((l) => map.set(l.id, l));
+        // Preserve any pending local leads
+        prev.forEach((l) => {
+          if (!map.has(l.id)) {
+            map.set(l.id, l);
+          }
+        });
+        const merged = Array.from(map.values());
+        saveStoredLeads(merged);
+        return merged;
+      });
     });
 
     // Subscribe to real-time imported spreadsheets history
@@ -167,8 +218,13 @@ export default function App() {
   const activeNiche =
     niches.find((n) => n.id === activeNicheId) || niches[0];
 
-  // Active niche leads
-  const activeNicheLeads = leads.filter((l) => l.nicheId === activeNiche?.id);
+  // Active niche leads: robust fallback so imported leads never vanish
+  const activeNicheLeads = leads.filter((l) => {
+    if (!activeNiche) return true;
+    if (niches.length <= 1) return true;
+    if (!l.nicheId) return true;
+    return l.nicheId === activeNiche.id;
+  });
 
   // Total meetings count across all active leads in "reuniao_marcada"
   const meetingLeadsCount = leads.filter((l) => l.stage === 'reuniao_marcada').length;
@@ -204,15 +260,15 @@ export default function App() {
     if (!targetLead) return;
 
     const normalizedTarget = normalizeStageId(targetStage);
-    const nowIso = new Date().toISOString();
     const stageConfig = FUNNEL_STAGES.find((s) => s.id === normalizedTarget);
     const stageName = stageConfig?.name || normalizedTarget;
     const autoNoteText = `Etapa alterada para: ${stageName}`;
 
+    // Note: Do NOT overwrite lastContactDate when moving stages in pipeline!
+    // Overwriting lastContactDate caused leads to disappear if the "Sem Msg" filter was active.
     const updated: Lead = {
       ...targetLead,
       stage: normalizedTarget,
-      lastContactDate: nowIso,
       notes: [
         {
           id: 'note-auto-' + Date.now(),
@@ -485,18 +541,19 @@ export default function App() {
     setIsAuthenticated(false);
   };
 
-  // Handler: Clear all contacts from cloud & local storage (start clean from scratch)
+  // Handler: Clear all data from cloud & local storage (start 100% clean from scratch)
   const handleClearAllContacts = async () => {
     setIsCloudSynced(false);
     try {
-      await clearAllLeadsFromFirestore();
-      await clearAllImportedSheetsFromFirestore();
-      clearStoredLeads();
+      await resetFirestoreToCleanBaseline(INITIAL_NICHES);
+      resetAllDataToCleanBaseline();
       setLeads([]);
       setImportedSheets([]);
+      setNiches(INITIAL_NICHES);
+      setActiveNicheId(INITIAL_NICHES[0].id);
       setIsCloudSynced(true);
     } catch (err) {
-      console.error('Erro ao limpar contatos da nuvem:', err);
+      console.error('Erro ao resetar banco de dados:', err);
       setIsCloudSynced(true);
       throw err;
     }

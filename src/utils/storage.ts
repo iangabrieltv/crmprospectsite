@@ -21,8 +21,32 @@ export function loadStoredNiches(): NicheCampaign[] {
     }
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed) && parsed.length > 0) {
+      // Filter out legacy sample niches (advogados, carros, estética automotiva, clínicas)
+      const isLegacySample = (n: NicheCampaign) => {
+        const id = (n.id || '').toLowerCase();
+        const name = (n.name || '').toLowerCase();
+        return (
+          id.includes('estetica-automotiva') ||
+          id.includes('clinicas-locais') ||
+          id.includes('nutricionistas') ||
+          id.includes('odontologia') ||
+          name.includes('estética automotiva') ||
+          name.includes('clínicas & consultórios') ||
+          name.includes('advogad') ||
+          name.includes('advocacia') ||
+          name.includes('carro') ||
+          name.includes('automot')
+        );
+      };
+
+      const filtered = parsed.filter((n: NicheCampaign) => !isLegacySample(n));
+      if (filtered.length === 0) {
+        saveStoredNiches(INITIAL_NICHES);
+        return INITIAL_NICHES;
+      }
+
       // Auto-migrate: ensure every niche has exactly the two official scripts: script_mensagem and script_ligacao
-      let upgraded: NicheCampaign[] = parsed.map((niche: NicheCampaign): NicheCampaign => {
+      let upgraded: NicheCampaign[] = filtered.map((niche: NicheCampaign): NicheCampaign => {
         const hasOldTemplate =
           niche.scripts?.script_mensagem?.template?.includes('Kaizen Visual') ||
           niche.scripts?.script_ligacao?.template?.includes('Kaizen Visual') ||
@@ -40,20 +64,31 @@ export function loadStoredNiches(): NicheCampaign[] {
         };
       });
 
-      // Ensure default preset niches are available if not yet added
+      // Ensure clean baseline niche is available
       INITIAL_NICHES.forEach((initNiche) => {
         const exists = upgraded.some((n) => n.id === initNiche.id || n.name.toLowerCase() === initNiche.name.toLowerCase());
         if (!exists) {
-          upgraded.push(initNiche);
+          upgraded.unshift(initNiche);
         }
       });
 
+      saveStoredNiches(upgraded);
       return upgraded;
     }
     return INITIAL_NICHES;
   } catch (err) {
     console.error('Failed to load niches from localStorage', err);
     return INITIAL_NICHES;
+  }
+}
+
+export function resetAllDataToCleanBaseline(): void {
+  try {
+    saveStoredNiches(INITIAL_NICHES);
+    saveStoredLeads([]);
+    saveStoredActiveNicheId(INITIAL_NICHES[0].id);
+  } catch (err) {
+    console.error('Failed to reset stored data', err);
   }
 }
 
