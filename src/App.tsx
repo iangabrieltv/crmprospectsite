@@ -121,7 +121,7 @@ export default function App() {
         if (cleanRemote.length > 0) {
           const upgradedNiches = cleanRemote.map((n) => {
             const hasOldTemplate =
-              !n.scripts?.script_mensagem?.template?.includes('tráfego pago com IA') ||
+              n.scripts?.script_mensagem?.template?.includes('tráfego pago com IA') ||
               n.scripts?.script_mensagem?.template?.includes('Kaizen Visual') ||
               n.scripts?.script_ligacao?.template?.includes('Kaizen Visual') ||
               n.scripts?.script_mensagem?.template?.includes('dois minutinhos') ||

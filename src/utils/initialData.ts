@@ -164,59 +164,55 @@ Seria uma conversa rápida, de uns 15 minutos. Você conseguiria conversar comig
 export const SCRIPT_MENSAGEM: ScriptDefinition = {
   id: 'script_mensagem',
   title: 'Script de Mensagem (WhatsApp)',
-  subtitle: 'Abertura profissional → Posicionamento no Google → Tráfego Pago & IA → Oportunidade de novos clientes',
-  description: 'Roteiro oficial de prospecção por WhatsApp da Kaizen Visual com foco em Google, sites e tráfego com IA.',
+  subtitle: 'Abertura profissional → Validação do responsável → Diagnóstico de Google → Investigação de estrutura → Percepção de valor → Convite Reunião 15 min',
+  description: 'Roteiro oficial de prospecção por WhatsApp da Kaizen Visual.',
   category: 'WhatsApp / Mensagem',
   goldenRule: {
-    order: 'Apresentação → Validação de presença no Google → Tráfego pago com IA → Proposta de demonstração',
-    primaryGoal: 'Conectar com a empresa e apresentar oportunidade de novos clientes qualificados com IA e site.',
-    insight: 'Elogie o posicionamento no Google e pergunte se topa ver como aparecer para quem pesquisa na internet agora.',
+    order: 'Abertura objetiva com saudação → Validar responsável → Diagnóstico Google vs Redes → Investigar estrutura → Proposta de valor → Convite 15 min',
+    primaryGoal: 'Identificar a pessoa responsável pela divulgação/comercial e agendar uma análise rápida de 15 minutos.',
+    insight: 'Mensagem de abertura curta com saudação inteligente de acordo com o horário (Bom dia, Boa tarde, Boa noite).',
   },
   structure: {
-    hook: 'Olá! Aqui é o {SeuNome}. Encontrei a {Empresa} no Google e vi que vocês possuem um bom posicionamento aqui em {Cidade}. Gostei do padrão de serviços de vocês e vejo sentido de trabalharmos juntos.',
-    problem: 'Empresas perdem novos clientes se quem pesquisa na internet não encontrar uma estrutura de alta conversão.',
-    solution: 'Eu ajudo empresas como a sua a conseguir novos clientes qualificados por meio de sites e tráfego pago com IA: gente que já tá pesquisando na internet e pronta para comprar.',
-    cta: 'Topa eu te mostrar como a {Empresa} poderia aparecer para quem pesquisa agora?',
+    hook: 'Olá, bom dia {Empresa}! Tudo bem?',
+    problem: 'Queria te perguntar uma coisa: hoje vocês conseguem receber contatos de clientes pelo Google ou a maior parte chega por indicação e redes sociais?',
+    solution: 'Eu queria fazer uma análise rápida da presença digital de vocês e mostrar alguns pontos que podem ser melhorados, caso existam oportunidades.',
+    cta: 'Seria uma conversa rápida, de uns 15 minutos. Você teria disponibilidade amanhã ou em algum outro dia desta semana?',
   },
-  template: `Olá! Aqui é o {SeuNome}. Encontrei a {Empresa} no Google e vi que vocês possuem um bom posicionamento aqui em {Cidade}. Gostei do padrão de serviços de vocês e vejo sentido de trabalharmos juntos.
-
-Eu ajudo empresas como a sua a conseguir novos clientes qualificados por meio de sites e tráfego pago com IA: gente que já tá pesquisando na internet e pronta para comprar. Topa eu te mostrar como a {Empresa} poderia aparecer para quem pesquisa agora?`,
-  followUp1: `Oi, tudo bem? Aqui é o {SeuNome}. Passando rapidinho para saber se você conseguiu ver a mensagem sobre como atrair novos clientes pesquisando pela {Empresa} no Google hoje. Consegue falar dois minutinhos?`,
-  followUp2: `Oi! Só para não deixar passar: nós conseguimos colocar a {Empresa} em destaque exatamente para quem está pesquisando seus serviços em {Cidade} agora. Qual dia desta semana fica melhor para você batermos um papo de 15 minutos?`,
+  template: `Olá, bom dia {Empresa}! Tudo bem?`,
+  followUp1: `Oi, tudo bem? Aqui é o {SeuNome} da Kaizen Visual. Passando rapidinho para retomar a mensagem sobre a análise da presença digital da {empresa}. Consegue falar dois minutinhos hoje?`,
+  followUp2: `Oi, tudo bem? Para ser bem breve: queria te mostrar rapidamente os pontos que encontrei da presença digital de vocês no Google. Qual dia desta semana fica melhor para você?`,
   objections: [
     {
       id: 'obj-msg-nao-interesse',
       trigger: 'Não temos interesse no momento',
       title: 'Se disserem: "Não tenho interesse"',
-      response: `Entendo perfeitamente! Não quero tomar seu tempo. Posso apenas deixar meu contato caso no futuro vocês queiram escalar novos clientes pelo Google com tráfego pago e IA?`,
+      response: `Entendo perfeitamente! Não quero tomar seu tempo. Posso apenas deixar meu contato caso no futuro vocês queiram melhorar a presença no Google e atrair novos clientes pela internet?`,
     },
     {
       id: 'obj-msg-ja-temos',
       trigger: 'Já temos equipe ou agência',
       title: 'Se disserem: "Já temos agência/equipe"',
-      response: `Muito bom! O objetivo não é substituir o trabalho atual de vocês, mas sim compartilhar um diagnóstico de como o tráfego pago com IA pode potencializar ainda mais o volume de clientes que já pesquisam na internet. Se achar útil, posso te mostrar sem compromisso!`,
+      response: `Muito bom! O objetivo não é substituir o trabalho atual de vocês, mas sim compartilhar um diagnóstico independente da presença no Google. Se achar útil, posso te mandar um resumo sem compromisso!`,
     },
     {
       id: 'obj-msg-qual-preco',
       trigger: 'Qual é o valor do serviço?',
       title: 'Se perguntarem o valor',
-      response: `Essa primeira demonstração prática de como a {Empresa} pode aparecer no Google é 100% gratuita! Caso vocês queiram implementar as soluções, temos projetos muito acessíveis. Você tem 15 minutinhos amanhã para vermos isso juntos?`,
+      response: `A nossa análise diagnóstica inicial de 15 minutos é 100% gratuita! Caso vocês queiram implementar as melhorias com a Kaizen Visual, nossos projetos são bem acessíveis e personalizados. Você tem 15 minutinhos amanhã para vermos isso juntos?`,
     },
   ],
   stages: [
     {
       id: 'etapa-msg-1',
-      stageTitle: 'MENSAGEM 1 — ABERTURA & PROPOSTA DE VALOR',
-      description: 'Gatilho: Primeiro contato ao apertar em mandar mensagem.',
+      stageTitle: 'MENSAGEM 1 — ABERTURA',
+      description: 'Gatilho: Primeiro contato com a empresa.',
       steps: [
         {
           id: 'msg-step-1',
-          title: 'Mensagem 1 — Abertura (Google + Tráfego com IA)',
-          condition: 'Primeiro envio para iniciar o contato',
-          message: `Olá! Aqui é o {SeuNome}. Encontrei a {Empresa} no Google e vi que vocês possuem um bom posicionamento aqui em {Cidade}. Gostei do padrão de serviços de vocês e vejo sentido de trabalharmos juntos.
-
-Eu ajudo empresas como a sua a conseguir novos clientes qualificados por meio de sites e tráfego pago com IA: gente que já tá pesquisando na internet e pronta para comprar. Topa eu te mostrar como a {Empresa} poderia aparecer para quem pesquisa agora?`,
-          tip: 'Nome da Empresa e Cidade são preenchidos automaticamente para cada lead.',
+          title: 'Mensagem 1 — Abertura',
+          condition: 'Primeiro contato com a empresa.',
+          message: `Olá, bom dia {Empresa}! Tudo bem?`,
+          tip: 'A saudação (bom dia, boa tarde, boa noite) é ajustada automaticamente conforme o horário e o Nome da Empresa.',
           format: 'texto',
         },
       ],

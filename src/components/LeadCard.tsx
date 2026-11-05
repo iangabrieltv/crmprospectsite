@@ -61,13 +61,9 @@ export const LeadCard: React.FC<LeadCardProps> = ({
     Object.values(niche.scripts)[0] ||
     DEFAULT_SCRIPTS.script_mensagem;
 
-  // Direct WhatsApp message with Company Name and City
+  // Direct WhatsApp greeting message: "Olá, bom dia/boa tarde/boa noite [Nome da Empresa]! Tudo bem?"
   const targetBusinessName = (lead.companyName || '').trim();
-  const contactGreetingMessage = getContactGreetingMessage(
-    targetBusinessName,
-    lead.city || niche.city,
-    userName
-  );
+  const contactGreetingMessage = getContactGreetingMessage(targetBusinessName);
   const waLink = buildWhatsAppLink(lead.phone, contactGreetingMessage);
 
   const handleWhatsAppClick = (e: React.MouseEvent) => {

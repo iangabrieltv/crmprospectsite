@@ -87,21 +87,18 @@ export function getTimeBasedGreeting(): string {
 }
 
 /**
- * Mensagem oficial de abordagem inicial no WhatsApp:
- * "Olá! Aqui é o Ian. Encontrei a [Nome da Empresa] no Google e vi que vocês possuem um bom posicionamento aqui em [Cidade]. Gostei do padrão de serviços de vocês e vejo sentido de trabalharmos juntos.
- *
- * Eu ajudo empresas como a sua a conseguir novos clientes qualificados por meio de sites e tráfego pago com IA: gente que já tá pesquisando na internet e pronta para comprar. Topa eu te mostrar como a [Nome da Empresa] poderia aparecer para quem pesquisa agora?"
+ * Retorna a saudação com o nome da empresa/profissional e horário atual:
+ * - Das 00:00 às 11:59: "Olá, bom dia [Nome da Empresa]! Tudo bem?"
+ * - Das 12:00 às 18:00: "Olá, boa tarde [Nome da Empresa]! Tudo bem?"
+ * - Das 18:00 às 00:00: "Olá, boa noite [Nome da Empresa]! Tudo bem?"
  */
-export function getContactGreetingMessage(
-  companyName?: string,
-  city?: string,
-  userName: string = 'Ian'
-): string {
-  const empresa = (companyName || '').trim() || 'sua empresa';
-  const cidade = (city || '').trim() || 'sua região';
-  const remetente = (userName || '').trim() || 'Ian';
-
-  return `Olá! Aqui é o ${remetente}. Encontrei a ${empresa} no Google e vi que vocês possuem um bom posicionamento aqui em ${cidade}. Gostei do padrão de serviços de vocês e vejo sentido de trabalharmos juntos.\n\nEu ajudo empresas como a sua a conseguir novos clientes qualificados por meio de sites e tráfego pago com IA: gente que já tá pesquisando na internet e pronta para comprar. Topa eu te mostrar como a ${empresa} poderia aparecer para quem pesquisa agora?`;
+export function getContactGreetingMessage(contactOrCompanyName?: string): string {
+  const clean = (contactOrCompanyName || '').trim();
+  const greeting = getTimeBasedGreeting().toLowerCase();
+  if (clean) {
+    return `Olá, ${greeting} ${clean}! Tudo bem?`;
+  }
+  return `Olá, ${greeting}! Tudo bem?`;
 }
 
 /**
@@ -279,7 +276,7 @@ export function interpolateScript(
     result = result.replace(/\{contato\}\s*/gi, '');
     result = result.replace(/\{Nome\}\s*/gi, '');
   }
-  result = result.replace(/\{SaudacaoContato\}/gi, getContactGreetingMessage(empresaVal, variables.cidade, seuNomeVal));
+  result = result.replace(/\{SaudacaoContato\}/gi, getContactGreetingMessage(empresaVal));
   result = result.replace(/\{Nicho\}/gi, cleanNicho);
   result = result.replace(/\{Cidade\}/gi, variables.cidade || 'sua região');
   result = result.replace(/\{LinkMockup\}/gi, mockupVal);
