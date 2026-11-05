@@ -87,16 +87,21 @@ export function getTimeBasedGreeting(): string {
 }
 
 /**
- * Generate standard direct WhatsApp greeting for a contact
- * e.g. "Olá, bom dia [Nome]! Tudo bem?", "Olá, boa tarde [Nome]! Tudo bem?", "Olá, boa noite [Nome]! Tudo bem?"
+ * Mensagem oficial de abordagem inicial no WhatsApp:
+ * "Olá! Aqui é o Ian. Encontrei a [Nome da Empresa] no Google e vi que vocês possuem um bom posicionamento aqui em [Cidade]. Gostei do padrão de serviços de vocês e vejo sentido de trabalharmos juntos.
+ *
+ * Eu ajudo empresas como a sua a conseguir novos clientes qualificados por meio de sites e tráfego pago com IA: gente que já tá pesquisando na internet e pronta para comprar. Topa eu te mostrar como a [Nome da Empresa] poderia aparecer para quem pesquisa agora?"
  */
-export function getContactGreetingMessage(contactName?: string): string {
-  const clean = (contactName || '').trim();
-  const greeting = getTimeBasedGreeting();
-  if (clean) {
-    return `Olá, ${greeting.toLowerCase()} ${clean}! Tudo bem?`;
-  }
-  return `Olá, ${greeting.toLowerCase()}! Tudo bem?`;
+export function getContactGreetingMessage(
+  companyName?: string,
+  city?: string,
+  userName: string = 'Ian'
+): string {
+  const empresa = (companyName || '').trim() || 'sua empresa';
+  const cidade = (city || '').trim() || 'sua região';
+  const remetente = (userName || '').trim() || 'Ian';
+
+  return `Olá! Aqui é o ${remetente}. Encontrei a ${empresa} no Google e vi que vocês possuem um bom posicionamento aqui em ${cidade}. Gostei do padrão de serviços de vocês e vejo sentido de trabalharmos juntos.\n\nEu ajudo empresas como a sua a conseguir novos clientes qualificados por meio de sites e tráfego pago com IA: gente que já tá pesquisando na internet e pronta para comprar. Topa eu te mostrar como a ${empresa} poderia aparecer para quem pesquisa agora?`;
 }
 
 /**
@@ -274,7 +279,7 @@ export function interpolateScript(
     result = result.replace(/\{contato\}\s*/gi, '');
     result = result.replace(/\{Nome\}\s*/gi, '');
   }
-  result = result.replace(/\{SaudacaoContato\}/gi, getContactGreetingMessage(contatoVal));
+  result = result.replace(/\{SaudacaoContato\}/gi, getContactGreetingMessage(empresaVal, variables.cidade, seuNomeVal));
   result = result.replace(/\{Nicho\}/gi, cleanNicho);
   result = result.replace(/\{Cidade\}/gi, variables.cidade || 'sua região');
   result = result.replace(/\{LinkMockup\}/gi, mockupVal);
@@ -287,10 +292,12 @@ export function interpolateScript(
   // Square bracket support for Cold Call & Nutri variables [NOME], [cidade], [NOME DA CLÍNICA], etc.
   result = result.replace(/\[NOME DA CLÍNICA\]/gi, empresaVal);
   result = result.replace(/\[NOME DA EMPRESA\]/gi, empresaVal);
+  result = result.replace(/\[\s*nome da empresa\s*\]/gi, empresaVal);
   result = result.replace(/\[EMPRESA\]/gi, empresaVal);
   result = result.replace(/\[NICHO\]/gi, cleanNicho);
   result = result.replace(/\[NOME\]/gi, cleanNameOnly);
   result = result.replace(/\[CIDADE\]/gi, variables.cidade || 'sua cidade');
+  result = result.replace(/\[\s*cidade\s*\]/gi, variables.cidade || 'sua cidade');
   result = result.replace(/\[LINKMOCKUP\]/gi, mockupVal);
   result = result.replace(/\[Xª\]/gi, posicaoVal);
   result = result.replace(/\[HORÁRIO 1\]/gi, h1Val);

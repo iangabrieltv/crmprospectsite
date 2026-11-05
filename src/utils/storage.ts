@@ -48,6 +48,7 @@ export function loadStoredNiches(): NicheCampaign[] {
       // Auto-migrate: ensure every niche has exactly the two official scripts: script_mensagem and script_ligacao
       let upgraded: NicheCampaign[] = filtered.map((niche: NicheCampaign): NicheCampaign => {
         const hasOldTemplate =
+          !niche.scripts?.script_mensagem?.template?.includes('tráfego pago com IA') ||
           niche.scripts?.script_mensagem?.template?.includes('Kaizen Visual') ||
           niche.scripts?.script_ligacao?.template?.includes('Kaizen Visual') ||
           niche.scripts?.script_mensagem?.template?.includes('dois minutinhos') ||
@@ -59,7 +60,7 @@ export function loadStoredNiches(): NicheCampaign[] {
           ...niche,
           scripts: {
             script_mensagem: hasOldTemplate ? SCRIPT_MENSAGEM : (niche.scripts?.script_mensagem || SCRIPT_MENSAGEM),
-            script_ligacao: hasOldTemplate ? SCRIPT_LIGACAO : (niche.scripts?.script_ligacao || SCRIPT_LIGACAO),
+            script_ligacao: niche.scripts?.script_ligacao || SCRIPT_LIGACAO,
           },
         };
       });

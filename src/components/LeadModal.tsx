@@ -141,7 +141,11 @@ export const LeadModal: React.FC<LeadModalProps> = ({
 
   // Direct WhatsApp greeting using "Nome da Empresa / Profissional *" (companyName)
   const businessOrProName = (companyName?.trim() || lead.companyName?.trim() || '').trim();
-  const contactGreeting = getContactGreetingMessage(businessOrProName);
+  const contactGreeting = getContactGreetingMessage(
+    businessOrProName,
+    city || lead.city || niche.city,
+    userName
+  );
 
   const getSelectedTemplate = () => {
     switch (activeMessageChoice) {
