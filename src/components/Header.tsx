@@ -120,18 +120,18 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setIsNicheDropdownOpen(!isNicheDropdownOpen)}
-              className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 hover:border-slate-300 text-slate-800 text-xs sm:text-sm font-semibold transition-all cursor-pointer shadow-2xs"
+              className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 hover:border-slate-300 text-slate-800 text-xs sm:text-sm font-semibold transition-all cursor-pointer shadow-2xs"
               title="Alternar nicho ou criar nova campanha"
             >
-              <span className="text-base leading-none">{activeNiche.emoji}</span>
-              <span className="max-w-[120px] sm:max-w-[200px] truncate text-slate-900 font-bold">
+              <span className="text-base leading-none shrink-0">{activeNiche.emoji}</span>
+              <span className="max-w-[100px] sm:max-w-[200px] truncate text-slate-900 font-bold">
                 {activeNiche.name}
               </span>
               <ChevronDown className="w-3.5 h-3.5 text-slate-500 shrink-0" />
             </button>
 
             {isNicheDropdownOpen && (
-              <div className="absolute left-0 mt-1.5 w-72 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
+              <div className="absolute left-0 mt-1.5 w-72 max-w-[calc(100vw-24px)] bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
                 <div className="px-3 py-1.5 border-b border-slate-100 flex items-center justify-between">
                   <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
                     Nichos / Campanhas
@@ -447,6 +447,40 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
       )}
+
+      {/* MOBILE BOTTOM NAVIGATION BAR (Fixed at bottom on mobile screens < md) */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/90 flex items-center justify-around px-1 py-1 shadow-lg">
+        {navItems.map((item) => {
+          const isActive = activeTab === item.tab;
+          return (
+            <button
+              key={item.tab}
+              onClick={() => onSelectTab(item.tab)}
+              className={`flex-1 flex flex-col items-center justify-center py-1 px-1 rounded-lg transition-colors cursor-pointer relative min-h-[44px] ${
+                isActive ? 'text-blue-600 font-bold' : 'text-slate-500 hover:text-slate-900 font-medium'
+              }`}
+            >
+              <div className="relative">
+                {React.cloneElement(item.icon as React.ReactElement<{ className?: string }>, {
+                  className: `w-5 h-5 shrink-0 ${isActive ? 'text-blue-600' : 'text-slate-500'}`,
+                })}
+                {item.badge !== undefined && item.badge > 0 && (
+                  <span
+                    className={`absolute -top-1 -right-2 px-1 py-0.2 rounded-full text-[9px] font-mono font-bold leading-none ${
+                      item.hasCallbacks ? 'bg-amber-500 text-white animate-pulse' : 'bg-emerald-600 text-white'
+                    }`}
+                  >
+                    {item.badge}
+                  </span>
+                )}
+              </div>
+              <span className="text-[10px] mt-0.5 tracking-tight truncate max-w-[55px]">
+                {item.label}
+              </span>
+            </button>
+          );
+        })}
+      </nav>
     </header>
   );
 };

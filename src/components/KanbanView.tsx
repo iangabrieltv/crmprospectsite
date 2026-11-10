@@ -300,7 +300,7 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] min-w-0 w-full max-w-full">
+    <div className="flex flex-col h-[calc(100dvh-4rem)] flex-1 min-h-0 min-w-0 w-full max-w-full">
       {/* Top Filter & Quick Stat Bar */}
       <div className="bg-white border-b border-slate-200/80 px-3 sm:px-6 py-2.5 shrink-0 w-full max-w-full overflow-hidden">
         <div className="w-full max-w-full flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-3">
@@ -716,24 +716,24 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
       )}
 
       {/* Mobile Column Switcher (Visible on mobile/tablet) */}
-      <div className="lg:hidden bg-slate-100 border-b border-slate-200 px-3 py-2 flex items-center gap-1.5 overflow-x-auto shrink-0 no-scrollbar">
+      <div className="lg:hidden bg-white border-b border-slate-200 px-2 py-2 flex items-center gap-1.5 overflow-x-auto shrink-0 no-scrollbar shadow-2xs sticky top-0 z-20">
         {FUNNEL_STAGES.map((stage) => {
-          const count = filteredLeads.filter((l) => l.stage === stage.id).length;
+          const count = filteredLeads.filter((l) => normalizeStageId(l.stage) === stage.id).length;
           const isSelected = mobileSelectedStage === stage.id;
           return (
             <button
               key={stage.id}
               onClick={() => setMobileSelectedStage(stage.id)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg whitespace-nowrap transition-colors cursor-pointer ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg whitespace-nowrap transition-all cursor-pointer ${
                 isSelected
-                  ? 'bg-blue-600 text-white shadow-xs font-semibold'
-                  : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200/80'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200/80'
               }`}
             >
               <span>{stage.shortName}</span>
               <span
                 className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${
-                  isSelected ? 'bg-blue-700 text-white' : 'bg-slate-100 text-slate-600'
+                  isSelected ? 'bg-blue-700 text-white' : 'bg-slate-200 text-slate-700'
                 }`}
               >
                 {count}
@@ -744,8 +744,8 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
       </div>
 
       {/* Kanban Board Container with All Sequential Stages */}
-      <div className="flex-1 overflow-x-auto p-4 sm:p-6 bg-slate-50/50 min-w-0 w-full">
-        <div className="flex items-start gap-3 h-full min-w-max pb-4">
+      <div className="flex-1 overflow-x-auto p-2.5 sm:p-6 bg-slate-50/50 min-w-0 w-full">
+        <div className="flex items-start gap-3 h-full w-full lg:w-auto lg:min-w-max pb-4">
           {FUNNEL_STAGES.map((stage) => {
             const stageLeads = filteredLeads
               .filter((l) => normalizeStageId(l.stage) === stage.id)
@@ -766,7 +766,7 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
                 onDragOver={(e) => handleDragOver(e, stage.id)}
                 onDragLeave={(e) => handleDragLeave(e, stage.id)}
                 onDrop={(e) => handleDrop(e, stage.id)}
-                className={`${mobileHiddenClass} flex-col w-[300px] shrink-0 bg-slate-100/90 rounded-xl border transition-all duration-150 max-h-full ${
+                className={`${mobileHiddenClass} flex-col w-full lg:w-[300px] shrink-0 bg-slate-100/90 rounded-xl border transition-all duration-150 max-h-full ${
                   isDragOver
                     ? 'border-blue-500 ring-2 ring-blue-300/50 bg-blue-50/30'
                     : 'border-slate-200/80'

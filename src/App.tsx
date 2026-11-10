@@ -614,7 +614,7 @@ export default function App() {
       />
 
       {/* Main Content Area based on Active Tab */}
-      <main className="flex-1 flex flex-col min-w-0 w-full max-w-full">
+      <main className="flex-1 flex flex-col min-w-0 w-full max-w-full pb-16 md:pb-0">
         {activeTab === 'kanban' && (
           <KanbanView
             niche={activeNiche}
