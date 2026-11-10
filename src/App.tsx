@@ -290,10 +290,19 @@ export default function App() {
     });
   };
 
-  // Handler: Trigger WhatsApp contacted (advances from leads_sem_contato if needed)
+  // Handler: Trigger WhatsApp contacted (advances through stages sequentially)
   const handleFastWhatsAppContacted = (leadToContact: Lead) => {
     const currentNorm = normalizeStageId(leadToContact.stage);
-    const nextStage = currentNorm === 'leads_sem_contato' ? 'primeiro_contato' : currentNorm;
+    let nextStage: FunnelStageId = currentNorm;
+
+    if (currentNorm === 'leads_sem_contato') {
+      nextStage = 'primeiro_contato';
+    } else if (currentNorm === 'primeiro_contato') {
+      nextStage = 'follow_up_1';
+    }
+
+    const stageConfig = FUNNEL_STAGES.find((s) => s.id === nextStage);
+    const stageName = stageConfig?.name || nextStage;
 
     const updated: Lead = {
       ...leadToContact,
@@ -306,7 +315,7 @@ export default function App() {
             new Date().toLocaleDateString('pt-BR') +
             ' ' +
             new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-          text: `Mensagem de WhatsApp disparada usando ${leadToContact.scriptUsed !== 'none' ? leadToContact.scriptUsed : 'Script 1'}.`,
+          text: `Mensagem de WhatsApp disparada (etapa: ${stageName}).`,
           author: userName || 'Sistema',
         },
         ...(leadToContact.notes || []),

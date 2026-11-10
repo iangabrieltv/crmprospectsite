@@ -4,6 +4,7 @@ import {
   isInactiveOver48h,
   buildWhatsAppLink,
   getContactGreetingMessage,
+  getStageWhatsAppMessage,
   interpolateScript,
   formatDisplayPhone,
   formatFriendlyTime
@@ -61,9 +62,9 @@ export const LeadCard: React.FC<LeadCardProps> = ({
     Object.values(niche.scripts)[0] ||
     DEFAULT_SCRIPTS.script_mensagem;
 
-  // Direct WhatsApp greeting message: "Olá, bom dia/boa tarde/boa noite [Nome da Empresa]! Tudo bem?"
+  // Direct WhatsApp greeting / progressive follow-up message based on current stage
   const targetBusinessName = (lead.companyName || '').trim();
-  const contactGreetingMessage = getContactGreetingMessage(targetBusinessName);
+  const contactGreetingMessage = getStageWhatsAppMessage(targetBusinessName, lead.stage);
   const waLink = buildWhatsAppLink(lead.phone, contactGreetingMessage);
 
   const handleWhatsAppClick = (e: React.MouseEvent) => {

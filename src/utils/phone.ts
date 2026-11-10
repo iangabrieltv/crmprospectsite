@@ -1,3 +1,5 @@
+import { FunnelStageId, normalizeStageId } from '../types/crm';
+
 /**
  * Clean raw phone numbers to E.164 Brazilian WhatsApp format (55 + DDD + 8 or 9 digits)
  */
@@ -100,6 +102,44 @@ export function getContactGreetingMessage(contactOrCompanyName?: string): string
   }
   return `Olá, ${greeting}! Tudo bem?`;
 }
+
+/**
+ * Retorna a mensagem de WhatsApp correspondente à etapa do funil do lead:
+ * 1. leads_sem_contato (Leads Encontrados):
+ *    "Olá, [bom dia / boa tarde / boa noite] [Nome]! Tudo bem?"
+ * 2. primeiro_contato (Primeiro Contato):
+ *    "Opa, [Nome]! Passando novamente por aqui. Conseguiu ver minha mensagem? 😊"
+ * 3. follow_up_1 (Follow-up 1):
+ *    "Oi, [Nome]! Sei que a rotina de atendimentos costuma ser corrida, então estou passando só para retomar nossa conversa.
+ *
+ * Acredito que existam algumas oportunidades interessantes para fortalecer sua presença no Google e atrair novos pacientes particulares. Você teria interesse em conhecer melhor?"
+ */
+export function getStageWhatsAppMessage(
+  companyOrContactName?: string,
+  stageId?: FunnelStageId | string
+): string {
+  const cleanName = (companyOrContactName || '').trim();
+  const normalized = normalizeStageId(stageId as string);
+
+  switch (normalized) {
+    case 'leads_sem_contato':
+      return getContactGreetingMessage(cleanName);
+
+    case 'primeiro_contato': {
+      const namePart = cleanName ? `Opa, ${cleanName}!` : 'Opa!';
+      return `${namePart} Passando novamente por aqui. Conseguiu ver minha mensagem? 😊`;
+    }
+
+    case 'follow_up_1': {
+      const namePart = cleanName ? `Oi, ${cleanName}!` : 'Oi!';
+      return `${namePart} Sei que a rotina de atendimentos costuma ser corrida, então estou passando só para retomar nossa conversa.\n\nAcredito que existam algumas oportunidades interessantes para fortalecer sua presença no Google e atrair novos pacientes particulares. Você teria interesse em conhecer melhor?`;
+    }
+
+    default:
+      return getContactGreetingMessage(cleanName);
+  }
+}
+
 
 /**
  * Generate wa.me link with encoded message

@@ -13,6 +13,7 @@ import {
   formatDisplayPhone,
   buildWhatsAppLink,
   getContactGreetingMessage,
+  getStageWhatsAppMessage,
   interpolateScript
 } from '../utils/phone';
 import { DEFAULT_SCRIPTS } from '../utils/initialData';
@@ -137,32 +138,30 @@ export const LeadModal: React.FC<LeadModalProps> = ({
     horario2: 'sexta às 10h',
   };
 
-  const [activeMessageChoice, setActiveMessageChoice] = useState<'opening' | 'fu1' | 'fu2' | 'fu3'>('opening');
+  const [activeMessageChoice, setActiveMessageChoice] = useState<'opening' | 'pc' | 'fu1'>(() => {
+    const norm = normalizeStageId(lead.stage);
+    if (norm === 'primeiro_contato') return 'pc';
+    if (norm === 'follow_up_1') return 'fu1';
+    return 'opening';
+  });
 
   // Direct WhatsApp greeting using "Nome da Empresa / Profissional *" (companyName)
   const businessOrProName = (companyName?.trim() || lead.companyName?.trim() || '').trim();
-  const contactGreeting = getContactGreetingMessage(businessOrProName);
 
   const getSelectedTemplate = () => {
     switch (activeMessageChoice) {
       case 'opening':
-        return contactGreeting;
+        return getStageWhatsAppMessage(businessOrProName, 'leads_sem_contato');
+      case 'pc':
+        return getStageWhatsAppMessage(businessOrProName, 'primeiro_contato');
       case 'fu1':
-        return currentScriptDef?.followUp1 || currentScriptDef?.template || contactGreeting;
-      case 'fu2':
-        return currentScriptDef?.followUp2 || currentScriptDef?.template || contactGreeting;
-      case 'fu3':
-        return currentScriptDef?.followUp3 || currentScriptDef?.followUp2 || currentScriptDef?.template || contactGreeting;
+        return getStageWhatsAppMessage(businessOrProName, 'follow_up_1');
       default:
-        return contactGreeting;
+        return getStageWhatsAppMessage(businessOrProName, 'leads_sem_contato');
     }
   };
 
-  const currentMessage = aiPitch
-    ? aiPitch
-    : activeMessageChoice === 'opening'
-      ? contactGreeting
-      : interpolateScript(getSelectedTemplate(), leadVars);
+  const currentMessage = aiPitch ? aiPitch : getSelectedTemplate();
 
   const waLink = buildWhatsAppLink(phone, currentMessage);
 
@@ -995,8 +994,24 @@ export const LeadModal: React.FC<LeadModalProps> = ({
                     ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
                     : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
                 }`}
+                title="Mensagem inicial de abertura com saudação por horário"
               >
-                1. Abertura
+                1. Abertura (Bom dia)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAiPitch('');
+                  setActiveMessageChoice('pc');
+                }}
+                className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer border ${
+                  activeMessageChoice === 'pc' && !aiPitch
+                    ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
+                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                }`}
+                title="1º Contato: Passando novamente por aqui"
+              >
+                2. 1º Contato (Passando novamente 😊)
               </button>
               <button
                 type="button"
@@ -1009,39 +1024,9 @@ export const LeadModal: React.FC<LeadModalProps> = ({
                     ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
                     : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
                 }`}
-                title="Mandar à tarde após enviar o mockup"
+                title="Follow-up 1: Retomada com foco em rotina de atendimentos e Google"
               >
-                Follow-up 1 (À tarde)
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setAiPitch('');
-                  setActiveMessageChoice('fu2');
-                }}
-                className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer border ${
-                  activeMessageChoice === 'fu2' && !aiPitch
-                    ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
-                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
-                }`}
-                title="Mandar após 24h sem resposta"
-              >
-                Follow-up 2 (24h)
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setAiPitch('');
-                  setActiveMessageChoice('fu3');
-                }}
-                className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer border ${
-                  activeMessageChoice === 'fu3' && !aiPitch
-                    ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
-                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
-                }`}
-                title="Mandar após 48h sem resposta (mais direto)"
-              >
-                Follow-up 3 (48h)
+                3. Follow-up 1 (Rotina corrida)
               </button>
             </div>
 

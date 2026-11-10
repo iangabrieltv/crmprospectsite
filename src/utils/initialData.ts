@@ -179,8 +179,10 @@ export const SCRIPT_MENSAGEM: ScriptDefinition = {
     cta: 'Seria uma conversa rápida, de uns 15 minutos. Você teria disponibilidade amanhã ou em algum outro dia desta semana?',
   },
   template: `Olá, bom dia {Empresa}! Tudo bem?`,
-  followUp1: `Oi, tudo bem? Aqui é o {SeuNome} da Kaizen Visual. Passando rapidinho para retomar a mensagem sobre a análise da presença digital da {empresa}. Consegue falar dois minutinhos hoje?`,
-  followUp2: `Oi, tudo bem? Para ser bem breve: queria te mostrar rapidamente os pontos que encontrei da presença digital de vocês no Google. Qual dia desta semana fica melhor para você?`,
+  followUp1: `Opa, {Empresa}! Passando novamente por aqui. Conseguiu ver minha mensagem? 😊`,
+  followUp2: `Oi, {Empresa}! Sei que a rotina de atendimentos costuma ser corrida, então estou passando só para retomar nossa conversa.
+
+Acredito que existam algumas oportunidades interessantes para fortalecer sua presença no Google e atrair novos pacientes particulares. Você teria interesse em conhecer melhor?`,
   objections: [
     {
       id: 'obj-msg-nao-interesse',
