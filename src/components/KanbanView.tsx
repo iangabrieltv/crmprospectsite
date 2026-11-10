@@ -86,7 +86,6 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
   const cityDropdownRef = useRef<HTMLDivElement | null>(null);
 
   const [dragOverColumn, setDragOverColumn] = useState<FunnelStageId | null>(null);
-  const [mobileSelectedStage, setMobileSelectedStage] = useState<FunnelStageId>('leads_sem_contato');
 
   const filterMenuRef = useRef<HTMLDivElement | null>(null);
 
@@ -300,15 +299,15 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-[calc(100dvh-4rem)] flex-1 min-h-0 min-w-0 w-full max-w-full">
+    <div className="flex flex-col h-full flex-1 min-h-0 min-w-0 w-full max-w-full overflow-hidden">
       {/* Top Filter & Quick Stat Bar */}
-      <div className="bg-white border-b border-slate-200/80 px-3 sm:px-6 py-2.5 shrink-0 w-full max-w-full overflow-hidden">
-        <div className="w-full max-w-full flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-3">
+      <div className="bg-white border-b border-slate-200/80 px-2.5 sm:px-6 py-2 sm:py-2.5 shrink-0 w-full max-w-full overflow-hidden">
+        <div className="w-full max-w-full flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-2 sm:gap-3">
           
           {/* Search, Filter Icon and Dropdowns */}
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
             {/* Search Input */}
-            <div className="relative min-w-[190px] sm:min-w-[240px]">
+            <div className="relative flex-1 min-w-[130px] sm:min-w-[240px]">
               <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
@@ -615,10 +614,10 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
               )}
             </div>
 
-            {/* Inactive +48h Filter */}
+            {/* Inactive +48h Filter (Desktop only as requested) */}
             <button
               onClick={() => setOnlyInactive(!onlyInactive)}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer border ${
+              className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer border ${
                 onlyInactive
                   ? 'bg-amber-100 text-amber-900 border-amber-300 font-semibold'
                   : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
@@ -634,8 +633,8 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
             </button>
           </div>
 
-          {/* Quick Metrics Badges - Always 100% visible, NO horizontal scrollbar */}
-          <div className="flex flex-wrap items-center gap-1.5 text-xs font-mono tabular-nums">
+          {/* Quick Metrics Badges - Always 100% visible on desktop, hidden on mobile */}
+          <div className="hidden xl:flex flex-wrap items-center gap-1.5 text-xs font-mono tabular-nums">
             <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 rounded-lg text-slate-700 border border-slate-200/80 shrink-0" title="Total de leads cadastrados">
               <span className="text-slate-500 font-sans text-[11px]">Leads:</span>
               <span className="font-bold text-slate-900">{totalLeads}</span>
@@ -715,37 +714,9 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
         </div>
       )}
 
-      {/* Mobile Column Switcher (Visible on mobile/tablet) */}
-      <div className="lg:hidden bg-white border-b border-slate-200 px-2 py-2 flex items-center gap-1.5 overflow-x-auto shrink-0 no-scrollbar shadow-2xs sticky top-0 z-20">
-        {FUNNEL_STAGES.map((stage) => {
-          const count = filteredLeads.filter((l) => normalizeStageId(l.stage) === stage.id).length;
-          const isSelected = mobileSelectedStage === stage.id;
-          return (
-            <button
-              key={stage.id}
-              onClick={() => setMobileSelectedStage(stage.id)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg whitespace-nowrap transition-all cursor-pointer ${
-                isSelected
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200/80'
-              }`}
-            >
-              <span>{stage.shortName}</span>
-              <span
-                className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${
-                  isSelected ? 'bg-blue-700 text-white' : 'bg-slate-200 text-slate-700'
-                }`}
-              >
-                {count}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
       {/* Kanban Board Container with All Sequential Stages */}
-      <div className="flex-1 overflow-x-auto p-2.5 sm:p-6 bg-slate-50/50 min-w-0 w-full">
-        <div className="flex items-start gap-3 h-full w-full lg:w-auto lg:min-w-max pb-4">
+      <div className="flex-1 min-h-0 overflow-x-auto p-2 sm:p-6 bg-slate-50/50 min-w-0 w-full">
+        <div className="flex items-start gap-3 h-full min-w-max pb-2">
           {FUNNEL_STAGES.map((stage) => {
             const stageLeads = filteredLeads
               .filter((l) => normalizeStageId(l.stage) === stage.id)
@@ -757,19 +728,16 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
             const stageSetupSum = stageLeads.reduce((acc, l) => acc + (l.creationValue || 0), 0);
             const stageMrrSum = stageLeads.reduce((acc, l) => acc + (l.monthlyMrr || 0), 0);
 
-            // Hide inactive columns on mobile unless selected
-            const mobileHiddenClass = mobileSelectedStage === stage.id ? 'flex' : 'hidden lg:flex';
-
             return (
               <div
                 key={stage.id}
                 onDragOver={(e) => handleDragOver(e, stage.id)}
                 onDragLeave={(e) => handleDragLeave(e, stage.id)}
                 onDrop={(e) => handleDrop(e, stage.id)}
-                className={`${mobileHiddenClass} flex-col w-full lg:w-[300px] shrink-0 bg-slate-100/90 rounded-xl border transition-all duration-150 max-h-full ${
+                className={`flex flex-col w-[85vw] max-w-[320px] lg:w-[300px] shrink-0 bg-slate-100/90 rounded-xl border transition-all duration-150 h-full ${
                   isDragOver
                     ? 'border-blue-500 ring-2 ring-blue-300/50 bg-blue-50/30'
-                    : 'border-slate-200/80'
+                    : 'border-slate-200/80 shadow-2xs'
                 }`}
               >
                 {/* Column Header */}
@@ -847,7 +815,7 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
                 <div
                   onDragOver={(e) => handleDragOver(e, stage.id)}
                   onDrop={(e) => handleDrop(e, stage.id)}
-                  className="p-2 space-y-2 overflow-y-auto flex-1 kanban-column-scroll min-h-[160px]"
+                  className="p-2 space-y-2 overflow-y-auto flex-1 min-h-0 kanban-column-scroll pb-24 sm:pb-4"
                 >
                   {stageLeads.length === 0 ? (
                     <div className="h-32 border border-dashed border-slate-200 rounded-lg flex flex-col items-center justify-center p-3 text-center text-slate-400">

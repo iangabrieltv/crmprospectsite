@@ -590,7 +590,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans w-full max-w-full overflow-x-hidden">
+    <div className="h-screen h-dvh bg-slate-50 text-slate-900 flex flex-col font-sans w-full max-w-full overflow-hidden">
       {/* Global Top Bar Navigation */}
       <Header
         niches={niches}
@@ -614,7 +614,7 @@ export default function App() {
       />
 
       {/* Main Content Area based on Active Tab */}
-      <main className="flex-1 flex flex-col min-w-0 w-full max-w-full pb-16 md:pb-0">
+      <main className={`flex-1 min-w-0 w-full max-w-full pb-14 md:pb-0 ${activeTab === 'kanban' ? 'flex flex-col min-h-0 overflow-hidden' : 'overflow-y-auto'}`}>
         {activeTab === 'kanban' && (
           <KanbanView
             niche={activeNiche}
