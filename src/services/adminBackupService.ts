@@ -61,6 +61,9 @@ export interface RecursiveBackupManifest {
   discoveredCollections: string[];
   countsByCollection: Record<string, number>;
   totalDocuments: number;
+  subcollectionsCount: number;
+  preservedPathsCount: number;
+  maxDepth: number;
   collections: Record<string, RecursiveBackupDocNode[]>;
   errors: BackupReadError[];
   checksumSha256: string;
@@ -75,6 +78,9 @@ export interface BackupValidationResult {
     workspaceId: string;
     discoveredCollections: number;
     totalDocuments: number;
+    subcollectionsCount: number;
+    preservedPathsCount: number;
+    maxDepth: number;
     errorsCount: number;
     checksumMatch: boolean;
   };
@@ -82,9 +88,22 @@ export interface BackupValidationResult {
 
 export function serializeFirestoreValue(value: unknown): unknown {
   if (value === null || value === undefined) return value;
-  if (value instanceof Date) return value.toISOString();
 
-  // Firestore Timestamp compatibility (toDate / seconds + nanoseconds)
+  if (value instanceof Date) {
+    return {
+      __firestoreType: 'Date',
+      iso: value.toISOString(),
+    };
+  }
+
+  if (value instanceof Uint8Array || Buffer.isBuffer(value)) {
+    return {
+      __firestoreType: 'Bytes',
+      base64: Buffer.from(value).toString('base64'),
+    };
+  }
+
+  // Firestore Timestamp compatibility (preserves seconds, nanoseconds, and ISO)
   if (
     typeof value === 'object' &&
     value !== null &&
@@ -92,7 +111,32 @@ export function serializeFirestoreValue(value: unknown): unknown {
     typeof (value as { toDate?: unknown }).toDate === 'function'
   ) {
     try {
-      return (value as { toDate: () => Date }).toDate().toISOString();
+      const tsObj = value as {
+        seconds?: number;
+        nanoseconds?: number;
+        _seconds?: number;
+        _nanoseconds?: number;
+        toDate: () => Date;
+      };
+      const date = tsObj.toDate();
+      const seconds =
+        typeof tsObj.seconds === 'number'
+          ? tsObj.seconds
+          : typeof tsObj._seconds === 'number'
+          ? tsObj._seconds
+          : Math.floor(date.getTime() / 1000);
+      const nanoseconds =
+        typeof tsObj.nanoseconds === 'number'
+          ? tsObj.nanoseconds
+          : typeof tsObj._nanoseconds === 'number'
+          ? tsObj._nanoseconds
+          : (date.getTime() % 1000) * 1_000_000;
+      return {
+        __firestoreType: 'Timestamp',
+        seconds,
+        nanoseconds,
+        iso: date.toISOString(),
+      };
     } catch {
       return String(value);
     }
@@ -104,14 +148,32 @@ export function serializeFirestoreValue(value: unknown): unknown {
 
   if (typeof value === 'object') {
     const obj = value as Record<string, unknown>;
+
+    // Firestore DocumentReference compatibility
+    if (
+      typeof obj.path === 'string' &&
+      typeof obj.id === 'string' &&
+      ('firestore' in obj || typeof obj.collection === 'function')
+    ) {
+      return {
+        __firestoreType: 'DocumentReference',
+        path: obj.path,
+      };
+    }
+
     // Firestore GeoPoint compatibility
     if (
       typeof obj.latitude === 'number' &&
       typeof obj.longitude === 'number' &&
       Object.keys(obj).length <= 3
     ) {
-      return { latitude: obj.latitude, longitude: obj.longitude };
+      return {
+        __firestoreType: 'GeoPoint',
+        latitude: obj.latitude,
+        longitude: obj.longitude,
+      };
     }
+
     const serialized: Record<string, unknown> = {};
     for (const key of Object.keys(obj).sort()) {
       const val = obj[key];
@@ -180,12 +242,20 @@ export async function exportWorkspaceTreeReadOnly(
     });
   }
 
-  // Recursive collection reader
+  let maxDepth = 0;
+  let subcollectionsCount = 0;
+  let preservedPathsCount = 0;
+
+  // Recursive collection reader (depth 1 = direct workspace subcollection)
   async function dumpCollectionRecursive(
-    colRef: ReadableCollectionRef
+    colRef: ReadableCollectionRef,
+    depth: number
   ): Promise<RecursiveBackupDocNode[]> {
     const colPath = colRef.path;
     discoveredCollectionsSet.add(colPath);
+    if (depth > 1) {
+      subcollectionsCount += 1;
+    }
 
     let snap: ReadableQuerySnapshot;
     try {
@@ -207,9 +277,13 @@ export async function exportWorkspaceTreeReadOnly(
 
     countsByCollection[colPath] = (countsByCollection[colPath] || 0) + docsList.length;
     totalDocuments += docsList.length;
+    if (docsList.length > 0 && depth > maxDepth) {
+      maxDepth = depth;
+    }
 
     const nodes: RecursiveBackupDocNode[] = [];
     for (const docSnap of docsList) {
+      preservedPathsCount += 1;
       const serializedData = (serializeFirestoreValue(docSnap.data() || {}) ||
         {}) as Record<string, unknown>;
 
@@ -218,7 +292,7 @@ export async function exportWorkspaceTreeReadOnly(
         const subCols = await docSnap.ref.listCollections();
         const sortedSubCols = [...subCols].sort((a, b) => a.id.localeCompare(b.id));
         for (const subCol of sortedSubCols) {
-          nestedSubcollections[subCol.id] = await dumpCollectionRecursive(subCol);
+          nestedSubcollections[subCol.id] = await dumpCollectionRecursive(subCol, depth + 1);
         }
       } catch (err) {
         errors.push({
@@ -266,7 +340,7 @@ export async function exportWorkspaceTreeReadOnly(
   const sortedTopNames = Array.from(topCollectionsMap.keys()).sort();
   for (const colName of sortedTopNames) {
     const colRef = topCollectionsMap.get(colName)!;
-    collections[colName] = await dumpCollectionRecursive(colRef);
+    collections[colName] = await dumpCollectionRecursive(colRef, 1);
   }
 
   const unsignedManifest: Omit<RecursiveBackupManifest, 'checksumSha256'> = {
@@ -285,6 +359,9 @@ export async function exportWorkspaceTreeReadOnly(
     discoveredCollections: Array.from(discoveredCollectionsSet).sort(),
     countsByCollection,
     totalDocuments,
+    subcollectionsCount,
+    preservedPathsCount,
+    maxDepth,
     collections,
     errors,
   };
@@ -300,19 +377,34 @@ export async function exportWorkspaceTreeReadOnly(
 function recountRecursiveNodes(
   nodes: RecursiveBackupDocNode[],
   collectionPath: string,
-  countsAccumulator: Record<string, number>
+  depth: number,
+  state: {
+    countsAccumulator: Record<string, number>;
+    subcollectionsCount: number;
+    preservedPathsCount: number;
+    maxDepth: number;
+  }
 ): number {
   let subtotal = nodes.length;
-  countsAccumulator[collectionPath] = (countsAccumulator[collectionPath] || 0) + nodes.length;
+  state.countsAccumulator[collectionPath] =
+    (state.countsAccumulator[collectionPath] || 0) + nodes.length;
+  if (depth > 1) {
+    state.subcollectionsCount += 1;
+  }
+  if (nodes.length > 0 && depth > state.maxDepth) {
+    state.maxDepth = depth;
+  }
 
   for (const node of nodes) {
+    state.preservedPathsCount += 1;
     if (node.subcollections && typeof node.subcollections === 'object') {
       for (const [subName, subNodes] of Object.entries(node.subcollections)) {
         if (Array.isArray(subNodes)) {
           subtotal += recountRecursiveNodes(
             subNodes,
             `${node.path}/${subName}`,
-            countsAccumulator
+            depth + 1,
+            state
           );
         }
       }
@@ -347,6 +439,9 @@ export function validateRecursiveBackupManifest(
           workspaceId: '',
           discoveredCollections: 0,
           totalDocuments: 0,
+          subcollectionsCount: 0,
+          preservedPathsCount: 0,
+          maxDepth: 0,
           errorsCount: 1,
           checksumMatch: false,
         },
@@ -385,7 +480,12 @@ export function validateRecursiveBackupManifest(
     );
   }
 
-  const recountedMap: Record<string, number> = {};
+  const recountState = {
+    countsAccumulator: {} as Record<string, number>,
+    subcollectionsCount: 0,
+    preservedPathsCount: 0,
+    maxDepth: 0,
+  };
   let recountedTotal = 0;
 
   if (parsed?.collections && typeof parsed.collections === 'object') {
@@ -397,7 +497,8 @@ export function validateRecursiveBackupManifest(
       recountedTotal += recountRecursiveNodes(
         docs,
         `workspaces/${parsed.workspaceId}/${topName}`,
-        recountedMap
+        1,
+        recountState
       );
     }
   } else {
@@ -410,7 +511,7 @@ export function validateRecursiveBackupManifest(
     );
   }
 
-  for (const [colPath, count] of Object.entries(recountedMap)) {
+  for (const [colPath, count] of Object.entries(recountState.countsAccumulator)) {
     if ((parsed?.countsByCollection?.[colPath] ?? -1) !== count) {
       issues.push(
         `Contagem divergente em "${colPath}": declarado ${parsed?.countsByCollection?.[colPath]}, recontado ${count}.`
@@ -441,6 +542,9 @@ export function validateRecursiveBackupManifest(
         ? parsed.discoveredCollections.length
         : 0,
       totalDocuments: recountedTotal,
+      subcollectionsCount: recountState.subcollectionsCount,
+      preservedPathsCount: recountState.preservedPathsCount,
+      maxDepth: recountState.maxDepth,
       errorsCount,
       checksumMatch,
     },

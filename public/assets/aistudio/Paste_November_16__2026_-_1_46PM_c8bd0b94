@@ -1,0 +1,1043 @@
+# KAIZEN — MEGA ETAPA 0.4
+## CORREÇÃO DO AUTH EMULATOR, BRANCH DE VALIDAÇÃO, TESTES REAIS, CONFIGURAÇÃO DO ADMINISTRADOR, BACKUP COMPLETO E COMPATIBILIDADE DOS SCHEMAS
+
+**Projeto oficial:** `https://github.com/iangabrieltv/crmprospectsite`
+
+**Branch principal:** `main`
+
+**Branch de trabalho desejada:** `security/etapa-0-3-final-validation`
+
+**Projeto Firebase:** `gen-lang-client-0798002034`
+
+**Banco Firestore:** `ai-studio-prospectflowcrmd-6ef58a98-06b1-4109-b7bb-169f00e7a2ea`
+
+**Workspace:** Google AI Studio Build
+
+---
+
+# 1. SEU PAPEL E OBJETIVO
+
+Você atuará como engenheiro de software sênior, especialista em Firebase, Firestore, Firebase Authentication, Security Rules, Git/GitHub, integridade de dados, testes automatizados e segurança de aplicações.
+
+Estamos desenvolvendo o **Kaizen**, um CRM privado de uso exclusivo do proprietário.
+
+O sistema possui uma estrutura existente e dados que precisam ser preservados. A prioridade absoluta é concluir a validação técnica e de segurança antes de iniciar qualquer expansão funcional.
+
+Esta etapa não é uma reconstrução do projeto. É uma etapa de correção, auditoria, compatibilidade, validação e comprovação.
+
+Você deverá executar as seis frentes abaixo, nesta ordem:
+
+1. Corrigir a checagem do Firebase Auth Emulator.
+2. Criar e comprovar a branch de validação sem modificar novamente a `main`.
+3. Executar os dez cenários de segurança no Firebase Emulator real.
+4. Configurar e validar o UID verdadeiro do administrador único.
+5. Executar e validar um backup real, completo e somente leitura do Firestore.
+6. Verificar a compatibilidade dos schemas de segurança com os dados, estruturas e operações atuais do CRM.
+
+**Não encerre a etapa apenas com recomendações. Execute tudo o que for tecnicamente possível no ambiente disponível. Quando depender de uma credencial, autorização ou recurso externo, identifique precisamente o bloqueio e prepare a próxima ação sem inventar resultados.**
+
+# 2. REGRAS INEGOCIÁVEIS DO PROJETO
+
+Antes de começar, considere estas decisões definitivas:
+
+- O Kaizen é um sistema privado, de uso pessoal e exclusivo do proprietário.
+- Existe apenas um usuário administrador.
+- Não será um SaaS.
+- Não haverá cadastro público, múltiplos usuários, equipes, convites ou permissões para funcionários.
+- O sistema utiliza Firebase Authentication e Firestore.
+- A aplicação permanece hospedada na Vercel.
+- O projeto não deve ser migrado para Supabase.
+- A prioridade de interface é desktop, com responsividade mobile.
+- O CRM atual precisa continuar funcionando.
+- Os dados existentes devem ser preservados.
+- O histórico de leads, scripts, campanhas, nichos, importações e demais informações não pode ser perdido.
+
+Não introduza funcionalidades ou arquiteturas que contrariem essas decisões.
+
+## 2.1. Restrições de segurança e autorização
+
+Você NÃO está autorizado a:
+
+- Alterar, excluir ou resetar dados reais do Firestore.
+- Executar migrações destrutivas.
+- Restaurar um backup sobre produção.
+- Publicar novas Security Rules em produção.
+- Fazer deploy na Vercel.
+- Fazer merge na `main`.
+- Modificar configurações de produção sem autorização.
+- Criar ou excluir contas Firebase sem autorização.
+- Revogar credenciais.
+- Substituir dados reais por dados de teste.
+- Modificar o banco de produção para facilitar testes.
+- Expor chaves privadas, tokens, senhas ou credenciais no relatório.
+- Declarar como aprovado algo que não foi efetivamente executado.
+
+Toda validação que possa ser realizada em ambiente isolado deverá acontecer nesse ambiente.
+
+A branch de validação poderá receber commits, desde que não altere a `main` e que exista acesso legítimo ao repositório.
+
+---
+
+# 3. FASE 1 — CORRIGIR A CHECAGEM DO FIREBASE AUTH EMULATOR
+
+## 3.1. Contexto do problema
+
+Na execução anterior, foi identificado um problema na função `assertEmulatorsRunning()` de `firestore.rules.test.ts`.
+
+A verificação do Firestore Emulator foi ajustada para exigir:
+
+- Resposta HTTP válida.
+- `res.ok`.
+- Content-Type compatível com JSON.
+
+Entretanto, a checagem do Auth Emulator ainda precisa ser revisada e comprovada.
+
+O objetivo é impedir falsos positivos causados por outros serviços escutando na porta do Emulator.
+
+## 3.2. O que fazer
+
+Analise integralmente:
+
+- `firestore.rules.test.ts`
+- `firebase.json`
+- `firebase-applet-config.json`
+- Configuração de portas dos Emulators.
+- Funções de verificação de disponibilidade.
+- Configuração do Firebase Admin SDK e Firebase Client SDK utilizada nos testes.
+
+Implemente uma checagem confiável para os dois serviços.
+
+### Firestore Emulator
+
+Verifique se a resposta corresponde efetivamente ao endpoint de diagnóstico do Firestore Emulator.
+
+Não considere suficiente que a porta esteja aberta.
+
+### Auth Emulator
+
+Verifique o endpoint real de diagnóstico do Firebase Authentication Emulator.
+
+A checagem deve validar:
+
+- Conectividade HTTP.
+- Código de resposta esperado.
+- Content-Type.
+- Estrutura da resposta.
+- Identificação de que o serviço é realmente o Auth Emulator.
+
+Não considere uma resposta HTML, uma página de outro servidor ou simplesmente uma conexão TCP como confirmação de que o Emulator está ativo.
+
+Utilize os endpoints oficiais e compatíveis com a versão instalada do Firebase Emulator Suite.
+
+### Comportamento esperado
+
+A função deverá:
+
+1. Identificar corretamente se o Firestore Emulator está ativo.
+2. Identificar corretamente se o Auth Emulator está ativo.
+3. Rejeitar respostas falsas.
+4. Informar claramente qual serviço está indisponível.
+5. Interromper os testes quando algum Emulator obrigatório não estiver disponível.
+6. Nunca transformar indisponibilidade em aprovação.
+7. Não utilizar `t.skip()` para esconder falhas de infraestrutura.
+
+Crie ou atualize testes específicos para a própria função de diagnóstico.
+
+Inclua cenários como:
+
+- Ambos os Emulators ativos.
+- Somente Firestore ativo.
+- Somente Auth ativo.
+- Ambos indisponíveis.
+- Porta ocupada por servidor HTTP que não é Emulator.
+- Resposta HTML.
+- Resposta JSON inválida.
+- Resposta HTTP de erro.
+
+Não faça chamadas a produção para simular um Emulator.
+
+## 3.3. Critério de aprovação
+
+A checagem somente será considerada aprovada quando conseguir diferenciar corretamente os Emulators reais de serviços estranhos nas mesmas portas.
+
+---
+
+# 4. FASE 2 — CRIAR A BRANCH DE VALIDAÇÃO SEM ALTERAR A MAIN
+
+## 4.1. Repositório oficial
+
+O único repositório oficial é:
+
+`https://github.com/iangabrieltv/crmprospectsite`
+
+Não utilize outros repositórios ou projetos antigos.
+
+A branch principal é:
+
+`main`
+
+A branch desejada para esta validação é:
+
+`security/etapa-0-3-final-validation`
+
+## 4.2. Problema identificado anteriormente
+
+O workspace atual do Google AI Studio Build não possui necessariamente um clone Git.
+
+Na verificação anterior:
+
+- `/app/applet` não possuía diretório `.git`.
+- `git status` retornou `fatal: not a git repository`.
+- O repositório privado não pôde ser consultado por `git ls-remote`, pois não havia autenticação.
+- Não havia token, SSH ou GitHub CLI configurados.
+
+Portanto, não presuma que o workspace esteja conectado ao GitHub.
+
+## 4.3. Procedimento obrigatório
+
+Primeiro, verifique novamente:
+
+- Se existe `.git`.
+- Se o Git está instalado.
+- Se existe autenticação GitHub.
+- Se existe `gh` CLI.
+- Se existe uma integração legítima com GitHub.
+- Se o repositório oficial está acessível.
+- Se a branch desejada já existe.
+
+### Se houver acesso legítimo ao GitHub
+
+Execute:
+
+1. Consultar o SHA atual da `main`.
+2. Consultar a existência da branch de validação.
+3. Se não existir, criá-la a partir da `main` atual.
+4. Se já existir, analisar seu conteúdo antes de qualquer atualização.
+5. Nunca criar uma branch baseada em arquivos incompletos ou desatualizados.
+6. Sincronizar as alterações das Etapas 0 e 0.2 e as correções desta etapa.
+7. Comparar os arquivos antes do commit.
+8. Verificar se nenhum arquivo de credenciais foi incluído.
+9. Executar testes antes do commit.
+10. Fazer commit exclusivamente na branch de validação.
+11. Fazer push exclusivamente para essa branch.
+12. Confirmar o SHA do commit e a existência dos arquivos diretamente no GitHub.
+
+Não faça merge.
+
+Não altere a `main`.
+
+### Se não houver acesso legítimo ao GitHub
+
+Não tente contornar a autenticação.
+
+Não solicite que o proprietário cole tokens privados no chat.
+
+Não simule push.
+
+Nesse caso:
+
+1. Preserve o workspace.
+2. Gere uma lista completa dos arquivos novos e modificados.
+3. Prepare um pacote de exportação do projeto.
+4. Gere um relatório de sincronização.
+5. Informe claramente que a branch ainda não foi criada.
+6. Apresente os comandos Git necessários para o proprietário executar localmente.
+7. Não declare a sincronização como concluída.
+
+**Atenção:** criar uma branch local sem conseguir comprovar a origem e a sincronização com o repositório oficial não significa que a branch oficial foi criada.
+
+## 4.4. Critério de aprovação
+
+Aprovação somente quando for possível comprovar:
+
+- Repositório oficial correto.
+- Branch baseada na `main` correta.
+- Arquivos sincronizados.
+- Commit identificado.
+- Push confirmado.
+- Nenhuma alteração na `main`.
+
+---
+
+# 5. FASE 3 — EXECUTAR OS DEZ CENÁRIOS NO FIREBASE EMULATOR REAL
+
+## 5.1. Preparação do ambiente
+
+Verifique:
+
+- Versão do Node.js.
+- Versão do npm.
+- Versão do Firebase CLI.
+- Disponibilidade do Java/JRE.
+- Configuração do Firebase Emulator Suite.
+- Portas do Auth e Firestore.
+- Configuração do banco nomeado.
+- Variáveis necessárias para os testes.
+
+O ambiente isolado de testes deve utilizar:
+
+`kaizen-rules-test`
+
+Não utilize o banco de produção para executar os testes de segurança.
+
+Se Java estiver ausente, verifique se é possível instalar um JDK/JRE compatível no ambiente, respeitando as permissões disponíveis.
+
+Não declare a instalação concluída sem verificar `java -version`.
+
+Se o ambiente não permitir a instalação, interrompa essa parte e apresente o bloqueio.
+
+## 5.2. Banco de dados de teste
+
+Confirme que o teste utiliza o banco nomeado correto:
+
+`ai-studio-prospectflowcrmd-6ef58a98-06b1-4109-b7bb-169f00e7a2ea`
+
+Confirme também se o projeto e o banco estão efetivamente isolados.
+
+Não confunda o ID do projeto Firebase com o ID do banco Firestore.
+
+Não permita que os testes apontem para produção por engano.
+
+## 5.3. Os dez cenários obrigatórios
+
+Execute os seguintes cenários com o Firebase Authentication Emulator e Firestore Emulator reais.
+
+**Cenário 1 — Leitura autorizada**
+
+O UID autorizado deve conseguir ler os documentos permitidos dentro do workspace `adm_equipeie`.
+
+Resultado esperado: PERMITIDO.
+
+**Cenário 2 — Escrita autorizada**
+
+O UID autorizado deve conseguir executar uma operação de escrita válida, respeitando o schema e os campos permitidos.
+
+Resultado esperado: PERMITIDO.
+
+**Cenário 3 — Usuário não autorizado**
+
+Um usuário autenticado com UID diferente do administrador deve ser bloqueado.
+
+Resultado esperado: NEGADO.
+
+**Cenário 4 — Usuário não autenticado**
+
+Uma solicitação sem autenticação válida deve ser bloqueada.
+
+Resultado esperado: NEGADO.
+
+**Cenário 5 — Workspace diferente**
+
+Mesmo o administrador não deve conseguir acessar outro workspace fora do escopo autorizado.
+
+Resultado esperado: NEGADO.
+
+**Cenário 6 — UID ausente ou placeholder**
+
+A configuração de UID vazia ou com placeholder deve resultar em bloqueio fail-closed.
+
+Resultado esperado: NEGADO.
+
+**Cenário 7 — Documento com schema inválido**
+
+Uma escrita com campos inesperados, tipos incorretos ou estrutura incompatível deve ser bloqueada.
+
+Resultado esperado: NEGADO.
+
+**Cenário 8 — Documento com ID inválido**
+
+IDs fora dos padrões permitidos devem ser rejeitados.
+
+Resultado esperado: NEGADO.
+
+**Cenário 9 — Acesso a coleções ou documentos não autorizados**
+
+Qualquer acesso que não esteja explicitamente permitido deve ser negado pela regra geral.
+
+Resultado esperado: NEGADO.
+
+**Cenário 10 — Token inválido ou sessão indevida**
+
+Token inválido, expirado ou identidade incompatível deve resultar em bloqueio.
+
+Resultado esperado: NEGADO.
+
+## 5.4. Requisitos da execução
+
+Execute os testes utilizando os Emulators reais.
+
+Comando de referência:
+
+`firebase emulators:exec --only auth,firestore "npm run test:rules"`
+
+Adapte somente se a configuração existente exigir uma forma tecnicamente correta de iniciar o projeto e o banco nomeado.
+
+Os testes devem:
+
+- Criar usuários temporários no Auth Emulator.
+- Criar dados exclusivamente no Firestore Emulator.
+- Utilizar os UIDs de teste apropriados.
+- Validar permissões reais das Security Rules.
+- Limpar somente os dados temporários do Emulator.
+- Não utilizar mocks para substituir a execução das regras.
+- Não utilizar produção.
+- Não utilizar `t.skip()`.
+- Retornar código de saída diferente de zero em qualquer falha.
+
+Gere relatório com:
+
+- Nome do cenário.
+- Operação testada.
+- Identidade utilizada.
+- Resultado esperado.
+- Resultado obtido.
+- PASS ou FAIL.
+- Mensagem de erro, quando existir.
+
+**Não considere testes unitários de funções auxiliares como substitutos dos testes reais do Emulator.**
+
+---
+
+# 6. FASE 4 — CONFIGURAR O UID VERDADEIRO DO ADMINISTRADOR
+
+## 6.1. Modelo de autenticação
+
+O Kaizen terá um único administrador.
+
+A autorização deverá depender do UID verdadeiro do administrador no Firebase Authentication.
+
+O e-mail não poderá substituir o UID como mecanismo de autorização.
+
+O sistema deverá permanecer fail-closed quando o UID não estiver configurado.
+
+## 6.2. Verificar a conta existente
+
+Verifique se existe uma conta de administrador no Firebase Authentication do projeto:
+
+`gen-lang-client-0798002034`
+
+Se houver acesso legítimo ao Firebase Console ou às ferramentas administrativas autorizadas, consulte a conta existente e obtenha seu UID.
+
+Não crie uma segunda conta automaticamente.
+
+Não exclua ou modifique contas existentes.
+
+Se não houver acesso, não invente um UID e não use um UID de teste como se fosse o verdadeiro.
+
+Informe exatamente onde o proprietário deve consultar o UID.
+
+## 6.3. Variáveis de ambiente
+
+Verifique a configuração e a utilização das variáveis:
+
+- `FIREBASE_PROJECT_ID`
+- `AUTHORIZED_ADMIN_UID`
+- `VITE_AUTHORIZED_ADMIN_UID`
+- `GEMINI_API_KEY`
+- `GOOGLE_APPLICATION_CREDENTIALS`
+
+Garanta que cada variável seja utilizada no ambiente correto.
+
+### Frontend
+
+`VITE_AUTHORIZED_ADMIN_UID`
+
+Deve ser utilizado somente para a validação da identidade no cliente, nunca como substituto das regras de segurança do servidor.
+
+### Backend
+
+`AUTHORIZED_ADMIN_UID`
+
+Deve ser utilizado pelo middleware e pelas operações administrativas do servidor.
+
+### Firebase
+
+`FIREBASE_PROJECT_ID`
+
+Deve identificar o projeto esperado.
+
+### Gemini
+
+`GEMINI_API_KEY`
+
+Deve permanecer no ambiente do servidor. Nunca deve ser incluída no bundle do navegador.
+
+### Credenciais de serviço
+
+`GOOGLE_APPLICATION_CREDENTIALS`
+
+Deve apontar para uma credencial de serviço com permissões mínimas necessárias.
+
+Não imprimir valores secretos.
+
+Não incluir arquivos de credenciais no Git.
+
+## 6.4. Configuração do UID nas regras
+
+Analise o funcionamento de:
+
+`scripts/configure-rules-uid.ts`
+
+Confirme que:
+
+- Exige um UID válido.
+- Rejeita strings vazias.
+- Rejeita placeholders.
+- Não aceita valores arbitrários.
+- Não altera regras de produção.
+- Não publica regras automaticamente.
+- Não grava credenciais em arquivos versionados.
+
+A substituição do placeholder `REPLACE_WITH_YOUR_FIREBASE_UID` somente deverá acontecer quando o UID verdadeiro tiver sido comprovado.
+
+Se o UID não puder ser obtido com segurança, mantenha o bloqueio fail-closed e classifique a etapa como PENDENTE.
+
+## 6.5. Teste de autenticação
+
+Depois de configurar o UID, valide:
+
+- Login do administrador.
+- Rejeição de outro UID.
+- Persistência da sessão.
+- Validação durante toda a sessão.
+- Logout.
+- Expiração de sessão.
+- Proteção de rotas.
+- Proteção dos endpoints `/api/gemini/*`.
+
+Não basta o login funcionar. A autorização deve continuar correta durante toda a utilização do sistema.
+
+---
+
+# 7. FASE 5 — BACKUP REAL, COMPLETO E SOMENTE LEITURA
+
+## 7.1. Objetivo
+
+Executar um backup real do Firestore do projeto:
+
+`gen-lang-client-0798002034`
+
+Banco:
+
+`ai-studio-prospectflowcrmd-6ef58a98-06b1-4109-b7bb-169f00e7a2ea`
+
+O backup deve preservar os dados existentes sem realizar qualquer alteração na origem.
+
+## 7.2. Credenciais
+
+Verifique se existem:
+
+- Application Default Credentials.
+- `GOOGLE_APPLICATION_CREDENTIALS`.
+- Service Account apropriada.
+
+Se não houver credenciais, interrompa a execução e informe o procedimento necessário.
+
+Não solicite que o proprietário compartilhe a chave privada no chat.
+
+Não gere credenciais automaticamente.
+
+Não utilize credenciais com permissões de escrita quando uma credencial somente leitura for suficiente.
+
+## 7.3. Permissões mínimas
+
+A conta utilizada deverá ter apenas as permissões necessárias para leitura e inspeção do Firestore.
+
+Não conceda permissões administrativas amplas sem necessidade.
+
+Não altere IAM em produção sem autorização expressa.
+
+## 7.4. Estrutura do backup
+
+Audite e utilize:
+
+- `src/services/adminBackupService.ts`
+- `scripts/backup-firestore.ts`
+- Testes de backup existentes.
+
+O backup deve:
+
+1. Descobrir dinamicamente as coleções.
+2. Percorrer documentos.
+3. Percorrer subcoleções recursivamente.
+4. Preservar os IDs originais.
+5. Preservar os caminhos completos dos documentos.
+6. Preservar tipos de dados compatíveis com Firestore.
+7. Registrar documentos não acessíveis.
+8. Registrar erros em `errors[]`.
+9. Gerar manifesto.
+10. Calcular checksums SHA-256.
+11. Validar a integridade do conteúdo gravado.
+12. Gerar `validation_report.json`.
+
+Não considere um backup completo se existirem erros de leitura não tratados.
+
+Não descarte documentos silenciosamente.
+
+Não transforme timestamps, referências ou outros tipos especiais em strings sem preservar a informação necessária para uma restauração futura.
+
+## 7.5. Segurança do backup
+
+O backup deverá ser armazenado em diretório privado e ignorado pelo Git.
+
+Confirme:
+
+- Que o diretório `backups/` está no `.gitignore`.
+- Que arquivos de credenciais não foram incluídos.
+- Que o backup não foi enviado ao GitHub.
+- Que o backup não foi publicado na Vercel.
+- Que não houve gravação no Firestore de produção.
+- Que não houve restauração ou migração.
+
+## 7.6. Validação do resultado
+
+Gere um relatório contendo:
+
+- Projeto.
+- Banco.
+- Data e horário.
+- Quantidade de coleções.
+- Quantidade de documentos.
+- Quantidade de subcoleções.
+- Profundidade máxima percorrida.
+- Quantidade de documentos com erro.
+- Quantidade de caminhos preservados.
+- SHA-256 do manifesto e dos arquivos correspondentes.
+- Resultado da validação de integridade.
+- Localização do backup.
+
+Compare as contagens e os caminhos lidos com os efetivamente gravados.
+
+Se houver diferença, explique a causa e classifique como FAIL ou PENDENTE.
+
+**Não invente quantidades de documentos, nomes de coleções ou checksums.**
+
+Não execute backup sobre um ambiente diferente do projeto e banco identificados.
+
+---
+
+# 8. FASE 6 — COMPATIBILIDADE DOS SCHEMAS COM O CRM ATUAL
+
+Esta é uma das partes mais importantes desta etapa.
+
+As regras de segurança precisam proteger os dados sem impedir que o CRM atual funcione.
+
+Uma regra excessivamente restritiva pode bloquear operações legítimas. Uma regra permissiva pode permitir alterações indevidas.
+
+O objetivo é encontrar o equilíbrio correto, baseado no código e nas estruturas reais existentes.
+
+## 8.1. Inventário completo do CRM
+
+Analise o projeto inteiro e identifique:
+
+- Coleções Firestore.
+- Subcoleções.
+- Documentos.
+- Campos.
+- Tipos de dados.
+- IDs.
+- Referências entre entidades.
+- Operações de leitura.
+- Operações de criação.
+- Operações de atualização.
+- Operações de exclusão.
+- Campos opcionais.
+- Campos legados.
+- Campos adicionados dinamicamente.
+- Importações de planilhas.
+- Dados persistidos pelo CRM.
+- Dados utilizados pelo frontend.
+- Dados utilizados pelo backend.
+
+Analise especialmente:
+
+- `src/utils/firebase.ts`
+- `src/utils/storage.ts`
+- `src/services/`
+- `src/api/`
+- `src/components/`
+- `src/views/`
+- `src/App.tsx`
+- `firestore.rules`
+- `firestore.rules.test.ts`
+- `tests/`
+- Arquivos de configuração e documentação.
+
+Não se limite aos schemas documentados. Descubra como o sistema realmente grava e consulta os dados.
+
+## 8.2. Coleções prioritárias
+
+Verifique detalhadamente, no mínimo, as estruturas e operações relacionadas a:
+
+- `leads`
+- `niches`
+- `importedSheets`
+- `campaigns`
+- `scripts`
+- `followUps`
+- `clients`
+- `projects`
+- `tasks`
+- `financial`
+- Outras coleções existentes no projeto.
+
+A lista é orientativa. Não crie coleções novas apenas porque aparecem neste documento.
+
+Descubra os nomes e caminhos efetivamente utilizados pelo CRM.
+
+## 8.3. Comparação entre regras e aplicação
+
+Para cada coleção, produza uma matriz contendo:
+
+| Item | O que verificar |
+|---|---|
+| Coleção | Caminho real no Firestore |
+| Campos obrigatórios | Campos exigidos pela aplicação |
+| Campos permitidos | Campos aceitos pelas regras |
+| Campos opcionais | Campos que podem não existir |
+| Tipos | String, number, boolean, array, map, timestamp, reference etc. |
+| Criação | Operações reais de criação |
+| Leitura | Consultas realizadas pelo CRM |
+| Atualização | Campos alterados pelas operações atuais |
+| Exclusão | Se existe operação legítima de exclusão |
+| Compatibilidade | Compatível, incompatível ou inconclusivo |
+
+Identifique qualquer divergência entre o código atual e as regras.
+
+Exemplos de problemas que você deve procurar:
+
+- O CRM grava um campo que as regras rejeitam.
+- A regra exige um campo que o CRM não envia.
+- A aplicação utiliza um tipo diferente do permitido.
+- Uma atualização parcial é bloqueada indevidamente.
+- Um campo opcional é tratado como obrigatório.
+- Uma importação de planilha produz dados diferentes dos schemas.
+- Uma operação legítima utiliza um caminho não contemplado.
+- Um documento antigo possui estrutura diferente dos documentos novos.
+- Uma regra impede a consulta utilizada pela listagem do CRM.
+- Um ID válido utilizado pelo sistema é rejeitado pelas regras.
+
+## 8.4. Compatibilidade com dados legados
+
+O CRM já possui dados e histórico.
+
+Não presuma que todos os documentos existentes seguem o mesmo padrão.
+
+Investigue:
+
+- Documentos antigos.
+- Campos ausentes.
+- Campos adicionais.
+- Estruturas históricas.
+- Variações de tipos.
+- Registros importados.
+- Registros criados manualmente.
+- Campos que foram renomeados ao longo do desenvolvimento.
+
+Se houver acesso autorizado de leitura ao banco real, faça uma inspeção exclusivamente de leitura dos documentos e suas estruturas.
+
+Não exiba dados pessoais desnecessários no relatório.
+
+Prefira apresentar:
+
+- Caminhos.
+- Nomes dos campos.
+- Tipos encontrados.
+- Quantidades por variação de schema.
+- Exemplos anonimizados.
+
+Se não houver acesso ao banco real, utilize os fixtures, testes, backups existentes e código como evidência parcial. Deixe explícito que a compatibilidade com os documentos reais não foi integralmente comprovada.
+
+## 8.5. Testes de compatibilidade
+
+Crie ou atualize testes para validar:
+
+1. Criação de lead com estrutura atualmente utilizada.
+2. Atualização parcial de lead.
+3. Leitura de leads existentes.
+4. Importação de planilha.
+5. Criação e leitura de nichos.
+6. Operações com campanhas.
+7. Operações com scripts.
+8. Follow-ups.
+9. Preservação de campos opcionais.
+10. Compatibilidade com documentos legados.
+
+Adapte os testes às operações realmente existentes. Não invente funcionalidades que ainda não fazem parte do CRM.
+
+Execute os testes contra o Emulator.
+
+Quando possível, utilize fixtures anonimizados derivados das estruturas existentes.
+
+## 8.6. Correção de incompatibilidades
+
+Se encontrar incompatibilidades:
+
+1. Identifique a origem.
+2. Explique o impacto.
+3. Determine se o problema está no código, no schema ou nas regras.
+4. Proponha a menor correção segura.
+5. Implemente correções locais quando não envolver alteração de dados reais.
+6. Atualize os testes.
+7. Execute novamente os testes.
+8. Registre os arquivos alterados.
+
+Não modifique documentos reais para adaptar o banco às regras.
+
+Não execute migrações automáticas.
+
+Não remova campos legados apenas para facilitar a validação.
+
+Não relaxe as regras indiscriminadamente para fazer os testes passarem.
+
+**A segurança não pode ser aprovada à custa de quebrar o CRM. A compatibilidade não pode ser aprovada à custa de enfraquecer a segurança.**
+
+---
+
+# 9. AUDITORIA FINAL DO CÓDIGO E DA ARQUITETURA
+
+Depois das seis fases, revise novamente os seguintes arquivos:
+
+- `src/services/authService.ts`
+- `src/services/adminBackupService.ts`
+- `src/api/securityMiddleware.ts`
+- `src/api/routes.ts`
+- `src/config/env.ts`
+- `src/utils/firebase.ts`
+- `src/utils/storage.ts`
+- `firestore.rules`
+- `firestore.rules.test.ts`
+- `firebase.json`
+- `firebase-applet-config.json`
+- `scripts/configure-rules-uid.ts`
+- `scripts/backup-firestore.ts`
+- `.env.example`
+- `.gitignore`
+- `package.json`
+
+Verifique:
+
+- Ausência de fallback permissivo.
+- Ausência de autorização baseada apenas em e-mail.
+- Ausência de UID vazio tratado como autorizado.
+- Ausência de credenciais expostas.
+- Ausência de chaves Gemini no frontend.
+- Ausência de rotas administrativas desprotegidas.
+- Ausência de regras permissivas para workspaces não autorizados.
+- Ausência de exclusões automáticas de dados.
+- Ausência de limpeza automática de registros reais.
+- Ausência de alterações silenciosas em schemas.
+- Ausência de caminhos Firestore legítimos bloqueados indevidamente.
+- Ausência de arquivos de backup e credenciais no Git.
+
+Verifique também se os serviços continuam utilizando corretamente o workspace:
+
+`adm_equipeie`
+
+Não substitua esse identificador por outro sem justificativa técnica e autorização.
+
+---
+
+# 10. EXECUÇÃO FINAL DOS COMANDOS
+
+Execute os comandos adequados ao projeto e registre os resultados reais.
+
+No mínimo, verifique:
+
+`npm test`
+
+`npm run build`
+
+`npm run lint`
+
+`npm run test:rules`
+
+`npm run rules:check`
+
+`npm run backup:firestore`
+
+Além disso:
+
+- Execute os testes de compatibilidade.
+- Execute os testes de diagnóstico dos Emulators.
+- Verifique os arquivos da branch.
+- Verifique se o backup está íntegro.
+- Verifique se nenhum segredo foi incluído no Git.
+
+Se algum script não existir, não invente o resultado. Analise a estrutura atual e informe se é necessário criá-lo ou ajustar o comando.
+
+Não substitua falhas por testes simulados.
+
+Não esconda erros.
+
+---
+
+# 11. RELATÓRIO TÉCNICO OBRIGATÓRIO
+
+Ao finalizar, crie:
+
+`docs/RELATORIO_ETAPA_0_4_VALIDACAO_FINAL.md`
+
+O documento deverá conter:
+
+## A. Resumo executivo
+
+Explique o que foi realizado, o que foi aprovado e o que permanece pendente.
+
+## B. Git e sincronização
+
+Informe:
+
+- Repositório.
+- Branch.
+- SHA da `main` consultada.
+- SHA da branch de validação.
+- Arquivos sincronizados.
+- Commit realizado.
+- Push confirmado ou não.
+- Confirmação de que a `main` permaneceu intacta.
+
+## C. Firebase Emulator
+
+Informe:
+
+- Versão do Firebase CLI.
+- Versão do Java.
+- Portas.
+- Endpoints verificados.
+- Resultado da checagem de Auth.
+- Resultado da checagem de Firestore.
+- Resultado dos dez cenários.
+- Logs relevantes.
+
+## D. Administrador
+
+Informe:
+
+- Se o UID verdadeiro foi localizado.
+- Se a configuração foi validada.
+- Se o frontend está protegido.
+- Se o backend está protegido.
+- Se as regras estão configuradas corretamente.
+- Se há pendências de credenciais.
+
+Não inclua o UID em logs públicos ou informações sensíveis desnecessárias.
+
+## E. Backup
+
+Informe:
+
+- Se foi executado contra o projeto e banco corretos.
+- Quantidade real de documentos.
+- Quantidade real de coleções.
+- Profundidade da recursão.
+- Quantidade de erros.
+- SHA-256.
+- Resultado da validação.
+- Localização do backup.
+
+## F. Compatibilidade dos schemas
+
+Apresente:
+
+- Inventário de coleções.
+- Matriz de compatibilidade.
+- Divergências encontradas.
+- Correções implementadas.
+- Testes realizados.
+- Campos legados que precisam de atenção.
+- Pontos não comprovados.
+
+## G. Arquivos modificados
+
+Liste os arquivos criados, alterados e removidos, com justificativa.
+
+## H. Segurança e produção
+
+Declare expressamente:
+
+- Se houve alteração no Firestore de produção.
+- Se houve publicação de regras.
+- Se houve deploy.
+- Se houve alteração na `main`.
+- Se houve exposição de credenciais.
+
+## I. Pendências do proprietário
+
+Liste somente ações que realmente dependam de acesso, credencial ou aprovação do proprietário.
+
+Explique exatamente onde realizar cada ação, sem pedir que ele analise código manualmente.
+
+---
+
+# 12. MATRIZ FINAL DE APROVAÇÃO
+
+Utilize esta matriz:
+
+| Frente | Critério de aprovação |
+|---|---|
+| Auth Emulator | Diagnóstico confiável, sem falsos positivos |
+| Git | Branch oficial criada e sincronizada, sem alterar main |
+| Firestore Emulator | Dez cenários executados de verdade |
+| UID administrador | UID verdadeiro validado e configuração fail-closed |
+| Backup | Backup real completo, somente leitura e validado |
+| Schemas | Compatibilidade comprovada com operações e estruturas atuais |
+| Testes gerais | Testes, build e lint aprovados |
+| Segurança | Nenhuma vulnerabilidade crítica ou credencial exposta |
+
+Cada item deverá receber um dos seguintes estados:
+
+- **PASS:** executado e comprovado.
+- **FAIL:** executado e falhou.
+- **PENDENTE:** depende de acesso, credencial ou ação externa.
+- **NÃO APLICÁVEL:** somente quando houver justificativa técnica.
+
+Não classifique uma atividade como PASS se ela foi apenas analisada, planejada ou simulada.
+
+Não esconda dependências externas.
+
+## 12.1. Condição para fechar a etapa
+
+A Etapa 0.4 somente poderá ser declarada integralmente concluída quando:
+
+1. A branch de validação estiver sincronizada e comprovada no GitHub.
+2. Os dez cenários forem aprovados no Firebase Emulator real.
+3. O UID verdadeiro do administrador estiver validado.
+4. O backup real estiver completo e com integridade comprovada.
+5. Os schemas forem compatíveis com as operações e estruturas atuais do CRM.
+6. Os testes gerais, build e lint estiverem aprovados.
+7. Não houver vulnerabilidades críticas pendentes.
+
+Se qualquer requisito crítico estiver pendente, classifique a etapa como **PARCIALMENTE CONCLUÍDA**, sem avançar para a próxima etapa.
+
+---
+
+# 13. INSTRUÇÃO FINAL
+
+Trabalhe de forma sequencial, técnica e cuidadosa.
+
+Não faça uma nova implementação indiscriminada.
+
+Primeiro compreenda o estado atual do projeto. Depois identifique os problemas, corrija o necessário e valide.
+
+Não altere a `main`.
+
+Não publique nada em produção.
+
+Não apague ou modifique dados reais.
+
+Não invente credenciais, UIDs, resultados, quantidades ou checksums.
+
+Não confunda testes unitários com testes reais do Firebase Emulator.
+
+Não confunda backup local com backup validado.
+
+Não confunda branch local com branch sincronizada no GitHub.
+
+Não considere schemas compatíveis apenas porque o TypeScript compila.
+
+**A prioridade é entregar um Kaizen seguro, estável e compatível com o CRM que já existe, preservando integralmente os dados e o histórico atual.**
+
+Comece pela inspeção do ambiente e pela Fase 1. Execute cada fase até onde o ambiente permitir e registre evidências. Se uma dependência impedir o avanço, interrompa somente a parte bloqueada, continue as verificações independentes e apresente o bloqueio com precisão.
+
+Ao final, entregue o relatório técnico completo e a matriz de aprovação.

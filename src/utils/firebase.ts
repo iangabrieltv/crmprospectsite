@@ -27,7 +27,7 @@ let emulatorsConnected = false;
 if (USE_FIREBASE_EMULATOR && !emulatorsConnected && typeof window !== 'undefined') {
   try {
     connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
-    connectFirestoreEmulator(db, '127.0.0.1', 8080);
+    connectFirestoreEmulator(db, '127.0.0.1', 8088);
     emulatorsConnected = true;
   } catch (err) {
     console.warn('[Firebase Emulator] Falha ao conectar nos emuladores locais:', err);

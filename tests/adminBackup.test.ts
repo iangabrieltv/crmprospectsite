@@ -233,3 +233,92 @@ test('exportWorkspaceTreeReadOnly registra erros de leitura e validateRecursiveB
   assert.equal(tamperedValidation.valid, false);
   assert.equal(tamperedValidation.summary.checksumMatch, false);
 });
+
+test('exportWorkspaceTreeReadOnly preserva tipos especiais (Timestamp, Date, GeoPoint, DocumentReference, Bytes) e métricas recursivas', async () => {
+  const customTimestamp = {
+    seconds: 1763300000,
+    nanoseconds: 123456000,
+    toDate: () => new Date(1763300000 * 1000 + 123),
+  };
+  const customGeoPoint = { latitude: -9.7525, longitude: -36.6611 };
+  const customDocRef = {
+    id: 'niche-nutri-padrao',
+    path: 'workspaces/adm_equipeie/niches/niche-nutri-padrao',
+    firestore: {},
+  };
+  const customBytes = Buffer.from('kaizen-crm-binary-payload', 'utf-8');
+  const customDate = new Date('2026-11-16T14:30:00.000Z');
+
+  const { db } = createMockReadOnlyFirestore({
+    rootCollections: {
+      workspaces: {
+        adm_equipeie: {
+          data: { owner: 'Ian' },
+          subcollections: {
+            leads: {
+              'lead-special-1': {
+                data: {
+                  companyName: 'Clínica Especial',
+                  phone: '5582999991111',
+                  stage: 'fechado',
+                  createdTs: customTimestamp,
+                  updatedDate: customDate,
+                  location: customGeoPoint,
+                  nicheRef: customDocRef,
+                  rawAttachment: customBytes,
+                },
+                subcollections: {
+                  history: {
+                    'h-1': { data: { action: 'created' } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  const manifest = await exportWorkspaceTreeReadOnly(db, {
+    projectId: 'gen-lang-client-0798002034',
+    firestoreDatabaseId: 'ai-studio-prospectflowcrmd-6ef58a98-06b1-4109-b7bb-169f00e7a2ea',
+    workspaceId: 'adm_equipeie',
+  });
+
+  const exportedData = manifest.collections.leads[0].data as Record<string, unknown>;
+  assert.deepEqual(exportedData.createdTs, {
+    __firestoreType: 'Timestamp',
+    seconds: 1763300000,
+    nanoseconds: 123456000,
+    iso: '2025-11-16T13:33:20.123Z',
+  });
+  assert.deepEqual(exportedData.updatedDate, {
+    __firestoreType: 'Date',
+    iso: '2026-11-16T14:30:00.000Z',
+  });
+  assert.deepEqual(exportedData.location, {
+    __firestoreType: 'GeoPoint',
+    latitude: -9.7525,
+    longitude: -36.6611,
+  });
+  assert.deepEqual(exportedData.nicheRef, {
+    __firestoreType: 'DocumentReference',
+    path: 'workspaces/adm_equipeie/niches/niche-nutri-padrao',
+  });
+  assert.deepEqual(exportedData.rawAttachment, {
+    __firestoreType: 'Bytes',
+    base64: Buffer.from('kaizen-crm-binary-payload', 'utf-8').toString('base64'),
+  });
+
+  assert.equal(manifest.maxDepth, 2);
+  assert.equal(manifest.subcollectionsCount, 1);
+  assert.equal(manifest.preservedPathsCount, 2);
+
+  const validation = validateRecursiveBackupManifest(manifest);
+  assert.equal(validation.valid, true);
+  assert.equal(validation.summary.maxDepth, 2);
+  assert.equal(validation.summary.subcollectionsCount, 1);
+  assert.equal(validation.summary.preservedPathsCount, 2);
+});
+

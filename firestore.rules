@@ -14,7 +14,7 @@ service cloud.firestore {
     }
 
     // IMPORTANTE: O Firestore Rules não lê variáveis de ambiente em tempo de execução.
-    // Substitua 'REPLACE_WITH_YOUR_FIREBASE_UID' pelo seu UID real do Firebase Auth
+    // Substitua o placeholder em `authorizedAdminUid()` pelo seu UID real do Firebase Auth
     // (ou execute `AUTHORIZED_ADMIN_UID=<seu_uid> npm run rules:configure -- --write`)
     // ANTES de publicar no console ou via `firebase deploy --only firestore:rules`.
     // Enquanto o placeholder permanecer presente, TODAS as operações são bloqueadas.
@@ -23,10 +23,11 @@ service cloud.firestore {
     }
 
     function hasValidAdminUidConfig() {
-      return authorizedAdminUid() is string
-        && authorizedAdminUid().size() >= 6
-        && authorizedAdminUid().size() <= 128
-        && authorizedAdminUid() != 'REPLACE_WITH_YOUR_FIREBASE_UID';
+      let uid = authorizedAdminUid();
+      return uid is string
+        && uid.size() >= 6
+        && uid.size() <= 128
+        && uid != 'REPLACE_WITH_YOUR_FIREBASE_UID';
     }
 
     function isAuthorizedAdmin() {
@@ -46,15 +47,16 @@ service cloud.firestore {
       return request.resource.data;
     }
 
-    function isOptionalString(data, field, maxLen) {
-      return !(field in data) || data[field] == null || (data[field] is string && data[field].size() <= maxLen);
+    function optStr(v, maxLen) {
+      return v == null || (v is string && v.size() <= maxLen);
     }
 
-    function isOptionalNumber(data, field) {
-      return !(field in data) || data[field] == null || (data[field] is int || data[field] is float);
+    function optNum(v) {
+      return v == null || v is int || v is float;
     }
 
     function isValidLead(data) {
+      let n = data.get('notes', null);
       return data.keys().hasAll(['companyName', 'phone', 'stage'])
         && data.keys().hasOnly([
           'id', 'nicheId', 'companyName', 'contactName', 'phone', 'displayPhone',
@@ -69,41 +71,43 @@ service cloud.firestore {
         && data.companyName is string && data.companyName.size() >= 1 && data.companyName.size() <= 300
         && data.phone is string && data.phone.size() <= 40
         && data.stage is string && data.stage.size() >= 1 && data.stage.size() <= 60
-        && isOptionalString(data, 'id', 128)
-        && isOptionalString(data, 'nicheId', 128)
-        && isOptionalString(data, 'contactName', 200)
-        && isOptionalString(data, 'displayPhone', 50)
-        && isOptionalString(data, 'address', 500)
-        && isOptionalString(data, 'city', 150)
-        && isOptionalString(data, 'category', 150)
-        && isOptionalString(data, 'googleMapsUrl', 1000)
-        && isOptionalString(data, 'websiteUrl', 1000)
-        && isOptionalString(data, 'mockupUrl', 1000)
-        && isOptionalString(data, 'scriptUsed', 100)
-        && isOptionalString(data, 'lastContactDate', 64)
-        && isOptionalString(data, 'objection', 1000)
-        && isOptionalString(data, 'createdAt', 64)
-        && isOptionalString(data, 'aiPitch', 4000)
-        && isOptionalString(data, 'opportunityAngle', 500)
-        && isOptionalString(data, 'meetingDate', 32)
-        && isOptionalString(data, 'meetingTime', 16)
-        && isOptionalString(data, 'meetingNotes', 4000)
-        && isOptionalString(data, 'meetingLink', 1000)
-        && isOptionalString(data, 'meetingStatus', 32)
-        && isOptionalString(data, 'callbackDate', 32)
-        && isOptionalString(data, 'callbackTime', 16)
-        && isOptionalString(data, 'callbackNotes', 1000)
-        && isOptionalString(data, 'callbackStatus', 32)
-        && isOptionalString(data, 'updatedAt', 64)
-        && isOptionalNumber(data, 'googleRating')
-        && isOptionalNumber(data, 'googleReviewsCount')
-        && isOptionalNumber(data, 'creationValue')
-        && isOptionalNumber(data, 'monthlyMrr')
-        && isOptionalNumber(data, 'schemaVersion')
-        && (!( 'notes' in data ) || (data.notes is list && data.notes.size() <= 500 && (data.notes.size() == 0 || data.notes[0] is map)));
+        && optStr(data.get('id', null), 128)
+        && optStr(data.get('nicheId', null), 128)
+        && optStr(data.get('contactName', null), 200)
+        && optStr(data.get('displayPhone', null), 50)
+        && optStr(data.get('address', null), 500)
+        && optStr(data.get('city', null), 150)
+        && optStr(data.get('category', null), 150)
+        && optStr(data.get('googleMapsUrl', null), 2000)
+        && optStr(data.get('websiteUrl', null), 2000)
+        && optStr(data.get('mockupUrl', null), 2000)
+        && optStr(data.get('scriptUsed', null), 100)
+        && optStr(data.get('lastContactDate', null), 64)
+        && optStr(data.get('objection', null), 1000)
+        && optStr(data.get('createdAt', null), 64)
+        && optStr(data.get('aiPitch', null), 4000)
+        && optStr(data.get('opportunityAngle', null), 500)
+        && optStr(data.get('meetingDate', null), 32)
+        && optStr(data.get('meetingTime', null), 16)
+        && optStr(data.get('meetingNotes', null), 4000)
+        && optStr(data.get('meetingLink', null), 2000)
+        && optStr(data.get('meetingStatus', null), 32)
+        && optStr(data.get('callbackDate', null), 32)
+        && optStr(data.get('callbackTime', null), 16)
+        && optStr(data.get('callbackNotes', null), 1000)
+        && optStr(data.get('callbackStatus', null), 32)
+        && optStr(data.get('updatedAt', null), 64)
+        && optNum(data.get('googleRating', null))
+        && optNum(data.get('googleReviewsCount', null))
+        && optNum(data.get('creationValue', null))
+        && optNum(data.get('monthlyMrr', null))
+        && optNum(data.get('schemaVersion', null))
+        && (n == null || (n is list && n.size() <= 500 && (n.size() == 0 || n[0] is map)));
     }
 
     function isValidNiche(data) {
+      let tc = data.get('targetCities', null);
+      let sc = data.get('scripts', null);
       return data.keys().hasAll(['name', 'segment', 'city'])
         && data.keys().hasOnly([
           'id', 'name', 'segment', 'city', 'targetCities', 'emoji',
@@ -112,17 +116,18 @@ service cloud.firestore {
         && data.name is string && data.name.size() >= 1 && data.name.size() <= 200
         && data.segment is string && data.segment.size() <= 200
         && data.city is string && data.city.size() <= 150
-        && isOptionalString(data, 'id', 128)
-        && isOptionalString(data, 'emoji', 32)
-        && isOptionalString(data, 'createdAt', 64)
-        && isOptionalString(data, 'updatedAt', 64)
-        && isOptionalNumber(data, 'targetMrr')
-        && isOptionalNumber(data, 'schemaVersion')
-        && (!( 'targetCities' in data ) || (data.targetCities is list && data.targetCities.size() <= 200 && (data.targetCities.size() == 0 || data.targetCities[0] is string)))
-        && (!( 'scripts' in data ) || data.scripts is map);
+        && optStr(data.get('id', null), 128)
+        && optStr(data.get('emoji', null), 32)
+        && optStr(data.get('createdAt', null), 64)
+        && optStr(data.get('updatedAt', null), 64)
+        && optNum(data.get('targetMrr', null))
+        && optNum(data.get('schemaVersion', null))
+        && (tc == null || (tc is list && tc.size() <= 200 && (tc.size() == 0 || tc[0] is string)))
+        && (sc == null || sc is map);
     }
 
     function isValidImportedSheet(data) {
+      let ls = data.get('leadsSummary', null);
       return data.keys().hasAll(['name', 'nicheId', 'totalLeads'])
         && data.keys().hasOnly([
           'id', 'name', 'nicheId', 'nicheName', 'importedAt',
@@ -132,14 +137,14 @@ service cloud.firestore {
         && data.name is string && data.name.size() >= 1 && data.name.size() <= 300
         && data.nicheId is string && data.nicheId.size() >= 1 && data.nicheId.size() <= 128
         && (data.totalLeads is int || data.totalLeads is float) && data.totalLeads >= 0
-        && isOptionalString(data, 'id', 128)
-        && isOptionalString(data, 'nicheName', 200)
-        && isOptionalString(data, 'importedAt', 64)
-        && isOptionalString(data, 'format', 64)
-        && isOptionalString(data, 'updatedAt', 64)
-        && isOptionalNumber(data, 'size')
-        && isOptionalNumber(data, 'schemaVersion')
-        && (!( 'leadsSummary' in data ) || (data.leadsSummary is list && data.leadsSummary.size() <= 20 && (data.leadsSummary.size() == 0 || data.leadsSummary[0] is map)));
+        && optStr(data.get('id', null), 128)
+        && optStr(data.get('nicheName', null), 200)
+        && optStr(data.get('importedAt', null), 64)
+        && optStr(data.get('format', null), 64)
+        && optStr(data.get('updatedAt', null), 64)
+        && optNum(data.get('size', null))
+        && optNum(data.get('schemaVersion', null))
+        && (ls == null || (ls is list && ls.size() <= 50 && (ls.size() == 0 || ls[0] is map)));
     }
 
     // -------------------------------------------------------------------------
