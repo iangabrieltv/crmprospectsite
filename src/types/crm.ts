@@ -234,6 +234,9 @@ export interface Lead {
   callbackTime?: string; // HH:MM (ex: "15:30")
   callbackNotes?: string; // Motivo/observação (ex: "Pediu para ligar às 15:30, ocupado no momento")
   callbackStatus?: 'pendente' | 'realizado' | 'cancelado';
+  // Metadados retrocompatíveis para evolução segura de esquema e sincronização
+  schemaVersion?: number;
+  updatedAt?: string;
 }
 
 export interface NicheCampaign {
@@ -246,6 +249,8 @@ export interface NicheCampaign {
   targetMrr: number;
   createdAt: string;
   scripts: Record<string, ScriptDefinition>;
+  schemaVersion?: number;
+  updatedAt?: string;
 }
 
 export interface ImportedSheet {
@@ -263,6 +268,8 @@ export interface ImportedSheet {
     city?: string;
     category?: string;
   }[];
+  schemaVersion?: number;
+  updatedAt?: string;
 }
 
 export type AppTab = 'kanban' | 'dashboard' | 'agenda' | 'scripts' | 'importer' | 'global';

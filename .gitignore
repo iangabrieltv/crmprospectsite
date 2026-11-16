@@ -2,6 +2,9 @@ node_modules/
 build/
 dist/
 coverage/
+backups/
+*.json.bak
+service-account*.json
 .DS_Store
 *.log
 .env*

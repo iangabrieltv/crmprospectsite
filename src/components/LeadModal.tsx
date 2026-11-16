@@ -17,6 +17,7 @@ import {
   interpolateScript
 } from '../utils/phone';
 import { DEFAULT_SCRIPTS } from '../utils/initialData';
+import { getActiveFirebaseIdToken } from '../services/authService';
 import {
   X,
   MessageCircle,
@@ -283,9 +284,17 @@ export const LeadModal: React.FC<LeadModalProps> = ({
     setIsGeneratingPitch(true);
     setPitchError(null);
     try {
+      const token = await getActiveFirebaseIdToken();
+      if (!token) {
+        throw new Error('Sessão expirada. Faça login novamente para usar a IA.');
+      }
+
       const res = await fetch('/api/gemini/generate-pitch', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
           companyName,
           niche: niche.segment,
@@ -297,16 +306,17 @@ export const LeadModal: React.FC<LeadModalProps> = ({
       });
 
       if (!res.ok) {
-        throw new Error('Falha no servidor Gemini');
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Falha no servidor Gemini');
       }
 
       const data = await res.json();
       if (data.pitch) {
         setAiPitch(data.pitch);
       }
-    } catch (err: any) {
-      console.warn('AI Pitch fallback triggered:', err);
-      // Fallback generator
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro ao consultar IA';
+      setPitchError(`${msg} (modelo padrão sugerido abaixo).`);
       const fallbackPitch = `Olá equipe da ${companyName}! Aqui é o ${userName}. Notamos que vocês têm um atendimento elogiado em ${city} com ${googleRating || 'ótimas'} estrelas, mas os clientes que buscam no celular não encontram um site moderno com agendamento direto. Criamos um modelo pronto de alta conversão sem custo inicial para vocês avaliarem. Faz sentido te enviar em 1 minuto?`;
       setAiPitch(fallbackPitch);
     } finally {

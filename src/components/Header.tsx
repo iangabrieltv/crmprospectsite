@@ -37,10 +37,15 @@ interface HeaderProps {
   userName: string;
   onUpdateUserName: (name: string) => void;
   totalLeadsCount: number;
+  allLeadsCount?: number;
+  allNichesCount?: number;
+  importedSheetsCount?: number;
+  lastBackupAt?: string | null;
   meetingsCount?: number;
   callbacksCount?: number;
   onLogout?: () => void;
   isCloudSynced?: boolean;
+  syncStatus?: 'synced' | 'saving' | 'error';
   onClearAllContacts?: () => Promise<void> | void;
 }
 
@@ -54,16 +59,23 @@ export const Header: React.FC<HeaderProps> = ({
   onSelectTab,
   userName,
   onUpdateUserName,
-  totalLeadsCount,
+  totalLeadsCount: _totalLeadsCount,
+  allLeadsCount,
+  allNichesCount,
+  importedSheetsCount = 0,
+  lastBackupAt = null,
   meetingsCount = 0,
   callbacksCount = 0,
   onLogout,
   isCloudSynced = true,
+  syncStatus = 'synced',
   onClearAllContacts,
 }) => {
   const [isNicheDropdownOpen, setIsNicheDropdownOpen] = useState(false);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [isClearModalOpen, setIsClearModalOpen] = useState(false);
+  const [clearConfirmText, setClearConfirmText] = useState('');
+  const [clearError, setClearError] = useState<string | null>(null);
   const [isClearing, setIsClearing] = useState(false);
   const [tempUserName, setTempUserName] = useState(userName);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -227,25 +239,50 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* ZONE 3: Primary Actions & User Identity */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          {/* Cloud Database Live Badge (Always visible with Cloud Icon) */}
+          {/* Cloud Database Live Badge */}
           <div
             className={`flex items-center gap-1.5 px-2 sm:px-2.5 py-1 rounded-lg border text-[11px] font-medium shrink-0 transition-colors shadow-2xs ${
-              isCloudSynced
+              syncStatus === 'error'
+                ? 'bg-rose-50 border-rose-200 text-rose-800'
+                : syncStatus === 'saving'
+                ? 'bg-blue-50 border-blue-200 text-blue-800'
+                : isCloudSynced
                 ? 'bg-emerald-50 border-emerald-200/90 text-emerald-800'
                 : 'bg-amber-50 border-amber-200 text-amber-800'
             }`}
-            title="Banco na nuvem (Firestore) com sincronização em tempo real. Qualquer membro conectado atualiza e visualiza as mudanças instantaneamente entre telas (Pipeline, Agenda e Dashboard)."
+            title="Sincronização em tempo real com Cloud Firestore."
           >
             <span
               className={`w-2 h-2 rounded-full shrink-0 ${
-                isCloudSynced ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
+                syncStatus === 'error'
+                  ? 'bg-rose-500'
+                  : syncStatus === 'saving'
+                  ? 'bg-blue-500 animate-pulse'
+                  : isCloudSynced
+                  ? 'bg-emerald-500 animate-pulse'
+                  : 'bg-amber-500'
               }`}
             />
-            <Cloud className={`w-3.5 h-3.5 shrink-0 ${isCloudSynced ? 'text-emerald-600' : 'text-amber-600'}`} />
+            <Cloud
+              className={`w-3.5 h-3.5 shrink-0 ${
+                syncStatus === 'error'
+                  ? 'text-rose-600'
+                  : syncStatus === 'saving'
+                  ? 'text-blue-600'
+                  : isCloudSynced
+                  ? 'text-emerald-600'
+                  : 'text-amber-600'
+              }`}
+            />
             <span className="hidden sm:inline font-semibold">
-              {isCloudSynced ? 'Nuvem Ao Vivo' : 'Conectando...'}
+              {syncStatus === 'error'
+                ? 'Erro de Sync'
+                : syncStatus === 'saving'
+                ? 'Salvando...'
+                : isCloudSynced
+                ? 'Nuvem Ao Vivo'
+                : 'Conectando...'}
             </span>
-            <span className="hidden xl:inline text-emerald-600/80">• Multi-telas</span>
           </div>
 
           {/* Quick Add Lead Button */}
@@ -275,9 +312,13 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Clean Contacts (Start from zero) Button */}
           {onClearAllContacts && (
             <button
-              onClick={() => setIsClearModalOpen(true)}
+              onClick={() => {
+                setClearConfirmText('');
+                setClearError(null);
+                setIsClearModalOpen(true);
+              }}
               className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200 transition-colors cursor-pointer shrink-0"
-              title="Limpar todos os contatos da nuvem para começar do zero"
+              title="Zerar banco de dados na nuvem (requer confirmação explícita)"
             >
               <Trash2 className="w-4 h-4" />
             </button>
@@ -288,7 +329,7 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               onClick={onLogout}
               className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
-              title="Sair da conta (kaizenvisual123)"
+              title="Sair da conta"
             >
               <LogOut className="w-4 h-4" />
             </button>
@@ -375,35 +416,66 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       )}
 
-      {/* Modal: Começar do Zero (Limpar Nuvem) */}
+      {/* Modal: Começar do Zero (Limpar Nuvem) com confirmação explícita e resumo de impacto */}
       {isClearModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center gap-3 mb-3">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 border border-slate-200 animate-in fade-in zoom-in-95 duration-150 space-y-4">
+            <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-rose-100 flex items-center justify-center shrink-0 text-rose-600">
                 <AlertTriangle className="w-5 h-5" />
               </div>
               <div>
                 <h3 className="text-sm font-bold text-slate-900">
-                  Começar do Zero — Resetar Todo o Banco
+                  Zerar Banco de Dados (Ação Irreversível)
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Limpa contatos, planilhas e nichos de teste (carros, advogados, estética)
+                  Exclui dados da nuvem (Firestore) e do cache local deste navegador
                 </p>
               </div>
             </div>
 
-            <div className="space-y-2 mb-5 text-xs text-slate-600 leading-relaxed bg-slate-50 p-3.5 rounded-lg border border-slate-200/80">
-              <p>
-                Deseja <strong>remover todos os contatos e nichos antigos</strong> da nuvem e do dispositivo para começar 100% zerado?
+            <div className="space-y-2 text-xs text-slate-700 leading-relaxed bg-rose-50/70 p-3.5 rounded-lg border border-rose-200">
+              <p className="font-semibold text-rose-900">Documentos e coleções que serão apagados:</p>
+              <ul className="list-disc pl-4 space-y-1 text-rose-800">
+                <li>
+                  <strong>{allLeadsCount ?? _totalLeadsCount} leads</strong> (coleção <code className="font-mono">leads</code> — incluindo notas, reuniões e retornos)
+                </li>
+                <li>
+                  <strong>{allNichesCount ?? niches.length} nichos/campanhas</strong> (coleção <code className="font-mono">niches</code> — substituídos apenas pela campanha padrão vazia)
+                </li>
+                <li>
+                  <strong>{importedSheetsCount} registros</strong> de histórico (coleção <code className="font-mono">importedSheets</code>)
+                </li>
+              </ul>
+              <p className="pt-1 text-[11px] text-rose-800">
+                <strong>Reversibilidade:</strong> Esta operação <strong>não pode ser desfeita</strong> sem um arquivo de backup.
               </p>
-              <p className="text-slate-500">
-                • A base de contatos ficará com <strong>0 leads</strong>, pronta para sua lista de 500 contatos.
-              </p>
-              <p className="text-slate-500">
-                • Os nichos de teste (carros, estética, advogados) serão removidos e restará a campanha limpa pronta para prospecção.
+              <p className="text-[11px] text-slate-700">
+                <strong>Último backup exportado neste navegador:</strong>{' '}
+                {lastBackupAt
+                  ? new Date(lastBackupAt).toLocaleString('pt-BR')
+                  : 'Nenhum backup recente registrado neste navegador — recomenda-se exportar o JSON completo na aba Visão Geral antes de continuar.'}
               </p>
             </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Para confirmar, digite <code className="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-rose-700">ZERAR</code> abaixo:
+              </label>
+              <input
+                type="text"
+                value={clearConfirmText}
+                onChange={(e) => setClearConfirmText(e.target.value)}
+                placeholder="Digite ZERAR"
+                className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500 font-mono"
+              />
+            </div>
+
+            {clearError && (
+              <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-800">
+                {clearError}
+              </div>
+            )}
 
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
               <button
@@ -416,20 +488,25 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
               <button
                 type="button"
-                disabled={isClearing}
+                disabled={isClearing || clearConfirmText.trim().toUpperCase() !== 'ZERAR'}
                 onClick={async () => {
                   if (!onClearAllContacts) return;
                   setIsClearing(true);
+                  setClearError(null);
                   try {
                     await onClearAllContacts();
                     setIsClearModalOpen(false);
                   } catch (e) {
-                    console.error('Falha ao limpar:', e);
+                    setClearError(
+                      e instanceof Error
+                        ? `Falha ao zerar banco: ${e.message}`
+                        : 'Falha ao zerar banco na nuvem. Verifique sua conexão e permissões.'
+                    );
                   } finally {
                     setIsClearing(false);
                   }
                 }}
-                className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 active:bg-rose-800 rounded-lg shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 active:bg-rose-800 rounded-lg shadow-xs transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {isClearing ? (
                   <>
@@ -439,7 +516,7 @@ export const Header: React.FC<HeaderProps> = ({
                 ) : (
                   <>
                     <Trash2 className="w-3.5 h-3.5" />
-                    <span>Sim, Limpar e Começar do Zero</span>
+                    <span>Confirmar Exclusão Total</span>
                   </>
                 )}
               </button>

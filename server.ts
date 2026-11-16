@@ -3,6 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { apiRouter } from './src/api/routes';
+import { applySecurityHeaders } from './src/api/securityMiddleware';
 
 dotenv.config();
 
@@ -12,9 +13,10 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const isProd = process.env.NODE_ENV === 'production';
 // In dev mode in AI Studio environment, the dev server must run on port 3000
-const PORT = !isProd ? 3000 : (Number(process.env.PORT) || 3000);
+const PORT = !isProd ? 3000 : Number(process.env.PORT) || 3000;
 
-app.use(express.json({ limit: '10mb' }));
+app.use(applySecurityHeaders);
+app.use(express.json({ limit: '2mb' }));
 
 // Mount Gemini API and health check routes
 app.use(apiRouter);

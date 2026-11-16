@@ -33,7 +33,13 @@
         "meetingTime": { "type": "string" },
         "meetingNotes": { "type": "string" },
         "meetingLink": { "type": "string" },
-        "meetingStatus": { "type": "string" }
+        "meetingStatus": { "type": "string" },
+        "callbackDate": { "type": "string" },
+        "callbackTime": { "type": "string" },
+        "callbackNotes": { "type": "string" },
+        "callbackStatus": { "type": "string" },
+        "schemaVersion": { "type": "number" },
+        "updatedAt": { "type": "string" }
       },
       "required": ["companyName", "phone", "stage"]
     },
@@ -50,7 +56,9 @@
         "emoji": { "type": "string" },
         "targetMrr": { "type": "number" },
         "createdAt": { "type": "string" },
-        "scripts": { "type": "object" }
+        "scripts": { "type": "object" },
+        "schemaVersion": { "type": "number" },
+        "updatedAt": { "type": "string" }
       },
       "required": ["name", "segment", "city"]
     },
@@ -67,7 +75,9 @@
         "totalLeads": { "type": "number" },
         "format": { "type": "string" },
         "size": { "type": "number" },
-        "leadsSummary": { "type": "array" }
+        "leadsSummary": { "type": "array" },
+        "schemaVersion": { "type": "number" },
+        "updatedAt": { "type": "string" }
       },
       "required": ["name", "nicheId", "totalLeads"]
     }
@@ -75,15 +85,15 @@
   "firestore": {
     "/workspaces/{workspaceId}/leads/{leadId}": {
       "schema": "Lead",
-      "description": "Leads cadastrados no workspace da equipe"
+      "description": "Leads cadastrados no workspace privado da agência"
     },
     "/workspaces/{workspaceId}/niches/{nicheId}": {
       "schema": "NicheCampaign",
-      "description": "Nichos e campanhas cadastrados no workspace"
+      "description": "Nichos e campanhas cadastrados no workspace privado"
     },
     "/workspaces/{workspaceId}/importedSheets/{sheetId}": {
       "schema": "ImportedSheet",
-      "description": "Planilhas importadas salvas no workspace da equipe"
+      "description": "Planilhas importadas salvas no workspace privado"
     }
   }
 }

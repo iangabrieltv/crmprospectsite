@@ -1,0 +1,897 @@
+# KAIZEN — ETAPA 0
+# AUDITORIA, PROTEÇÃO, SEGURANÇA, ESTABILIZAÇÃO E PREPARAÇÃO DA ARQUITETURA
+
+Você está trabalhando no projeto existente do CRM ProspectFlow / Kaizen.
+
+Sua missão é preparar tecnicamente esse projeto para se transformar no sistema completo de gestão da agência Kaizen.
+
+Esta é a ETAPA 0 do projeto.
+
+Ela é uma etapa fundamental. Antes de desenvolver novas funcionalidades, precisamos garantir que a aplicação atual esteja estável, que os dados estejam protegidos, que a arquitetura esteja organizada e que nenhuma funcionalidade existente seja perdida.
+
+Quero que você trabalhe com visão de arquiteto de software e desenvolvedor sênior. Analise o projeto como um todo, compreenda como suas partes se conectam e execute as correções necessárias com muito cuidado.
+
+Não quero uma reconstrução do sistema. Quero evoluir o projeto que já existe.
+
+---
+
+# 1. CONTEXTO DEFINITIVO DO KAIZEN
+
+O Kaizen será um sistema privado de gestão interna da minha agência.
+
+Ele será utilizado exclusivamente por mim.
+
+Características definitivas:
+
+- Apenas um usuário: eu.
+- Apenas um administrador.
+- Não haverá cadastro público.
+- Não haverá funcionários utilizando o sistema.
+- Não haverá vendedores ou outros administradores.
+- Não haverá convites de usuários.
+- Não haverá gestão de equipes.
+- Não será comercializado como SaaS.
+- Não será disponibilizado para outras pessoas.
+- O uso principal será no meu computador.
+- A interface deverá continuar responsiva para dispositivos móveis.
+- O desktop será a prioridade de experiência.
+
+Não desenvolva recursos de multiusuário, gestão de permissões complexas, equipes, convites ou gerenciamento de organizações.
+
+A arquitetura deve ser simples, segura, organizada e adequada para uma única pessoa administrar toda a agência.
+
+A aplicação pode continuar hospedada na Vercel e utilizando o Firebase na nuvem. O fato de ser um sistema de uso pessoal não significa que os dados devam ficar desprotegidos.
+
+## Objetivo final
+
+Transformar o CRM atual em um sistema completo para administrar:
+
+- CRM e prospecção.
+- Leads e campanhas.
+- Clientes.
+- Projetos.
+- Tarefas.
+- Agenda.
+- Reuniões.
+- Financeiro.
+- Propostas e contratos.
+- Redes sociais.
+- Materiais e documentos.
+- Relatórios.
+- Produtividade.
+- Inteligência artificial.
+- Automações.
+
+Mas nenhuma dessas novas áreas deve ser desenvolvida nesta etapa.
+
+O objetivo agora é preparar a fundação técnica para que todas elas possam ser implementadas posteriormente sem comprometer o CRM atual.
+
+---
+
+# 2. PRESERVAÇÃO ABSOLUTA DO PROJETO EXISTENTE
+
+O projeto já possui funcionalidades e dados importantes.
+
+Não comece do zero.
+
+Não substitua a aplicação por um novo template.
+
+Não remova componentes existentes simplesmente porque pretende reorganizar a arquitetura.
+
+Preserve:
+
+- CRM atual.
+- Pipeline de prospecção.
+- Cadastro de leads.
+- Cadastro de nichos e campanhas.
+- Scripts de abordagem.
+- Scripts de ligação.
+- Histórico de interações.
+- Anotações dos leads.
+- Reuniões.
+- Retornos e follow-ups.
+- Importador de planilhas.
+- Histórico de planilhas importadas.
+- Dashboard atual.
+- Visão global.
+- Integração com WhatsApp.
+- Recursos de inteligência artificial.
+- Backup JSON existente.
+- Identificadores originais dos documentos.
+- Vínculos entre leads e nichos.
+- Dados armazenados no Firestore.
+- Informações existentes no localStorage.
+
+Não altere o significado dos campos existentes sem necessidade.
+
+Não renomeie IDs de documentos do Firestore.
+
+Não crie uma estrutura paralela de banco de dados sem justificativa.
+
+Não elimine funcionalidades para simplificar a implementação.
+
+Se encontrar código antigo ou duplicado, primeiro identifique sua finalidade e suas dependências. Só remova algo quando tiver certeza de que não comprometerá o funcionamento.
+
+A compatibilidade com os dados antigos é obrigatória.
+
+---
+
+# 3. ARQUITETURA E TECNOLOGIAS
+
+Mantenha a arquitetura principal existente:
+
+- React 19.
+- TypeScript.
+- Vite.
+- Tailwind CSS.
+- Firebase.
+- Cloud Firestore.
+- Firebase Authentication.
+- Express.
+- Vercel.
+- Google Gemini.
+- Bibliotecas já utilizadas pelo projeto.
+
+Não migre para Supabase.
+
+Não substitua o Firestore por outro banco.
+
+Não troque o sistema de hospedagem sem necessidade.
+
+Não introduza dependências desnecessárias.
+
+Antes de qualquer alteração, examine:
+
+- package.json.
+- Estrutura completa de diretórios.
+- App.tsx.
+- Componentes.
+- Hooks.
+- Contextos.
+- Types.
+- Serviços.
+- Utilitários.
+- Configurações do Firebase.
+- Regras do Firestore.
+- Configurações da Vercel.
+- Backend Express.
+- Rotas de API.
+- Variáveis de ambiente.
+- Persistência local.
+- Integrações externas.
+
+Verifique também se a documentação corresponde ao funcionamento real do código.
+
+Quero uma arquitetura organizada e preparada para expansão, mas sem complexidade desnecessária.
+
+---
+
+# 4. PROTEÇÃO DOS DADOS E BACKUP COMPLETO
+
+Esta é uma das partes mais importantes de toda a etapa.
+
+Atualmente, o CRM utiliza um banco Firestore nomeado e possui dados armazenados em coleções específicas.
+
+A estrutura identificada na auditoria anterior inclui:
+
+Projeto Firebase:
+gen-lang-client-0798002034
+
+Banco Firestore:
+ai-studio-prospectflowcrmd-6ef58a98-06b1-4109-b7bb-169f00e7a2ea
+
+Workspace:
+adm_equipeie
+
+Coleções identificadas:
+
+- workspaces/adm_equipeie/leads
+- workspaces/adm_equipeie/niches
+- workspaces/adm_equipeie/importedSheets
+
+Essas informações devem ser verificadas novamente no código antes de qualquer operação.
+
+## 4.1 Backup completo
+
+O backup JSON atual não é suficiente para representar todo o banco.
+
+Quero uma estratégia que permita recuperar integralmente o sistema.
+
+O backup deve contemplar:
+
+- Todos os leads.
+- Todos os nichos.
+- Todos os scripts.
+- Todos os históricos de interação.
+- Todas as anotações.
+- Reuniões.
+- Retornos.
+- Follow-ups.
+- Histórico de planilhas importadas.
+- Todos os campos existentes nos documentos.
+- IDs originais.
+- Vínculos entre documentos.
+- Outras coleções ou subcoleções que venham a ser identificadas na auditoria.
+
+Avalie a utilização da exportação gerenciada do Firestore para Cloud Storage, considerando o banco nomeado correto.
+
+Também avalie uma exportação complementar em JSON ou NDJSON, preservando os IDs e campos originais.
+
+Não considere que o backup JSON atual seja completo.
+
+## 4.2 Backup pela aplicação
+
+Mantenha o recurso atual de exportação JSON, mas melhore sua implementação.
+
+Quero que ele tenha:
+
+- Versão do formato.
+- Data e hora da exportação.
+- Identificação do projeto e workspace, sem expor credenciais.
+- Leads.
+- Nichos.
+- Histórico de planilhas.
+- Todos os campos necessários para recuperação.
+- Validação de integridade.
+- Mensagem clara de sucesso ou erro.
+
+A restauração deve ser segura.
+
+Antes de restaurar qualquer backup:
+
+1. Fazer uma cópia do estado atual.
+2. Validar o arquivo.
+3. Verificar sua versão.
+4. Identificar possíveis duplicidades.
+5. Preservar IDs.
+6. Preservar vínculos entre documentos.
+7. Apresentar um resumo do que será restaurado.
+8. Exigir confirmação explícita.
+
+Nunca sobrescrever dados atuais silenciosamente.
+
+Nunca executar restauração automaticamente.
+
+## 4.3 Backup automático
+
+Prepare a arquitetura para backups periódicos.
+
+Avalie uma solução com Cloud Scheduler, Cloud Functions ou outro mecanismo adequado.
+
+Considere:
+
+- Backup diário.
+- Histórico de versões.
+- Retenção de 30 a 90 dias.
+- Registro de sucesso ou falha.
+- Possibilidade de recuperação.
+- Armazenamento seguro.
+- Custos envolvidos.
+
+Não configure serviços pagos ou recursos que possam gerar cobrança sem apresentar a necessidade e obter autorização.
+
+Não crie buckets ou serviços na nuvem sem autorização.
+
+---
+
+# 5. AUTENTICAÇÃO PRIVADA PARA UM ÚNICO USUÁRIO
+
+Atualmente, o login do CRM utiliza validação local no navegador.
+
+Isso não é suficiente para proteger os dados.
+
+Quero substituir essa validação por uma autenticação real utilizando Firebase Authentication.
+
+A implementação deve ser simples.
+
+## Requisitos:
+
+- Apenas uma conta autorizada.
+- Login com e-mail e senha.
+- Sem cadastro público.
+- Sem criação de usuários pela interface.
+- Sem gerenciamento de equipes.
+- Sem convites.
+- Sem múltiplos administradores.
+- Persistência de sessão segura.
+- Botão de sair.
+- Proteção das rotas privadas.
+- Verificação da sessão ao abrir a aplicação.
+- Tratamento de sessão expirada.
+- Mensagens de erro claras.
+
+A conta será minha.
+
+Não invente e-mail, senha ou UID.
+
+Não coloque credenciais fixas no código.
+
+Não apresente senhas em relatórios.
+
+Não crie uma conta automaticamente sem minha autorização.
+
+Se for necessário configurar o Firebase Authentication pelo Console, explique exatamente o que preciso fazer e aguarde.
+
+## Importante
+
+Não quero que você implemente um sistema complexo de usuários.
+
+A solução deve simplesmente garantir que somente minha conta possa acessar o sistema.
+
+---
+
+# 6. REGRAS DE SEGURANÇA DO FIRESTORE
+
+A auditoria identificou que as regras atuais permitem operações sem exigir autenticação.
+
+Isso precisa ser corrigido.
+
+Quero regras adequadas para uma aplicação privada de usuário único.
+
+As regras devem:
+
+- Exigir usuário autenticado.
+- Validar o UID autorizado.
+- Restringir leitura e escrita aos dados do workspace existente.
+- Impedir acesso anônimo.
+- Impedir que qualquer outra conta autenticada acesse os dados.
+- Proteger documentos e subcoleções.
+- Evitar exposição de dados de leads e clientes.
+- Não permitir que a simples descoberta do workspaceId conceda acesso.
+
+Não altere o caminho atual dos dados sem necessidade.
+
+Não migre os documentos para outro workspace.
+
+Prefira preservar:
+
+workspaces/adm_equipeie/...
+
+A implementação deve manter compatibilidade com todos os dados existentes.
+
+Antes de aplicar regras novas, prepare testes que confirmem:
+
+- Usuário não autenticado: acesso negado.
+- Usuário autenticado com UID não autorizado: acesso negado.
+- Usuário autorizado: acesso permitido.
+- Leitura dos leads: permitida somente ao usuário autorizado.
+- Escrita dos leads: permitida somente ao usuário autorizado.
+- Acesso aos nichos: permitido somente ao usuário autorizado.
+- Acesso ao histórico de planilhas: permitido somente ao usuário autorizado.
+
+Não publique regras novas diretamente na produção sem que o ambiente de testes tenha sido validado e eu tenha aprovado a alteração.
+
+---
+
+# 7. ELIMINAÇÃO DAS ROTINAS AUTOMÁTICAS DESTRUTIVAS
+
+A auditoria anterior encontrou um problema especialmente perigoso.
+
+A função:
+
+purgeOldSampleNichesFromFirestore
+
+é executada automaticamente durante a inicialização da aplicação.
+
+Ela identifica nichos por correspondência parcial de palavras e pode excluir campanhas comerciais reais.
+
+Foram identificados termos relacionados a:
+
+- Advocacia.
+- Advogados.
+- Carros.
+- Automotivo.
+- Estética automotiva.
+- Clínicas.
+- Nutricionistas.
+- Odontologia.
+
+Isso é incompatível com o funcionamento de um CRM comercial.
+
+## O que deve ser feito
+
+Analise a função e todas as suas chamadas.
+
+Identifique também:
+
+- Filtros automáticos em subscribeToNiches.
+- Filtros em loadStoredNiches.
+- Remoções automáticas de leads por prefixo.
+- Migrações automáticas de scripts.
+- Sobrescritas automáticas de dados.
+- Rotinas de limpeza executadas no login.
+- Rotinas de limpeza executadas no carregamento.
+- Funções de redefinição de dados.
+
+Quero eliminar comportamentos que excluam ou sobrescrevam dados legítimos sem minha autorização.
+
+A função purgeOldSampleNichesFromFirestore não deve mais ser executada automaticamente.
+
+Os filtros por substring não devem mais remover campanhas reais.
+
+Scripts personalizados não podem ser sobrescritos apenas porque possuem uma estrutura diferente de um modelo antigo.
+
+Dados antigos devem continuar sendo lidos normalmente.
+
+Se houver necessidade de uma migração, ela deverá ser explícita, documentada, reversível e executada somente após backup.
+
+Não faça limpeza de dados reais para resolver problemas de compatibilidade.
+
+---
+
+# 8. EXCLUSÕES E REDEFINIÇÕES MANUAIS
+
+A auditoria encontrou inconsistências em algumas funções.
+
+Analise especialmente:
+
+- handleClearAllContacts.
+- handleResetData.
+- handleDeleteNiche.
+- handleDeleteLead.
+- handleDeleteImportedSheet.
+- resetFirestoreToCleanBaseline.
+- clearAllLeadsFromFirestore.
+- clearAllImportedSheetsFromFirestore.
+
+## Requisitos
+
+A exclusão de um nicho não pode deixar leads órfãos sem tratamento.
+
+Antes de excluir um nicho, o sistema deve identificar os leads vinculados e permitir uma decisão explícita.
+
+A exclusão de um lead deve manter a consistência entre interface e Firestore.
+
+A redefinição geral não pode ser acionada acidentalmente.
+
+Operações em massa precisam informar:
+
+- Quantos documentos serão afetados.
+- Quais coleções serão afetadas.
+- Quais dados serão excluídos.
+- Se existe backup recente.
+- Se a operação poderá ser revertida.
+
+Nenhuma exclusão em massa deve ocorrer automaticamente.
+
+Não remova os recursos existentes sem antes entender sua finalidade.
+
+---
+
+# 9. SINCRONIZAÇÃO E PERSISTÊNCIA
+
+O CRM utiliza Firestore e localStorage.
+
+Quero garantir que ambos funcionem corretamente.
+
+Analise:
+
+- Sincronização em tempo real.
+- onSnapshot.
+- setDoc.
+- deleteDoc.
+- Batch writes.
+- Cache local.
+- Carregamento inicial.
+- Restauração de backup.
+- Tratamento de falhas.
+- Atualizações simultâneas.
+- Dados que podem ficar dessincronizados.
+
+Identifique situações em que a interface informa que algo foi salvo, mas a gravação no Firestore falhou.
+
+## Comportamento esperado
+
+- Operações importantes devem aguardar confirmação do Firestore.
+- Falhas de gravação devem gerar mensagens visíveis.
+- O usuário deve saber quando os dados foram salvos.
+- O sistema não deve informar sucesso antes da confirmação.
+- O cache local não deve substituir silenciosamente uma versão mais atual da nuvem.
+- A restauração deve aguardar as operações de gravação.
+- O sistema deve evitar duplicidades.
+- Os dados devem permanecer íntegros após atualizar a página ou trocar de dispositivo.
+
+Não faça alterações desnecessárias na estrutura do banco.
+
+---
+
+# 10. PROTEÇÃO DO BACKEND E DAS APIs GEMINI
+
+O projeto possui rotas de backend relacionadas à IA.
+
+Analise:
+
+- /api/gemini/generate-pitch
+- /api/gemini/improve-script
+- /api/gemini/analyze-leads
+- /api/gemini/filter-imported-leads
+
+A auditoria identificou que algumas rotas não exigem autenticação e podem consumir a cota da API Gemini.
+
+Quero:
+
+- Verificação de autenticação nas rotas privadas.
+- Validação de token Firebase no backend.
+- Uso seguro de credenciais no servidor.
+- Limitação de tamanho dos dados enviados.
+- Proteção contra chamadas abusivas.
+- Rate limiting adequado.
+- Validação dos parâmetros recebidos.
+- Mensagens de erro controladas.
+- Proteção contra exposição de chaves.
+- Registro de falhas sem armazenar dados sensíveis desnecessários.
+
+Analise também se todas as rotas identificadas estão sendo utilizadas.
+
+Não remova endpoints apenas por parecerem antigos. Confirme suas dependências.
+
+A chave GEMINI_API_KEY deve permanecer exclusivamente no ambiente do servidor.
+
+Nunca exponha essa chave no frontend.
+
+---
+
+# 11. PROTEÇÃO DAS CONFIGURAÇÕES E CREDENCIAIS
+
+Faça uma auditoria de segurança do projeto.
+
+Verifique:
+
+- Credenciais hardcoded.
+- Senhas no frontend.
+- Chaves de API.
+- Tokens.
+- Arquivos .env.
+- Arquivos de configuração.
+- Variáveis de ambiente.
+- Configurações do Firebase.
+- Arquivos enviados ao GitHub.
+- Configurações da Vercel.
+
+Diferencie configurações públicas do Firebase de credenciais realmente secretas.
+
+Não exponha valores sensíveis no relatório.
+
+Não coloque secrets em arquivos públicos.
+
+Não invente variáveis de ambiente.
+
+Não remova configurações necessárias ao funcionamento.
+
+Se identificar alguma chave privada ou credencial exposta, informe como revogá-la ou substituí-la com segurança.
+
+Não faça rotação de credenciais automaticamente sem autorização.
+
+---
+
+# 12. ESTRUTURA E ORGANIZAÇÃO DO CÓDIGO
+
+Quero preparar o projeto para crescer.
+
+Analise a organização atual e identifique oportunidades de melhoria.
+
+A arquitetura futura deverá permitir separar:
+
+- Componentes visuais.
+- Páginas.
+- Serviços.
+- Hooks.
+- Contextos.
+- Tipagens.
+- Integrações.
+- Regras de negócio.
+- Persistência.
+- Autenticação.
+- Utilitários.
+- Configurações.
+
+Não faça uma refatoração gigante apenas para mudar nomes de pastas.
+
+Não quebre componentes existentes.
+
+Não duplique serviços.
+
+Não crie abstrações sem necessidade.
+
+Se houver oportunidade de organizar o código, faça isso de forma incremental, mantendo o funcionamento atual.
+
+Quero uma base que permita adicionar novos módulos sem transformar o App.tsx em um arquivo gigantesco.
+
+---
+
+# 13. MODELO DE DADOS E PREPARAÇÃO PARA EXPANSÃO
+
+O CRM atual possui dados de leads e nichos.
+
+O sistema futuramente terá também:
+
+- Clientes.
+- Projetos.
+- Tarefas.
+- Agenda.
+- Reuniões.
+- Financeiro.
+- Propostas.
+- Contratos.
+- Conteúdo de redes sociais.
+- Materiais.
+- Documentos.
+- Relatórios.
+- Notificações.
+- Controle de produtividade.
+
+Nesta etapa, não desenvolva essas funcionalidades.
+
+Entretanto, analise como preparar a arquitetura para que esses módulos sejam adicionados sem comprometer os dados atuais.
+
+Avalie:
+
+- Convenções de nomes.
+- IDs.
+- Relacionamentos.
+- Datas.
+- Timestamps.
+- Histórico.
+- schemaVersion.
+- updatedAt.
+- Validação de documentos.
+- Compatibilidade com registros antigos.
+
+Não altere todos os documentos do Firestore em massa.
+
+Se recomendar novos campos, explique como poderão ser introduzidos de maneira retrocompatível.
+
+---
+
+# 14. AMBIENTE DE DESENVOLVIMENTO E PRODUÇÃO
+
+O CRM atual está publicado na Vercel e conectado ao Firebase.
+
+Quero evitar que testes e alterações experimentais afetem meus dados reais.
+
+Avalie uma estrutura com:
+
+- Produção: aplicação atual e dados reais.
+- Desenvolvimento ou homologação: ambiente isolado para testes.
+
+O ambiente de testes deve utilizar um projeto Firebase separado ou outro mecanismo seguro de isolamento.
+
+Não permita que testes executados no ambiente de desenvolvimento escrevam no banco real.
+
+Analise também:
+
+- Branches do GitHub.
+- Preview Deployments da Vercel.
+- Variáveis de ambiente por ambiente.
+- Configuração do Firebase por ambiente.
+- Regras de segurança.
+- Testes de integração.
+- Processo de publicação.
+
+Não crie projetos, bancos, buckets ou serviços pagos sem minha autorização.
+
+---
+
+# 15. QUALIDADE, TESTES E ESTABILIDADE
+
+Quero que a aplicação esteja estável antes de receber novos módulos.
+
+Analise e teste:
+
+- Instalação das dependências.
+- Build de produção.
+- TypeScript.
+- Lint.
+- Rotas.
+- Login.
+- Logout.
+- Carregamento inicial.
+- Leitura do Firestore.
+- Escrita no Firestore.
+- Exclusão de registros.
+- Sincronização.
+- Importação de planilhas.
+- Exportação de backup.
+- Restauração.
+- WhatsApp.
+- Funcionalidades Gemini.
+- Responsividade.
+- Tratamento de erros.
+
+Não considere que o sistema está funcionando apenas porque o build foi concluído.
+
+Diferencie:
+
+- Teste executado com sucesso.
+- Teste que não pôde ser executado.
+- Teste que falhou.
+- Teste que depende de configuração externa.
+
+Não invente resultados.
+
+Se algum teste depender de acesso ao Firebase Console, Vercel ou Google Cloud, explique a limitação.
+
+---
+
+# 16. EXPERIÊNCIA VISUAL E FUNCIONAMENTO ATUAL
+
+Não quero uma reformulação visual nesta etapa.
+
+O foco é estabilidade e arquitetura.
+
+Preserve a identidade visual atual do CRM e suas funcionalidades.
+
+A futura identidade do sistema Kaizen utilizará:
+
+- Preto.
+- Branco.
+- Tons de cinza.
+- Aparência moderna.
+- Visual minimalista.
+- Interface premium.
+- Navegação organizada.
+
+Entretanto, não comece a implementar o novo layout agora.
+
+A interface atual deve continuar funcionando durante a preparação técnica.
+
+---
+
+# 17. REGRAS DE EXECUÇÃO
+
+Você tem autorização para trabalhar no código do projeto dentro do escopo da Etapa 0, mas precisa respeitar as seguintes condições.
+
+## Pode fazer
+
+- Analisar arquivos.
+- Identificar dependências.
+- Corrigir código inseguro.
+- Remover rotinas automáticas destrutivas do fluxo de inicialização.
+- Corrigir problemas de persistência.
+- Preparar autenticação real.
+- Preparar regras de segurança.
+- Organizar serviços.
+- Melhorar tratamento de erros.
+- Criar testes.
+- Atualizar documentação.
+- Criar arquivos de configuração necessários.
+- Preparar mecanismos de backup.
+- Implementar melhorias compatíveis com o sistema existente.
+
+## Não pode fazer sem autorização explícita
+
+- Apagar dados reais.
+- Redefinir o Firestore.
+- Executar migrações em produção.
+- Excluir coleções.
+- Excluir documentos.
+- Alterar IDs existentes.
+- Substituir o banco atual.
+- Publicar na Vercel.
+- Alterar configurações de produção.
+- Aplicar regras novas diretamente no banco de produção.
+- Criar serviços pagos.
+- Gerar cobranças.
+- Criar ou excluir contas.
+- Revogar credenciais.
+- Executar restaurações sobre produção.
+
+## Regra fundamental
+
+Se uma correção exigir alguma ação externa ou irreversível, prepare o código e explique o procedimento.
+
+Não tente contornar a necessidade de autorização.
+
+Não simule que uma operação foi realizada quando ela não foi.
+
+---
+
+# 18. ORDEM DE TRABALHO
+
+Trabalhe na Etapa 0 como um projeto único, seguindo uma sequência lógica de segurança:
+
+1. Revisar a auditoria e conferir o estado atual do repositório.
+2. Mapear a arquitetura e todas as dependências.
+3. Identificar e proteger os dados existentes.
+4. Preparar a estratégia de backup completo.
+5. Eliminar as rotinas automáticas destrutivas.
+6. Corrigir os problemas de persistência e sincronização.
+7. Implementar a autenticação de usuário único.
+8. Preparar as regras seguras do Firestore.
+9. Proteger as APIs Gemini.
+10. Organizar a arquitetura e os serviços.
+11. Preparar o ambiente isolado de testes.
+12. Executar os testes possíveis.
+13. Atualizar a documentação.
+14. Apresentar o relatório conclusivo.
+
+Essa sequência é uma orientação de execução, não uma autorização para ignorar as regras de segurança.
+
+Se uma etapa depender de uma configuração que somente eu possa realizar no Console, pare naquela dependência, explique o que falta e continue apenas com as atividades independentes e seguras.
+
+---
+
+# 19. CRITÉRIOS PARA CONSIDERAR A ETAPA 0 CONCLUÍDA
+
+A Etapa 0 só poderá ser considerada concluída quando:
+
+- O CRM atual continuar funcionando.
+- Nenhum dado real tiver sido perdido.
+- As rotinas automáticas destrutivas tiverem sido neutralizadas.
+- Scripts personalizados não forem sobrescritos automaticamente.
+- A autenticação real estiver preparada e validada.
+- O Firestore tiver regras adequadas ao usuário único.
+- O backend estiver protegido.
+- O backup completo tiver uma estratégia funcional e testada.
+- A restauração tiver validações de segurança.
+- Os erros de sincronização forem tratados.
+- A estrutura estiver preparada para expansão.
+- O ambiente de testes estiver isolado.
+- O build e os testes disponíveis tiverem sido executados.
+- A documentação estiver atualizada.
+
+Se alguma dessas condições depender de uma ação externa ainda não realizada, informe que a etapa está parcialmente concluída. Não declare sucesso antecipadamente.
+
+---
+
+# 20. RELATÓRIO FINAL OBRIGATÓRIO
+
+Ao finalizar, apresente um relatório completo em português com:
+
+### A. Diagnóstico inicial
+O que foi encontrado no projeto e o que foi confirmado.
+
+### B. Alterações realizadas
+Liste cada arquivo modificado, criado ou removido e explique o motivo.
+
+### C. Segurança
+Explique como ficou a autenticação, o Firestore, as APIs e as credenciais.
+
+### D. Dados
+Informe quais mecanismos protegem os dados existentes e se foi possível validar um backup completo.
+
+### E. Persistência
+Explique as correções de sincronização, gravação e restauração.
+
+### F. Testes
+Liste os testes executados, seus resultados e o que não pôde ser testado.
+
+### G. Configurações pendentes
+Informe exatamente quais ações ainda dependem de mim no Firebase Console, Google Cloud ou Vercel.
+
+### H. Riscos restantes
+Não esconda problemas que ainda existam.
+
+### I. Estado da Etapa 0
+Classifique cada requisito como:
+- Concluído.
+- Parcialmente concluído.
+- Pendente.
+- Bloqueado por configuração externa.
+
+### J. Preparação para a próxima etapa
+Explique se a fundação está pronta para começar a construção do novo sistema de gestão Kaizen.
+
+---
+
+# 21. DIRETRIZ FINAL
+
+Quero que você entenda a importância deste projeto.
+
+Não estamos criando um CRM descartável.
+
+Estamos preparando o sistema que será utilizado para administrar toda a minha agência.
+
+O CRM atual já possui dados, campanhas, leads, scripts e histórico de trabalho. Tudo isso precisa continuar existindo.
+
+Não quero perder informações por causa de uma refatoração, migração, alteração de regras ou rotina automática.
+
+Não quero construir funcionalidades novas em cima de uma estrutura insegura.
+
+Quero uma fundação sólida, simples, organizada e adequada para um único usuário.
+
+**Pense como se você estivesse preparando o sistema operacional de toda a agência Kaizen.**
+
+Faça a Etapa 0 com cuidado, priorizando integridade dos dados, segurança, estabilidade, compatibilidade e qualidade técnica.
+
+Não avance para a construção dos módulos da agência. Essa será a próxima etapa do projeto, depois que a Etapa 0 estiver concluída e validada.

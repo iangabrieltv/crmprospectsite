@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   NicheCampaign,
   Lead,
@@ -11,18 +11,19 @@ import {
   AppTab,
   FunnelStageId,
   FUNNEL_STAGES,
-  normalizeStageId
+  normalizeStageId,
 } from './types/crm';
 import {
   loadStoredNiches,
   saveStoredNiches,
   loadStoredLeads,
   saveStoredLeads,
-  clearStoredLeads,
   loadStoredActiveNicheId,
   saveStoredActiveNicheId,
   loadStoredUserName,
-  saveStoredUserName
+  saveStoredUserName,
+  loadLastBackupTimestamp,
+  resetAllDataToCleanBaseline,
 } from './utils/storage';
 import { Header } from './components/Header';
 import { KanbanView } from './components/KanbanView';
@@ -30,7 +31,7 @@ import { AgendaView } from './components/AgendaView';
 import { DashboardView } from './components/DashboardView';
 import { ScriptsView } from './components/ScriptsView';
 import { ImporterView } from './components/ImporterView';
-import { GlobalAgencyView } from './components/GlobalAgencyView';
+import { GlobalAgencyView, DeleteNicheChoice } from './components/GlobalAgencyView';
 import { LeadModal } from './components/LeadModal';
 import { NewNicheModal } from './components/NewNicheModal';
 import { NewLeadModal } from './components/NewLeadModal';
@@ -44,30 +45,28 @@ import {
   syncLeadToFirestore,
   deleteLeadFromFirestore,
   batchSyncLeadsToFirestore,
+  batchSyncNichesToFirestore,
+  batchSyncImportedSheetsToFirestore,
+  batchDeleteLeadsFromFirestore,
+  reassignLeadsNicheInFirestore,
   syncNicheToFirestore,
   deleteNicheFromFirestore,
   syncImportedSheetToFirestore,
   deleteImportedSheetFromFirestore,
   seedFirestoreIfEmpty,
-  clearAllLeadsFromFirestore,
-  clearAllImportedSheetsFromFirestore,
-  purgeOldSampleNichesFromFirestore,
-  resetFirestoreToCleanBaseline
+  resetFirestoreToCleanBaseline,
 } from './utils/firebase';
-import { resetAllDataToCleanBaseline } from './utils/storage';
+import {
+  subscribeToAdminSession,
+  logoutFromFirebase,
+} from './services/authService';
+import { AlertCircle, CheckCircle2, X } from 'lucide-react';
 
 export default function App() {
-  // Authentication gatekeeper (restricts access to authorized credentials kaizenvisual123 / adm123)
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    const local = localStorage.getItem('prospectflow_auth_user');
-    const session = sessionStorage.getItem('prospectflow_auth_user');
-    return (
-      local === 'kaizenvisual123' ||
-      session === 'kaizenvisual123' ||
-      local === 'adm.equipeie' ||
-      session === 'adm.equipeie'
-    );
-  });
+  // Real Firebase Authentication session gate (single authorized admin user)
+  const [authReady, setAuthReady] = useState<boolean>(false);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [sessionNotice, setSessionNotice] = useState<string | null>(null);
 
   const [niches, setNiches] = useState<NicheCampaign[]>(() => loadStoredNiches());
   const [leads, setLeads] = useState<Lead[]>(() => loadStoredLeads());
@@ -75,123 +74,132 @@ export default function App() {
   const [activeNicheId, setActiveNicheId] = useState<string>(() =>
     loadStoredActiveNicheId(niches[0]?.id || '')
   );
-  const [userName, setUserName] = useState<string>(() => {
-    const stored = loadStoredUserName();
-    return stored && stored !== 'Gabriel' && stored !== 'adm.equipeie' ? stored : 'kaizenvisual123';
-  });
+  const [userName, setUserName] = useState<string>(() => loadStoredUserName());
   const [activeTab, setActiveTab] = useState<AppTab>('kanban');
-  const [isCloudSynced, setIsCloudSynced] = useState<boolean>(true);
 
-  // Real-time Firestore synchronization between devices and tabs
+  // Explicit cloud sync feedback & error handling
+  const [isCloudSynced, setIsCloudSynced] = useState<boolean>(false);
+  const [syncStatus, setSyncStatus] = useState<'synced' | 'saving' | 'error'>('synced');
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [syncToast, setSyncToast] = useState<string | null>(null);
+
+  const notifySaved = useCallback((message?: string) => {
+    setSyncStatus('synced');
+    setIsCloudSynced(true);
+    setSyncError(null);
+    if (message) {
+      setSyncToast(message);
+      setTimeout(() => {
+        setSyncToast((prev) => (prev === message ? null : prev));
+      }, 3000);
+    }
+  }, []);
+
+  const notifySyncFailure = useCallback((context: string, err: unknown) => {
+    const detail = err instanceof Error ? err.message : 'Erro desconhecido';
+    setSyncStatus('error');
+    setSyncError(`Falha ao sincronizar com o Firestore (${context}): ${detail}`);
+  }, []);
+
+  // Subscribe to Firebase Authentication session
   useEffect(() => {
-    if (!isAuthenticated) return;
-
-    // Test connection on boot
-    testFirestoreConnection().then((connected) => {
-      setIsCloudSynced(connected);
+    const unsub = subscribeToAdminSession(({ authorized, reason }) => {
+      setIsAuthenticated(authorized);
+      setAuthReady(true);
+      if (!authorized && reason) {
+        setSessionNotice(reason);
+      } else if (authorized) {
+        setSessionNotice(null);
+      }
     });
+    return () => unsub();
+  }, []);
 
-    // Clean legacy sample niches from Firestore (advogados, carros, clinicas)
-    purgeOldSampleNichesFromFirestore(INITIAL_NICHES).catch(console.error);
+  // Real-time Firestore synchronization (only runs when authenticated)
+  useEffect(() => {
+    if (!authReady || !isAuthenticated) return;
 
-    // Seed database if cloud collection is currently empty
-    seedFirestoreIfEmpty(INITIAL_NICHES, INITIAL_LEADS);
+    let active = true;
 
-    // Subscribe to real-time niches updates across devices
-    const unsubNiches = subscribeToNiches((remoteNiches) => {
-      setIsCloudSynced(true);
-      if (remoteNiches.length > 0) {
-        // Filter out legacy sample niches if present in remote
-        const cleanRemote = remoteNiches.filter((n) => {
-          const lowerName = (n.name || '').toLowerCase();
-          const lowerId = (n.id || '').toLowerCase();
-          return (
-            !lowerId.includes('estetica-automotiva') &&
-            !lowerId.includes('clinicas-locais') &&
-            !lowerId.includes('nutricionistas') &&
-            !lowerId.includes('odontologia') &&
-            !lowerName.includes('estética automotiva') &&
-            !lowerName.includes('advogad') &&
-            !lowerName.includes('advocacia') &&
-            !lowerName.includes('carro') &&
-            !lowerName.includes('automot')
-          );
-        });
-
-        if (cleanRemote.length > 0) {
-          const upgradedNiches = cleanRemote.map((n) => {
-            const hasOldTemplate =
-              n.scripts?.script_mensagem?.template?.includes('tráfego pago com IA') ||
-              n.scripts?.script_mensagem?.template?.includes('Kaizen Visual') ||
-              n.scripts?.script_ligacao?.template?.includes('Kaizen Visual') ||
-              n.scripts?.script_mensagem?.template?.includes('dois minutinhos') ||
-              n.scripts?.script_ligacao?.template?.includes('dois minutinhos') ||
-              n.scripts?.script_mensagem?.template?.includes('{NomeContato}') ||
-              n.scripts?.script_ligacao?.template?.includes('{NomeContato}');
-
-            if (!n.scripts?.script_mensagem || !n.scripts?.script_ligacao || Object.keys(n.scripts || {}).length !== 2 || hasOldTemplate) {
-              const updated = {
-                ...n,
-                scripts: {
-                  script_mensagem: hasOldTemplate ? DEFAULT_SCRIPTS.script_mensagem : (n.scripts?.script_mensagem || DEFAULT_SCRIPTS.script_mensagem),
-                  script_ligacao: hasOldTemplate ? DEFAULT_SCRIPTS.script_ligacao : (n.scripts?.script_ligacao || DEFAULT_SCRIPTS.script_ligacao),
-                },
-              };
-              syncNicheToFirestore(updated).catch(console.error);
-              return updated;
-            }
-            return n;
-          });
-
-          setNiches((prev) => {
-            const map = new Map<string, NicheCampaign>();
-            upgradedNiches.forEach((n) => map.set(n.id, n));
-            // Keep newly created local niches
-            prev.forEach((p) => {
-              if (!map.has(p.id) && !cleanRemote.some((r) => r.id === p.id)) {
-                map.set(p.id, p);
-              }
-            });
-            return Array.from(map.values());
-          });
-        }
+    testFirestoreConnection().then((connected) => {
+      if (!active) return;
+      setIsCloudSynced(connected);
+      if (!connected) {
+        setSyncStatus('error');
+        setSyncError('Não foi possível conectar ao Cloud Firestore. Verifique permissões ou internet.');
       }
     });
 
-    // Subscribe to real-time leads updates across devices and tabs
-    const unsubLeads = subscribeToLeads((remoteLeads) => {
-      setIsCloudSynced(true);
-      setLeads((prev) => {
-        // Protect newly imported leads from being temporarily wiped before remote acknowledges
-        if (remoteLeads.length === 0 && prev.length > 0) {
-          return prev;
-        }
-        const map = new Map<string, Lead>();
-        remoteLeads.forEach((l) => map.set(l.id, l));
-        // Preserve any pending local leads
-        prev.forEach((l) => {
-          if (!map.has(l.id)) {
-            map.set(l.id, l);
-          }
-        });
-        const merged = Array.from(map.values());
-        saveStoredLeads(merged);
-        return merged;
-      });
-    });
+    // Safe non-destructive seed: creates baseline niche ONLY if collection is completely empty
+    seedFirestoreIfEmpty(INITIAL_NICHES, INITIAL_LEADS);
 
-    // Subscribe to real-time imported spreadsheets history
-    const unsubSheets = subscribeToImportedSheets((remoteSheets) => {
-      setIsCloudSynced(true);
-      setImportedSheets(remoteSheets);
-    });
+    const unsubNiches = subscribeToNiches(
+      (remoteNiches) => {
+        if (!active) return;
+        setIsCloudSynced(true);
+        setSyncStatus((prev) => (prev === 'error' ? 'synced' : prev));
+
+        if (remoteNiches.length > 0) {
+          // Read-only normalization in memory — NEVER deletes niches or overwrites custom scripts
+          const normalizedRemote = remoteNiches.map((n) => ({
+            ...n,
+            scripts:
+              n.scripts && Object.keys(n.scripts).length > 0
+                ? n.scripts
+                : { ...DEFAULT_SCRIPTS },
+          }));
+
+          setNiches(normalizedRemote);
+          saveStoredNiches(normalizedRemote);
+        }
+      },
+      (err) => {
+        if (!active) return;
+        notifySyncFailure('leitura de nichos', err);
+      }
+    );
+
+    const unsubLeads = subscribeToLeads(
+      (remoteLeads) => {
+        if (!active) return;
+        setIsCloudSynced(true);
+        setSyncStatus((prev) => (prev === 'error' ? 'synced' : prev));
+
+        // Cloud Firestore is source of truth once authenticated; only normalize stage in memory
+        const normalizedRemote = remoteLeads.map((l) => ({
+          ...l,
+          stage: normalizeStageId(l.stage),
+          notes: Array.isArray(l.notes) ? l.notes : [],
+        }));
+
+        setLeads(normalizedRemote);
+        saveStoredLeads(normalizedRemote);
+      },
+      (err) => {
+        if (!active) return;
+        notifySyncFailure('leitura de leads', err);
+      }
+    );
+
+    const unsubSheets = subscribeToImportedSheets(
+      (remoteSheets) => {
+        if (!active) return;
+        setIsCloudSynced(true);
+        setImportedSheets(remoteSheets);
+      },
+      (err) => {
+        if (!active) return;
+        notifySyncFailure('leitura de planilhas importadas', err);
+      }
+    );
 
     return () => {
+      active = false;
       unsubNiches();
       unsubLeads();
       unsubSheets();
     };
-  }, [isAuthenticated]);
+  }, [authReady, isAuthenticated, notifySyncFailure]);
 
   // Modal states
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
@@ -199,7 +207,8 @@ export default function App() {
   const [activeLeadForAgendaId, setActiveLeadForAgendaId] = useState<string | null>(null);
   const [isNewNicheModalOpen, setIsNewNicheModalOpen] = useState(false);
   const [isNewLeadModalOpen, setIsNewLeadModalOpen] = useState(false);
-  const [newLeadDefaultStage, setNewLeadDefaultStage] = useState<FunnelStageId>('leads_sem_contato');
+  const [newLeadDefaultStage, setNewLeadDefaultStage] =
+    useState<FunnelStageId>('leads_sem_contato');
 
   const handleOpenScriptForLead = (lead: Lead) => {
     setActiveLeadForScriptId(lead.id);
@@ -216,10 +225,9 @@ export default function App() {
   };
 
   // Active Niche resolution
-  const activeNiche =
-    niches.find((n) => n.id === activeNicheId) || niches[0];
+  const activeNiche = niches.find((n) => n.id === activeNicheId) || niches[0];
 
-  // Active niche leads: robust fallback so imported leads never vanish
+  // Active niche leads
   const activeNicheLeads = leads.filter((l) => {
     if (!activeNiche) return true;
     if (niches.length <= 1) return true;
@@ -227,24 +235,16 @@ export default function App() {
     return l.nicheId === activeNiche.id;
   });
 
-  // Total meetings count across all active leads in "reuniao_marcada"
   const meetingLeadsCount = leads.filter((l) => l.stage === 'reuniao_marcada').length;
-
-  // Total callbacks scheduled for today
   const todayDateStr = new Date().toISOString().split('T')[0];
   const todayCallbacksCount = leads.filter(
-    (l) => l.callbackDate === todayDateStr && l.callbackStatus !== 'realizado' && l.callbackStatus !== 'cancelado'
+    (l) =>
+      l.callbackDate === todayDateStr &&
+      l.callbackStatus !== 'realizado' &&
+      l.callbackStatus !== 'cancelado'
   ).length;
 
-  // Persistence effects
-  useEffect(() => {
-    saveStoredNiches(niches);
-  }, [niches]);
-
-  useEffect(() => {
-    saveStoredLeads(leads);
-  }, [leads]);
-
+  // Local cache mirror
   useEffect(() => {
     if (activeNiche?.id) {
       saveStoredActiveNicheId(activeNiche.id);
@@ -255,18 +255,17 @@ export default function App() {
     saveStoredUserName(userName);
   }, [userName]);
 
-  // Handler: Move lead stage (Drag & Drop or dropdown)
-  const handleMoveStage = (leadId: string, targetStage: FunnelStageId) => {
+  // Handler: Move lead stage (waits for Firestore confirmation; rolls back on error)
+  const handleMoveStage = async (leadId: string, targetStage: FunnelStageId) => {
     const targetLead = leads.find((l) => l.id === leadId);
     if (!targetLead) return;
 
+    const previousLeads = leads;
     const normalizedTarget = normalizeStageId(targetStage);
     const stageConfig = FUNNEL_STAGES.find((s) => s.id === normalizedTarget);
     const stageName = stageConfig?.name || normalizedTarget;
     const autoNoteText = `Etapa alterada para: ${stageName}`;
 
-    // Note: Do NOT overwrite lastContactDate when moving stages in pipeline!
-    // Overwriting lastContactDate caused leads to disappear if the "Sem Msg" filter was active.
     const updated: Lead = {
       ...targetLead,
       stage: normalizedTarget,
@@ -284,14 +283,20 @@ export default function App() {
       ],
     };
 
+    setSyncStatus('saving');
     setLeads((prev) => prev.map((lead) => (lead.id === leadId ? updated : lead)));
-    syncLeadToFirestore(updated).catch((err) => {
-      console.error('Erro ao sincronizar movimentação no Firestore:', err);
-    });
+
+    try {
+      await syncLeadToFirestore(updated);
+      notifySaved();
+    } catch (err) {
+      setLeads(previousLeads);
+      notifySyncFailure('movimentação de etapa', err);
+    }
   };
 
-  // Handler: Trigger WhatsApp contacted (advances through stages sequentially)
-  const handleFastWhatsAppContacted = (leadToContact: Lead) => {
+  // Handler: Trigger WhatsApp contacted (awaits Firestore confirmation)
+  const handleFastWhatsAppContacted = async (leadToContact: Lead) => {
     const currentNorm = normalizeStageId(leadToContact.stage);
     let nextStage: FunnelStageId = currentNorm;
 
@@ -303,6 +308,7 @@ export default function App() {
 
     const stageConfig = FUNNEL_STAGES.find((s) => s.id === nextStage);
     const stageName = stageConfig?.name || nextStage;
+    const previousLeads = leads;
 
     const updated: Lead = {
       ...leadToContact,
@@ -322,26 +328,51 @@ export default function App() {
       ],
     };
 
+    setSyncStatus('saving');
     setLeads((prev) => prev.map((l) => (l.id === leadToContact.id ? updated : l)));
-    syncLeadToFirestore(updated).catch((err) => {
-      console.error('Erro ao sincronizar WhatsApp no Firestore:', err);
-    });
+
+    try {
+      await syncLeadToFirestore(updated);
+      notifySaved();
+    } catch (err) {
+      setLeads(previousLeads);
+      notifySyncFailure('registro de disparo WhatsApp', err);
+    }
   };
 
   // Handler: Update lead details
-  const handleUpdateLead = (updatedLead: Lead) => {
+  const handleUpdateLead = async (updatedLead: Lead) => {
+    const previousLeads = leads;
+    setSyncStatus('saving');
     setLeads((prev) => prev.map((l) => (l.id === updatedLead.id ? updatedLead : l)));
-    syncLeadToFirestore(updatedLead).catch(console.error);
+
+    try {
+      await syncLeadToFirestore(updatedLead);
+      notifySaved('Lead salvo no Firestore.');
+    } catch (err) {
+      setLeads(previousLeads);
+      notifySyncFailure('atualização do lead', err);
+    }
   };
 
-  // Handler: Delete single lead
-  const handleDeleteLead = (leadId: string) => {
+  // Handler: Delete single lead (consistent between UI and Firestore)
+  const handleDeleteLead = async (leadId: string) => {
+    const previousLeads = leads;
+    setSyncStatus('saving');
     setLeads((prev) => prev.filter((l) => l.id !== leadId));
-    deleteLeadFromFirestore(leadId).catch(console.error);
+
+    try {
+      await deleteLeadFromFirestore(leadId);
+      notifySaved('Lead excluído do Firestore.');
+    } catch (err) {
+      setLeads(previousLeads);
+      notifySyncFailure('exclusão do lead', err);
+    }
   };
 
   // Handler: Create single lead manually
-  const handleCreateLead = (newLeadData: Omit<Lead, 'id' | 'createdAt' | 'notes'>) => {
+  const handleCreateLead = async (newLeadData: Omit<Lead, 'id' | 'createdAt' | 'notes'>) => {
+    const previousLeads = leads;
     const newLead: Lead = {
       ...newLeadData,
       id: 'lead-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
@@ -355,57 +386,109 @@ export default function App() {
         },
       ],
     };
+
+    setSyncStatus('saving');
     setLeads((prev) => [newLead, ...prev]);
-    syncLeadToFirestore(newLead).catch(console.error);
+
+    try {
+      await syncLeadToFirestore(newLead);
+      notifySaved('Lead cadastrado e salvo na nuvem.');
+    } catch (err) {
+      setLeads(previousLeads);
+      notifySyncFailure('cadastro de lead', err);
+    }
   };
 
   // Handler: Create new niche
-  const handleCreateNiche = (newNiche: NicheCampaign) => {
+  const handleCreateNiche = async (newNiche: NicheCampaign) => {
+    const previousNiches = niches;
+    const previousActive = activeNicheId;
+
+    setSyncStatus('saving');
     setNiches((prev) => [...prev, newNiche]);
     setActiveNicheId(newNiche.id);
-    syncNicheToFirestore(newNiche).catch(console.error);
+
+    try {
+      await syncNicheToFirestore(newNiche);
+      notifySaved('Novo nicho salvo na nuvem.');
+    } catch (err) {
+      setNiches(previousNiches);
+      setActiveNicheId(previousActive);
+      notifySyncFailure('criação de nicho', err);
+    }
   };
 
-  // Handler: Delete niche
-  const handleDeleteNiche = (nicheId: string) => {
+  // Handler: Delete niche with explicit treatment of linked leads (never leaves orphans)
+  const handleDeleteNiche = async (choice: DeleteNicheChoice) => {
     if (niches.length <= 1) {
-      alert('Não é possível excluir o único nicho restante.');
-      return;
+      throw new Error('Não é possível excluir o único nicho restante.');
     }
-    const remaining = niches.filter((n) => n.id !== nicheId);
-    setNiches(remaining);
-    setLeads((prev) => prev.filter((l) => l.nicheId !== nicheId));
-    if (activeNicheId === nicheId) {
-      setActiveNicheId(remaining[0].id);
+
+    const { nicheId, mode, targetNicheId } = choice;
+    const linkedLeads = leads.filter((l) => l.nicheId === nicheId);
+    const linkedIds = linkedLeads.map((l) => l.id);
+
+    setSyncStatus('saving');
+    try {
+      if (linkedIds.length > 0) {
+        if (mode === 'move_leads') {
+          if (!targetNicheId) {
+            throw new Error('Selecione um nicho de destino para transferir os leads.');
+          }
+          await reassignLeadsNicheInFirestore(linkedIds, targetNicheId);
+        } else {
+          await batchDeleteLeadsFromFirestore(linkedIds);
+        }
+      }
+
+      await deleteNicheFromFirestore(nicheId);
+
+      const remaining = niches.filter((n) => n.id !== nicheId);
+      setNiches(remaining);
+      if (mode === 'move_leads' && targetNicheId) {
+        setLeads((prev) =>
+          prev.map((l) => (l.nicheId === nicheId ? { ...l, nicheId: targetNicheId } : l))
+        );
+      } else {
+        setLeads((prev) => prev.filter((l) => l.nicheId !== nicheId));
+      }
+
+      if (activeNicheId === nicheId && remaining[0]) {
+        setActiveNicheId(remaining[0].id);
+      }
+
+      notifySaved('Nicho atualizado com sucesso no Firestore.');
+    } catch (err) {
+      notifySyncFailure('exclusão de nicho', err);
+      throw err;
     }
-    deleteNicheFromFirestore(nicheId).catch(console.error);
   };
 
-  // Handler: Import multiple leads into niche
+  // Handler: Import multiple leads into niche (awaited)
   const handleImportLeadsToNiche = async (
     targetNicheId: string,
     importedLeads: Omit<Lead, 'id' | 'nicheId' | 'createdAt' | 'notes'>[],
     sheetMetadata?: { name: string; format?: string; size?: number }
   ) => {
     const targetNiche = niches.find((n) => n.id === targetNicheId) || activeNiche;
+    const baseTs = Date.now();
     const newLeads: Lead[] = importedLeads.map((imp, idx) => ({
       ...imp,
-      id: 'lead-imp-' + Date.now() + '-' + idx,
+      id: `lead-imp-${baseTs}-${idx}`,
       nicheId: targetNicheId,
       createdAt: new Date().toISOString(),
       notes: [
         {
-          id: 'note-imp-' + idx,
+          id: `note-imp-${baseTs}-${idx}`,
           date: new Date().toLocaleDateString('pt-BR'),
           text: 'Lead importado via planilha.',
           author: userName,
         },
       ],
     }));
-    setLeads((prev) => [...newLeads, ...prev]);
 
     const sheetRecord: ImportedSheet = {
-      id: 'sheet-' + Date.now(),
+      id: 'sheet-' + baseTs,
       name: sheetMetadata?.name || `Planilha ${targetNiche.name} (${newLeads.length} leads)`,
       nicheId: targetNicheId,
       nicheName: targetNiche.name,
@@ -421,21 +504,26 @@ export default function App() {
       })),
     };
 
+    setSyncStatus('saving');
     try {
       await batchSyncLeadsToFirestore(newLeads);
       await syncImportedSheetToFirestore(sheetRecord);
+      setLeads((prev) => [...newLeads, ...prev]);
+      notifySaved(`${newLeads.length} leads importados e confirmados no Firestore.`);
     } catch (err) {
-      console.error('Erro ao sincronizar importação no Firestore:', err);
+      notifySyncFailure('importação de planilha', err);
+      throw err;
     }
   };
 
-  // Handler: Create new niche AND import leads into it
+  // Handler: Create new niche AND import leads into it (awaited)
   const handleCreateNicheWithLeads = async (
     newNicheData: { name: string; segment: string; city: string; emoji: string },
     importedLeads: Omit<Lead, 'id' | 'nicheId' | 'createdAt' | 'notes'>[],
     sheetMetadata?: { name: string; format?: string; size?: number }
   ) => {
-    const newNicheId = 'niche-' + Date.now();
+    const baseTs = Date.now();
+    const newNicheId = 'niche-' + baseTs;
     const newNiche: NicheCampaign = {
       id: newNicheId,
       name: newNicheData.name,
@@ -449,12 +537,12 @@ export default function App() {
 
     const newLeads: Lead[] = importedLeads.map((imp, idx) => ({
       ...imp,
-      id: 'lead-imp-' + Date.now() + '-' + idx,
+      id: `lead-imp-${baseTs}-${idx}`,
       nicheId: newNicheId,
       createdAt: new Date().toISOString(),
       notes: [
         {
-          id: 'note-imp-' + idx,
+          id: `note-imp-${baseTs}-${idx}`,
           date: new Date().toLocaleDateString('pt-BR'),
           text: 'Lead importado ao criar nova campanha.',
           author: userName,
@@ -462,12 +550,8 @@ export default function App() {
       ],
     }));
 
-    setNiches((prev) => [...prev, newNiche]);
-    setLeads((prev) => [...newLeads, ...prev]);
-    setActiveNicheId(newNicheId);
-
     const sheetRecord: ImportedSheet = {
-      id: 'sheet-' + Date.now(),
+      id: 'sheet-' + baseTs,
       name: sheetMetadata?.name || `Planilha ${newNiche.name} (${newLeads.length} leads)`,
       nicheId: newNicheId,
       nicheName: newNiche.name,
@@ -483,76 +567,108 @@ export default function App() {
       })),
     };
 
+    setSyncStatus('saving');
     try {
       await syncNicheToFirestore(newNiche);
       await batchSyncLeadsToFirestore(newLeads);
       await syncImportedSheetToFirestore(sheetRecord);
+
+      setNiches((prev) => [...prev, newNiche]);
+      setLeads((prev) => [...newLeads, ...prev]);
+      setActiveNicheId(newNicheId);
+      notifySaved(`Campanha "${newNiche.name}" e ${newLeads.length} leads salvos no Firestore.`);
     } catch (err) {
-      console.error('Erro ao sincronizar nova campanha e leads no Firestore:', err);
+      notifySyncFailure('criação de campanha e importação', err);
+      throw err;
     }
   };
 
   // Handler: Delete imported sheet record
   const handleDeleteImportedSheet = async (sheetId: string) => {
+    const previousSheets = importedSheets;
+    setSyncStatus('saving');
     setImportedSheets((prev) => prev.filter((s) => s.id !== sheetId));
+
     try {
       await deleteImportedSheetFromFirestore(sheetId);
+      notifySaved('Registro de planilha removido do histórico.');
     } catch (err) {
-      console.error('Erro ao excluir planilha do Firestore:', err);
+      setImportedSheets(previousSheets);
+      notifySyncFailure('exclusão de histórico de planilha', err);
     }
   };
 
   // Handler: Update niche script templates
-  const handleUpdateNicheScripts = (updatedScripts: NicheCampaign['scripts']) => {
+  const handleUpdateNicheScripts = async (updatedScripts: NicheCampaign['scripts']) => {
     if (!activeNiche) return;
+    const previousNiches = niches;
     const updated = { ...activeNiche, scripts: updatedScripts };
-    setNiches((prev) =>
-      prev.map((n) => (n.id === activeNiche.id ? updated : n))
-    );
-    syncNicheToFirestore(updated).catch(console.error);
+
+    setSyncStatus('saving');
+    setNiches((prev) => prev.map((n) => (n.id === activeNiche.id ? updated : n)));
+
+    try {
+      await syncNicheToFirestore(updated);
+      notifySaved('Script salvo na nuvem.');
+    } catch (err) {
+      setNiches(previousNiches);
+      notifySyncFailure('salvamento de scripts', err);
+    }
   };
 
   // Handler: Update niche target prospecting cities
-  const handleUpdateNicheTargetCities = (targetCities: string[]) => {
+  const handleUpdateNicheTargetCities = async (targetCities: string[]) => {
     if (!activeNiche) return;
+    const previousNiches = niches;
     const updated = { ...activeNiche, targetCities };
-    setNiches((prev) =>
-      prev.map((n) => (n.id === activeNiche.id ? updated : n))
-    );
-    syncNicheToFirestore(updated).catch(console.error);
-  };
 
-  // Handler: Restore full backup
-  const handleRestoreBackup = (
-    newNiches: NicheCampaign[],
-    newLeads: Lead[],
-    newUserName?: string
-  ) => {
-    setNiches(newNiches);
-    setLeads(newLeads);
-    if (newNiches[0]) {
-      setActiveNicheId(newNiches[0].id);
-    }
-    if (newUserName) {
-      setUserName(newUserName);
-    }
-    batchSyncLeadsToFirestore(newLeads).catch(console.error);
-    for (const n of newNiches) {
-      syncNicheToFirestore(n).catch(console.error);
+    setSyncStatus('saving');
+    setNiches((prev) => prev.map((n) => (n.id === activeNiche.id ? updated : n)));
+
+    try {
+      await syncNicheToFirestore(updated);
+      notifySaved();
+    } catch (err) {
+      setNiches(previousNiches);
+      notifySyncFailure('atualização de cidades-alvo', err);
     }
   };
 
-  // Handler: Logout (restricts access and returns to login gate)
-  const handleLogout = () => {
-    localStorage.removeItem('prospectflow_auth_user');
-    localStorage.removeItem('prospectflow_auth_session');
-    sessionStorage.removeItem('prospectflow_auth_user');
-    sessionStorage.removeItem('prospectflow_auth_session');
+  // Handler: Safe, awaited backup restore (merges verified records preserving IDs)
+  const handleRestoreBackup = async (payload: {
+    niches: NicheCampaign[];
+    leads: Lead[];
+    importedSheets: ImportedSheet[];
+    userName?: string;
+  }) => {
+    setSyncStatus('saving');
+    try {
+      await batchSyncNichesToFirestore(payload.niches);
+      await batchSyncLeadsToFirestore(payload.leads);
+      if (payload.importedSheets.length > 0) {
+        await batchSyncImportedSheetsToFirestore(payload.importedSheets);
+      }
+
+      if (payload.userName) {
+        setUserName(payload.userName);
+      }
+      notifySaved('Backup restaurado e confirmado no Firestore.');
+    } catch (err) {
+      notifySyncFailure('restauração de backup', err);
+      throw err;
+    }
+  };
+
+  // Handler: Logout via Firebase Authentication
+  const handleLogout = async () => {
+    await logoutFromFirebase();
     setIsAuthenticated(false);
+    setSessionNotice(null);
   };
 
-  // Handler: Clear all data from cloud & local storage (start 100% clean from scratch)
+  // Handler: Explicit confirmed full clean baseline reset
   const handleClearAllContacts = async () => {
+    setSyncStatus('saving');
     setIsCloudSynced(false);
     try {
       await resetFirestoreToCleanBaseline(INITIAL_NICHES);
@@ -561,24 +677,23 @@ export default function App() {
       setImportedSheets([]);
       setNiches(INITIAL_NICHES);
       setActiveNicheId(INITIAL_NICHES[0].id);
-      setIsCloudSynced(true);
+      notifySaved('Banco de dados redefinido para o estado inicial limpo.');
     } catch (err) {
-      console.error('Erro ao resetar banco de dados:', err);
-      setIsCloudSynced(true);
+      notifySyncFailure('redefinição da base', err);
       throw err;
     }
   };
 
-  // 1. GESTÃO DE ACESSO: Se o usuário não estiver autenticado, exibe a tela de login
-  if (!isAuthenticated) {
+  if (!authReady) {
     return (
-      <LoginView
-        onSuccessLogin={(authorizedUser) => {
-          setIsAuthenticated(true);
-          setUserName(authorizedUser);
-        }}
-      />
+      <div className="flex items-center justify-center min-h-screen bg-slate-950 text-slate-300 text-xs">
+        Verificando sessão autenticada...
+      </div>
     );
+  }
+
+  if (!isAuthenticated) {
+    return <LoginView sessionNotice={sessionNotice} />;
   }
 
   if (!activeNiche) {
@@ -606,15 +721,46 @@ export default function App() {
         userName={userName}
         onUpdateUserName={(name) => setUserName(name)}
         totalLeadsCount={activeNicheLeads.length}
+        allLeadsCount={leads.length}
+        allNichesCount={niches.length}
+        importedSheetsCount={importedSheets.length}
+        lastBackupAt={loadLastBackupTimestamp()}
         meetingsCount={meetingLeadsCount}
         callbacksCount={todayCallbacksCount}
         onLogout={handleLogout}
         isCloudSynced={isCloudSynced}
+        syncStatus={syncStatus}
         onClearAllContacts={handleClearAllContacts}
       />
 
+      {/* Explicit Sync Error / Save Confirmation Alerts */}
+      {syncError && (
+        <div className="bg-rose-50 border-b border-rose-200 px-4 py-2 text-xs text-rose-900 flex items-center gap-2 shrink-0">
+          <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+          <span className="flex-1 font-medium">{syncError}</span>
+          <button
+            type="button"
+            onClick={() => setSyncError(null)}
+            className="text-rose-500 hover:text-rose-800 cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {syncToast && !syncError && (
+        <div className="bg-emerald-50 border-b border-emerald-200 px-4 py-1.5 text-xs text-emerald-900 flex items-center gap-2 shrink-0">
+          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+          <span className="flex-1">{syncToast}</span>
+        </div>
+      )}
+
       {/* Main Content Area based on Active Tab */}
-      <main className={`flex-1 min-w-0 w-full max-w-full pb-14 md:pb-0 ${activeTab === 'kanban' ? 'flex flex-col min-h-0 overflow-hidden' : 'overflow-y-auto'}`}>
+      <main
+        className={`flex-1 min-w-0 w-full max-w-full pb-14 md:pb-0 ${
+          activeTab === 'kanban' ? 'flex flex-col min-h-0 overflow-hidden' : 'overflow-y-auto'
+        }`}
+      >
         {activeTab === 'kanban' && (
           <KanbanView
             niche={activeNiche}
@@ -679,6 +825,7 @@ export default function App() {
           <GlobalAgencyView
             niches={niches}
             leads={leads}
+            importedSheets={importedSheets}
             userName={userName}
             onSelectNiche={(id) => {
               setActiveNicheId(id);
@@ -687,6 +834,7 @@ export default function App() {
             onOpenNewNicheModal={() => setIsNewNicheModalOpen(true)}
             onDeleteNiche={handleDeleteNiche}
             onRestoreBackup={handleRestoreBackup}
+            onResetToCleanBaseline={handleClearAllContacts}
           />
         )}
       </main>

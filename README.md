@@ -1,74 +1,51 @@
-# ProspectFlow — CRM de Prospecção Ativa de Vendas de Sites
+# ProspectFlow / Kaizen CRM
 
-CRM minimalista multi-nicho (estilo Linear/Notion) desenvolvido com React 19, TypeScript, Tailwind CSS v4, Express e Vite para gestão ágil de prospecção, qualificação, testes A/B de roteiros de vendas (WhatsApp e Cold Call) e fechamento de contratos de sites e recorrência (MRR).
-
----
-
-## 🚀 Como Executar o Projeto Localmente
-
-### 1. Pré-requisitos
-Certifique-se de ter o **Node.js** (versão 18, 20 ou 22+) e o **npm** instalados na sua máquina:
-```bash
-node -v
-npm -v
-```
+Sistema privado de gestão interna da agência **Kaizen**, construído com **React 19, TypeScript, Vite, Tailwind CSS v4, Express, Cloud Firestore, Firebase Authentication** e **Google Gemini** (via rotas autenticadas no servidor).
 
 ---
 
-### 2. Clonar ou Baixar o Projeto
-Se você baixou o arquivo `.zip`, descompacte-o em uma pasta. Se estiver usando o Git:
-```bash
-git clone <URL_DO_REPOSITORIO>
-cd <NOME_DA_PASTA>
-```
+## Arquitetura Atual
+
+- **Frontend (SPA):** `src/` — Kanban de prospecção, Agenda (reuniões e retornos), Dashboard, Scripts customizáveis, Importador de planilhas (`xlsx` local), Visão Global e Backup JSON v3.0.
+- **Autenticação Privada:** Firebase Authentication (E-mail e Senha) para **usuário único administrador**, sem cadastro público, com bloqueio opcional por UID (`VITE_AUTHORIZED_ADMIN_UID`).
+- **Banco de Dados:** Cloud Firestore nomeado (`ai-studio-prospectflowcrmd-6ef58a98-06b1-4109-b7bb-169f00e7a2ea` no projeto `gen-lang-client-0798002034`), estruturado em:
+  - `/workspaces/adm_equipeie/leads/{leadId}`
+  - `/workspaces/adm_equipeie/niches/{nicheId}`
+  - `/workspaces/adm_equipeie/importedSheets/{sheetId}`
+  - Espelho local em `localStorage` para carregamento rápido.
+- **Backend / Serverless (`api/index.ts` e `server.ts`):** Express com `/api/health` e rotas protegidas `/api/gemini/*` exigindo token Bearer do Firebase Auth, rate limiting e validação de payload.
 
 ---
 
-### 3. Instalar as Dependências
-No terminal, dentro da pasta do projeto, execute:
-```bash
-npm install
-```
+## Executando Localmente
+
+1. **Instale as dependências:**
+   ```bash
+   npm install
+   ```
+2. **Configure o arquivo `.env` a partir de `.env.example`:**
+   - Informe `GEMINI_API_KEY` no servidor (opcional — se ausente, o restante do CRM opera normalmente).
+   - Para restringir backend e frontend exatamente ao seu UID após criar sua conta no Firebase Auth, preencha `AUTHORIZED_ADMIN_UID` e `VITE_AUTHORIZED_ADMIN_UID`.
+3. **Inicie o servidor de desenvolvimento (porta 3000):**
+   ```bash
+   npm run dev
+   ```
 
 ---
 
-### 4. Configurar as Variáveis de Ambiente
-Crie um arquivo `.env` na raiz do projeto (você pode duplicar o `.env.example`):
+## Comandos Disponíveis
 
-```bash
-cp .env.example .env
-```
-
-Abra o arquivo `.env` e configure sua chave do Google Gemini (necessária apenas para os recursos de inteligência artificial de extração automática de planilhas/textos e geração de pitches personalizados):
-
-```env
-GEMINI_API_KEY="sua_chave_do_gemini_aqui"
-```
-
-> **Dica:** Você pode obter uma chave de API gratuita do Gemini no [Google AI Studio](https://aistudio.google.com/). Caso você não configure a chave, o CRM continuará funcionando normalmente em modo local (cadastro manual, kanban, scripts de vendas, WhatsApp e simulação), desativando apenas a análise automática por IA.
+- `npm run dev`: Servidor full-stack local (Express + Vite) na porta 3000.
+- `npm run build`: Gera o build de produção em `dist/`.
+- `npm run lint`: Verifica tipos TypeScript (`tsc --noEmit`).
+- `npm test`: Executa os testes unitários e de segurança da API.
+- `npm run test:rules`: Executa `firestore.rules.test.ts` (requer Firebase Auth + Firestore Emulators rodando).
+- `npm run backup:firestore`: Executa backup somente-leitura completo do Firestore (requer credencial Service Account via `GOOGLE_APPLICATION_CREDENTIALS`).
 
 ---
 
-### 5. Iniciar o Servidor de Desenvolvimento
-Execute o comando:
-```bash
-npm run dev
-```
+## Documentação Complementar
 
-Abra o seu navegador e acesse:
-👉 **[http://localhost:3000](http://localhost:3000)**
-
----
-
-### 6. Como os Dados São Salvos
-- O CRM salva nichos, campanhas, leads, notas e configurações diretamente no **armazenamento local do seu navegador (`localStorage`)**.
-- Nenhum banco de dados externo precisa ser configurado.
-- Os dados persistem automaticamente mesmo se você reiniciar o computador ou fechar o navegador.
-
----
-
-### 7. Comandos Disponíveis
-- `npm run dev`: Inicia o servidor full-stack (API Express + Vite) na porta 3000.
-- `npm run build`: Compila a aplicação frontend otimizada para produção.
-- `npm run lint`: Valida o TypeScript em busca de erros de tipo.
-- `npm start`: Inicia o servidor em modo de produção.
+- `docs/ARQUITETURA_KAIZEN.md`: Convenções de evolução incremental, modelo de dados e compatibilidade retroativa.
+- `docs/BACKUP_E_AMBIENTES.md`: Estratégia completa de backup (Cloud Storage, CLI e app v3.0), automação futura e isolamento Desenvolvimento vs. Produção (Vercel + Firebase).
+- `security_spec.md` e `DRAFT_firestore.rules`: Regras de segurança propostas para usuário único (aguardando validação com seu UID antes de publicar em produção).

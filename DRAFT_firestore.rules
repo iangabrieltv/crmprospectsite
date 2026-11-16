@@ -1,0 +1,165 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Rede de segurança global: nega tudo por padrão
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // -------------------------------------------------------------------------
+    // HELPERS DE AUTENTICAÇÃO E VALIDAÇÃO (USUÁRIO ÚNICO PRIVADO)
+    // -------------------------------------------------------------------------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // IMPORTANTE: Substitua pelo UID real da sua conta única do Firebase Auth
+    // antes de publicar estas regras em produção.
+    function authorizedAdminUid() {
+      return 'REPLACE_WITH_YOUR_FIREBASE_UID';
+    }
+
+    function isAuthorizedAdmin() {
+      return isSignedIn() && request.auth.uid == authorizedAdminUid();
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function isOptionalString(data, field, maxLen) {
+      return !(field in data) || data[field] == null || (data[field] is string && data[field].size() <= maxLen);
+    }
+
+    function isOptionalNumber(data, field) {
+      return !(field in data) || data[field] == null || (data[field] is int || data[field] is float);
+    }
+
+    function isValidLead(data) {
+      return data.keys().hasAll(['companyName', 'phone', 'stage'])
+        && data.keys().hasOnly([
+          'id', 'nicheId', 'companyName', 'contactName', 'phone', 'displayPhone',
+          'address', 'city', 'category', 'googleRating', 'googleReviewsCount',
+          'googleMapsUrl', 'websiteUrl', 'mockupUrl', 'stage', 'scriptUsed',
+          'creationValue', 'monthlyMrr', 'lastContactDate', 'notes', 'objection',
+          'createdAt', 'aiPitch', 'opportunityAngle',
+          'meetingDate', 'meetingTime', 'meetingNotes', 'meetingLink', 'meetingStatus',
+          'callbackDate', 'callbackTime', 'callbackNotes', 'callbackStatus',
+          'schemaVersion', 'updatedAt'
+        ])
+        && data.companyName is string && data.companyName.size() >= 1 && data.companyName.size() <= 300
+        && data.phone is string && data.phone.size() <= 40
+        && data.stage is string && data.stage.size() >= 1 && data.stage.size() <= 60
+        && isOptionalString(data, 'id', 128)
+        && isOptionalString(data, 'nicheId', 128)
+        && isOptionalString(data, 'contactName', 200)
+        && isOptionalString(data, 'displayPhone', 50)
+        && isOptionalString(data, 'address', 500)
+        && isOptionalString(data, 'city', 150)
+        && isOptionalString(data, 'category', 150)
+        && isOptionalString(data, 'googleMapsUrl', 1000)
+        && isOptionalString(data, 'websiteUrl', 1000)
+        && isOptionalString(data, 'mockupUrl', 1000)
+        && isOptionalString(data, 'scriptUsed', 100)
+        && isOptionalString(data, 'lastContactDate', 64)
+        && isOptionalString(data, 'objection', 1000)
+        && isOptionalString(data, 'createdAt', 64)
+        && isOptionalString(data, 'aiPitch', 4000)
+        && isOptionalString(data, 'opportunityAngle', 500)
+        && isOptionalString(data, 'meetingDate', 32)
+        && isOptionalString(data, 'meetingTime', 16)
+        && isOptionalString(data, 'meetingNotes', 4000)
+        && isOptionalString(data, 'meetingLink', 1000)
+        && isOptionalString(data, 'meetingStatus', 32)
+        && isOptionalString(data, 'callbackDate', 32)
+        && isOptionalString(data, 'callbackTime', 16)
+        && isOptionalString(data, 'callbackNotes', 1000)
+        && isOptionalString(data, 'callbackStatus', 32)
+        && isOptionalString(data, 'updatedAt', 64)
+        && isOptionalNumber(data, 'googleRating')
+        && isOptionalNumber(data, 'googleReviewsCount')
+        && isOptionalNumber(data, 'creationValue')
+        && isOptionalNumber(data, 'monthlyMrr')
+        && isOptionalNumber(data, 'schemaVersion')
+        && (!( 'notes' in data ) || (data.notes is list && data.notes.size() <= 500));
+    }
+
+    function isValidNiche(data) {
+      return data.keys().hasAll(['name', 'segment', 'city'])
+        && data.keys().hasOnly([
+          'id', 'name', 'segment', 'city', 'targetCities', 'emoji',
+          'targetMrr', 'createdAt', 'scripts', 'schemaVersion', 'updatedAt'
+        ])
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 200
+        && data.segment is string && data.segment.size() >= 1 && data.segment.size() <= 200
+        && data.city is string && data.city.size() >= 1 && data.city.size() <= 150
+        && isOptionalString(data, 'id', 128)
+        && isOptionalString(data, 'emoji', 32)
+        && isOptionalString(data, 'createdAt', 64)
+        && isOptionalString(data, 'updatedAt', 64)
+        && isOptionalNumber(data, 'targetMrr')
+        && isOptionalNumber(data, 'schemaVersion')
+        && (!( 'targetCities' in data ) || (data.targetCities is list && data.targetCities.size() <= 200))
+        && (!( 'scripts' in data ) || data.scripts is map);
+    }
+
+    function isValidImportedSheet(data) {
+      return data.keys().hasAll(['name', 'nicheId', 'totalLeads'])
+        && data.keys().hasOnly([
+          'id', 'name', 'nicheId', 'nicheName', 'importedAt',
+          'totalLeads', 'format', 'size', 'leadsSummary',
+          'schemaVersion', 'updatedAt'
+        ])
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 300
+        && data.nicheId is string && data.nicheId.size() >= 1 && data.nicheId.size() <= 128
+        && (data.totalLeads is int || data.totalLeads is float) && data.totalLeads >= 0
+        && isOptionalString(data, 'id', 128)
+        && isOptionalString(data, 'nicheName', 200)
+        && isOptionalString(data, 'importedAt', 64)
+        && isOptionalString(data, 'format', 64)
+        && isOptionalString(data, 'updatedAt', 64)
+        && isOptionalNumber(data, 'size')
+        && isOptionalNumber(data, 'schemaVersion')
+        && (!( 'leadsSummary' in data ) || (data.leadsSummary is list && data.leadsSummary.size() <= 20));
+    }
+
+    // -------------------------------------------------------------------------
+    // WORKSPACE PRIVADO DO ADMINISTRADOR ÚNICO (PRESERVA CAMINHO EXISTENTE)
+    // -------------------------------------------------------------------------
+    match /workspaces/{workspaceId} {
+      allow get: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin();
+      allow list, create, update, delete: if false;
+
+      match /leads/{leadId} {
+        allow list: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin();
+        allow get, delete: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin() && isValidId(leadId);
+        allow create, update: if workspaceId == 'adm_equipeie'
+          && isAuthorizedAdmin()
+          && isValidId(leadId)
+          && isValidLead(incoming());
+      }
+
+      match /niches/{nicheId} {
+        allow list: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin();
+        allow get, delete: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin() && isValidId(nicheId);
+        allow create, update: if workspaceId == 'adm_equipeie'
+          && isAuthorizedAdmin()
+          && isValidId(nicheId)
+          && isValidNiche(incoming());
+      }
+
+      match /importedSheets/{sheetId} {
+        allow list: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin();
+        allow get, delete: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin() && isValidId(sheetId);
+        allow create, update: if workspaceId == 'adm_equipeie'
+          && isAuthorizedAdmin()
+          && isValidId(sheetId)
+          && isValidImportedSheet(incoming());
+      }
+    }
+  }
+}

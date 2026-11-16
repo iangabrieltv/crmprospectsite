@@ -5,6 +5,7 @@ import {
   buildWhatsAppLink,
   formatDisplayPhone
 } from '../utils/phone';
+import { getActiveFirebaseIdToken } from '../services/authService';
 import {
   FileText,
   Copy,
@@ -572,9 +573,17 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
     setAiSuccessFeedback(null);
 
     try {
+      const token = await getActiveFirebaseIdToken();
+      if (!token) {
+        throw new Error('Sessão expirada. Faça login novamente para usar a IA.');
+      }
+
       const res = await fetch('/api/gemini/improve-script', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
           currentMessage: messageToImprove,
           nicheName: niche.name,
@@ -584,7 +593,10 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
         }),
       });
 
-      if (!res.ok) throw new Error('Falha ao processar melhoria');
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Falha ao processar melhoria');
+      }
 
       const data = await res.json();
       if (data.improvedMessage) {
@@ -595,9 +607,9 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
         }
         setAiSuccessFeedback('✨ Mensagem otimizada com sucesso com foco em conversão!');
       }
-    } catch (err: any) {
-      console.error(err);
-      setAiErrorFeedback('Não foi possível conectar à IA no momento. Tente novamente.');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Não foi possível conectar à IA no momento.';
+      setAiErrorFeedback(msg);
     } finally {
       setIsImprovingWithAi(false);
     }
