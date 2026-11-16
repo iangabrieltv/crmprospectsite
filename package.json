@@ -12,6 +12,8 @@
     "lint": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts",
     "test:rules": "tsx --test firestore.rules.test.ts",
+    "rules:check": "tsx scripts/configure-rules-uid.ts",
+    "rules:configure": "tsx scripts/configure-rules-uid.ts --write",
     "backup:firestore": "tsx scripts/backup-firestore.ts"
   },
   "dependencies": {

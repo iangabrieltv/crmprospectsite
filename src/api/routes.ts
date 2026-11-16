@@ -8,6 +8,9 @@ import {
 
 export interface CreateApiRouterOptions {
   verifyToken?: TokenVerifier;
+  projectId?: string;
+  authorizedAdminUid?: string;
+  authorizedAdminEmail?: string;
   rateLimitMaxRequests?: number;
   rateLimitWindowMs?: number;
 }
@@ -32,12 +35,24 @@ export const getGeminiClient = () => {
 
 function sanitizeString(value: unknown, maxLen: number): string {
   if (typeof value !== 'string') return '';
-  return value.trim().slice(0, maxLen);
+  return value
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
+    .trim()
+    .slice(0, maxLen);
+}
+
+function isPlainBodyObject(body: unknown): body is Record<string, unknown> {
+  return Boolean(body && typeof body === 'object' && !Array.isArray(body));
 }
 
 export function createApiRouter(options: CreateApiRouterOptions = {}) {
   const router = Router();
-  const requireAuth = createFirebaseAuthMiddleware(options.verifyToken);
+  const requireAuth = createFirebaseAuthMiddleware({
+    verifyToken: options.verifyToken,
+    projectId: options.projectId,
+    authorizedAdminUid: options.authorizedAdminUid,
+    authorizedAdminEmail: options.authorizedAdminEmail,
+  });
   const rateLimiter = createRateLimiter({
     windowMs: options.rateLimitWindowMs ?? 60_000,
     maxRequests: options.rateLimitMaxRequests ?? 30,
@@ -53,10 +68,14 @@ export function createApiRouter(options: CreateApiRouterOptions = {}) {
   // API: AI Lead Extraction & Cleaning (legacy/optional endpoint — kept protected)
   const handleAnalyzeLeads = async (req: Request, res: Response) => {
     try {
-      const rawText = sanitizeString(req.body?.rawText, 30000);
-      const nicheName = sanitizeString(req.body?.nicheName, 120);
-      const nicheSegment = sanitizeString(req.body?.nicheSegment, 120);
-      const defaultCity = sanitizeString(req.body?.defaultCity, 120);
+      if (!isPlainBodyObject(req.body)) {
+        res.status(400).json({ error: 'Corpo da requisição inválido.' });
+        return;
+      }
+      const rawText = sanitizeString(req.body.rawText, 30000);
+      const nicheName = sanitizeString(req.body.nicheName, 120);
+      const nicheSegment = sanitizeString(req.body.nicheSegment, 120);
+      const defaultCity = sanitizeString(req.body.defaultCity, 120);
 
       if (!rawText) {
         res.status(400).json({ error: 'Texto ou dados de planilha ausentes.' });
@@ -144,12 +163,16 @@ Retorne a lista em formato JSON estrito conforme o schema.`;
   // API: Generate Tailored Pitch for a Lead
   const handleGeneratePitch = async (req: Request, res: Response) => {
     try {
-      const companyName = sanitizeString(req.body?.companyName, 200);
-      const niche = sanitizeString(req.body?.niche, 150);
-      const city = sanitizeString(req.body?.city, 120);
-      const googleRating = sanitizeString(String(req.body?.googleRating ?? ''), 20);
-      const objection = sanitizeString(req.body?.objection, 400);
-      const scriptType = sanitizeString(req.body?.scriptType, 120);
+      if (!isPlainBodyObject(req.body)) {
+        res.status(400).json({ error: 'Corpo da requisição inválido.' });
+        return;
+      }
+      const companyName = sanitizeString(req.body.companyName, 200);
+      const niche = sanitizeString(req.body.niche, 150);
+      const city = sanitizeString(req.body.city, 120);
+      const googleRating = sanitizeString(String(req.body.googleRating ?? ''), 20);
+      const objection = sanitizeString(req.body.objection, 400);
+      const scriptType = sanitizeString(req.body.scriptType, 120);
 
       if (!companyName) {
         res.status(400).json({ error: 'Nome da empresa é obrigatório para gerar o pitch.' });
@@ -196,10 +219,14 @@ Retorne apenas a mensagem formatada para WhatsApp.`;
   // API: Improve / Polish a sales script block
   const handleImproveScript = async (req: Request, res: Response) => {
     try {
-      const currentMessage = sanitizeString(req.body?.currentMessage, 8000);
-      const instruction = sanitizeString(req.body?.instruction, 1000);
-      const nicheName = sanitizeString(req.body?.nicheName, 120);
-      const blockTitle = sanitizeString(req.body?.blockTitle, 150);
+      if (!isPlainBodyObject(req.body)) {
+        res.status(400).json({ error: 'Corpo da requisição inválido.' });
+        return;
+      }
+      const currentMessage = sanitizeString(req.body.currentMessage, 8000);
+      const instruction = sanitizeString(req.body.instruction, 1000);
+      const nicheName = sanitizeString(req.body.nicheName, 120);
+      const blockTitle = sanitizeString(req.body.blockTitle, 150);
 
       if (!currentMessage) {
         res.status(400).json({ error: 'Mensagem atual é obrigatória para otimização.' });
@@ -246,10 +273,14 @@ Regras OBRIGATÓRIAS:
   // API: Conversational AI Filter for Imported Spreadsheet Leads (legacy/optional endpoint — kept protected)
   const handleFilterImportedLeads = async (req: Request, res: Response) => {
     try {
-      const userInstruction = sanitizeString(req.body?.userInstruction, 2000);
-      const nicheName = sanitizeString(req.body?.nicheName, 120);
-      const nicheSegment = sanitizeString(req.body?.nicheSegment, 120);
-      const rawLeads = req.body?.leads;
+      if (!isPlainBodyObject(req.body)) {
+        res.status(400).json({ error: 'Corpo da requisição inválido.' });
+        return;
+      }
+      const userInstruction = sanitizeString(req.body.userInstruction, 2000);
+      const nicheName = sanitizeString(req.body.nicheName, 120);
+      const nicheSegment = sanitizeString(req.body.nicheSegment, 120);
+      const rawLeads = req.body.leads;
 
       if (!userInstruction) {
         res.status(400).json({ error: 'Instrução do usuário não fornecida.' });

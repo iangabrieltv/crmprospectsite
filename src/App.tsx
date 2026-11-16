@@ -66,6 +66,7 @@ export default function App() {
   // Real Firebase Authentication session gate (single authorized admin user)
   const [authReady, setAuthReady] = useState<boolean>(false);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [authConfigValid, setAuthConfigValid] = useState<boolean>(true);
   const [sessionNotice, setSessionNotice] = useState<string | null>(null);
 
   const [niches, setNiches] = useState<NicheCampaign[]>(() => loadStoredNiches());
@@ -103,21 +104,22 @@ export default function App() {
 
   // Subscribe to Firebase Authentication session
   useEffect(() => {
-    const unsub = subscribeToAdminSession(({ authorized, reason }) => {
-      setIsAuthenticated(authorized);
+    const unsub = subscribeToAdminSession(({ authorized, configValid, reason }) => {
+      setAuthConfigValid(configValid);
+      setIsAuthenticated(Boolean(configValid && authorized));
       setAuthReady(true);
-      if (!authorized && reason) {
+      if ((!configValid || !authorized) && reason) {
         setSessionNotice(reason);
-      } else if (authorized) {
+      } else if (configValid && authorized) {
         setSessionNotice(null);
       }
     });
     return () => unsub();
   }, []);
 
-  // Real-time Firestore synchronization (only runs when authenticated)
+  // Real-time Firestore synchronization (only runs when authenticated and config valid)
   useEffect(() => {
-    if (!authReady || !isAuthenticated) return;
+    if (!authReady || !isAuthenticated || !authConfigValid) return;
 
     let active = true;
 
@@ -199,7 +201,7 @@ export default function App() {
       unsubLeads();
       unsubSheets();
     };
-  }, [authReady, isAuthenticated, notifySyncFailure]);
+  }, [authReady, isAuthenticated, authConfigValid, notifySyncFailure]);
 
   // Modal states
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
@@ -692,8 +694,8 @@ export default function App() {
     );
   }
 
-  if (!isAuthenticated) {
-    return <LoginView sessionNotice={sessionNotice} />;
+  if (!isAuthenticated || !authConfigValid) {
+    return <LoginView sessionNotice={sessionNotice} authConfigValid={authConfigValid} />;
   }
 
   if (!activeNiche) {

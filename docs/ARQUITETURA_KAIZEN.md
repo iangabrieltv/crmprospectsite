@@ -56,7 +56,7 @@ src/
 | Rota | Status de Uso no Frontend | Proteção Aplicada |
 |---|---|---|
 | `GET /api/health` | Saúde do servidor | Pública (retorna apenas status + timestamp) |
-| `POST /api/gemini/generate-pitch` | Em uso (`LeadModal.tsx`) | Token Firebase Auth + UID único opcional + Rate limit + validação |
-| `POST /api/gemini/improve-script` | Em uso (`ScriptsView.tsx`) | Token Firebase Auth + UID único opcional + Rate limit + validação |
-| `POST /api/gemini/analyze-leads` | Sem chamada ativa no frontend atual (mantida por compatibilidade) | Token Firebase Auth + UID único opcional + Rate limit + validação |
-| `POST /api/gemini/filter-imported-leads` | Sem chamada ativa no frontend atual (`ImporterView.tsx` filtra localmente; mantida por compatibilidade) | Token Firebase Auth + UID único opcional + Rate limit + validação |
+| `POST /api/gemini/generate-pitch` | Em uso (`LeadModal.tsx`) | Token Firebase Auth + `AUTHORIZED_ADMIN_UID` obrigatório + Rate limit + validação |
+| `POST /api/gemini/improve-script` | Em uso (`ScriptsView.tsx`) | Token Firebase Auth + `AUTHORIZED_ADMIN_UID` obrigatório + Rate limit + validação |
+| `POST /api/gemini/analyze-leads` | Sem chamada ativa no frontend atual (mantida por compatibilidade) | Token Firebase Auth + `AUTHORIZED_ADMIN_UID` obrigatório + Rate limit + validação |
+| `POST /api/gemini/filter-imported-leads` | Sem chamada ativa no frontend atual (`ImporterView.tsx` filtra localmente; mantida por compatibilidade) | Token Firebase Auth + `AUTHORIZED_ADMIN_UID` obrigatório + Rate limit + validação |

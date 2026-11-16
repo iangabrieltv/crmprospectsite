@@ -16,15 +16,48 @@ export type TokenVerifier = (token: string) => Promise<{
   email?: string;
 }>;
 
-function resolveFirebaseProjectId(): string {
-  if (process.env.FIREBASE_PROJECT_ID) {
+export interface CreateFirebaseAuthMiddlewareOptions {
+  verifyToken?: TokenVerifier;
+  projectId?: string;
+  authorizedAdminUid?: string;
+  authorizedAdminEmail?: string;
+}
+
+const FORBIDDEN_UID_PLACEHOLDERS = new Set([
+  '',
+  'REPLACE_WITH_YOUR_FIREBASE_UID',
+  'YOUR_FIREBASE_UID',
+  'UNDEFINED',
+  'NULL',
+]);
+
+export function isValidAdminUidConfig(uid: unknown): uid is string {
+  if (typeof uid !== 'string') return false;
+  const trimmed = uid.trim();
+  if (FORBIDDEN_UID_PLACEHOLDERS.has(trimmed.toUpperCase())) return false;
+  if (trimmed.length < 6 || trimmed.length > 128) return false;
+  return /^[a-zA-Z0-9:_\-]+$/.test(trimmed);
+}
+
+export function resolveFirebaseProjectId(): string {
+  if (typeof process.env.FIREBASE_PROJECT_ID === 'string') {
+    const fromEnv = process.env.FIREBASE_PROJECT_ID.trim();
+    if (fromEnv) return fromEnv;
+    // Explicitly set to empty string disables config fallback for strict env control
+    if (process.env.FIREBASE_PROJECT_ID === '') {
+      // Only fall back if FIREBASE_PROJECT_ID wasn't explicitly defined
+    }
+  }
+  if (process.env.FIREBASE_PROJECT_ID !== undefined) {
     return process.env.FIREBASE_PROJECT_ID.trim();
   }
   try {
     const configPath = path.resolve(process.cwd(), 'firebase-applet-config.json');
     const raw = fs.readFileSync(configPath, 'utf-8');
     const parsed = JSON.parse(raw) as { projectId?: string };
-    if (parsed.projectId) return parsed.projectId;
+    if (typeof parsed.projectId === 'string' && parsed.projectId.trim()) {
+      return parsed.projectId.trim();
+    }
   } catch {
     // Fallback handled below
   }
@@ -41,7 +74,7 @@ export async function verifyFirebaseTokenDefault(token: string): Promise<{
   }
 
   const adminApp = !getApps().length ? initializeApp({ projectId }) : getApp();
-  const decoded = await getAuth(adminApp).verifyIdToken(token);
+  const decoded = await getAuth(adminApp).verifyIdToken(token, true);
   return {
     uid: decoded.uid,
     email: decoded.email,
@@ -49,9 +82,44 @@ export async function verifyFirebaseTokenDefault(token: string): Promise<{
 }
 
 export function createFirebaseAuthMiddleware(
-  verifyToken: TokenVerifier = verifyFirebaseTokenDefault
+  verifyTokenOrOptions?: TokenVerifier | CreateFirebaseAuthMiddlewareOptions
 ) {
+  const options: CreateFirebaseAuthMiddlewareOptions =
+    typeof verifyTokenOrOptions === 'function'
+      ? { verifyToken: verifyTokenOrOptions }
+      : verifyTokenOrOptions || {};
+
+  const verifyToken = options.verifyToken || verifyFirebaseTokenDefault;
+
   return async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+    const configuredProjectId = (
+      options.projectId !== undefined ? options.projectId : resolveFirebaseProjectId()
+    ).trim();
+
+    if (!configuredProjectId) {
+      res.status(503).json({
+        error:
+          'Acesso negado: FIREBASE_PROJECT_ID não configurado no servidor.',
+      });
+      return;
+    }
+
+    const rawAllowedUid =
+      options.authorizedAdminUid !== undefined
+        ? options.authorizedAdminUid
+        : process.env.AUTHORIZED_ADMIN_UID || '';
+    const allowedUid = rawAllowedUid.trim();
+
+    // Fail-closed: NEVER allow access if AUTHORIZED_ADMIN_UID is absent, empty, or placeholder.
+    // E-mail alone can NEVER replace UID authorization.
+    if (!isValidAdminUidConfig(allowedUid)) {
+      res.status(403).json({
+        error:
+          'Acesso negado: AUTHORIZED_ADMIN_UID obrigatório não está configurado corretamente no servidor.',
+      });
+      return;
+    }
+
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       res.status(401).json({
@@ -75,15 +143,19 @@ export function createFirebaseAuthMiddleware(
         return;
       }
 
-      const allowedUid = (process.env.AUTHORIZED_ADMIN_UID || '').trim();
-      if (allowedUid && verified.uid !== allowedUid) {
+      if (verified.uid !== allowedUid) {
         res.status(403).json({
-          error: 'Acesso negado: conta não autorizada para esta API privada.',
+          error: 'Acesso negado: UID não autorizado para esta API privada.',
         });
         return;
       }
 
-      const allowedEmail = (process.env.AUTHORIZED_ADMIN_EMAIL || '').trim().toLowerCase();
+      const rawAllowedEmail =
+        options.authorizedAdminEmail !== undefined
+          ? options.authorizedAdminEmail
+          : process.env.AUTHORIZED_ADMIN_EMAIL || '';
+      const allowedEmail = rawAllowedEmail.trim().toLowerCase();
+
       if (allowedEmail && (verified.email || '').toLowerCase() !== allowedEmail) {
         res.status(403).json({
           error: 'Acesso negado: e-mail não autorizado para esta API privada.',
@@ -97,10 +169,22 @@ export function createFirebaseAuthMiddleware(
       };
       next();
     } catch (err) {
-      const code = err instanceof Error ? err.message : 'TOKEN_VERIFY_ERROR';
+      const code =
+        typeof err === 'object' && err !== null && 'code' in err
+          ? String((err as { code?: unknown }).code || '')
+          : err instanceof Error
+          ? err.message
+          : 'TOKEN_VERIFY_ERROR';
+
+      const isExpired =
+        code.toLowerCase().includes('expired') ||
+        code.includes('auth/id-token-expired');
+
       console.error(`[API Auth] Falha na verificação do token (${req.path}): ${code}`);
       res.status(401).json({
-        error: 'Sessão inválida ou expirada. Faça login novamente.',
+        error: isExpired
+          ? 'Token Firebase expirado. Faça login novamente.'
+          : 'Sessão inválida ou expirada. Faça login novamente.',
       });
     }
   };

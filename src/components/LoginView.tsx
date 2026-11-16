@@ -12,10 +12,15 @@ import { loginWithEmailAndPassword, mapFirebaseAuthError } from '../services/aut
 
 interface LoginViewProps {
   sessionNotice?: string | null;
+  authConfigValid?: boolean;
   onSuccessLogin?: () => void;
 }
 
-export const LoginView: React.FC<LoginViewProps> = ({ sessionNotice, onSuccessLogin }) => {
+export const LoginView: React.FC<LoginViewProps> = ({
+  sessionNotice,
+  authConfigValid = true,
+  onSuccessLogin,
+}) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
@@ -25,6 +30,13 @@ export const LoginView: React.FC<LoginViewProps> = ({ sessionNotice, onSuccessLo
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    if (!authConfigValid) {
+      setError(
+        'Configuração de segurança ausente: defina VITE_AUTHORIZED_ADMIN_UID com o UID do administrador único antes de acessar o CRM.'
+      );
+      return;
+    }
 
     const cleanEmail = email.trim();
     if (!cleanEmail || !password) {
@@ -43,7 +55,12 @@ export const LoginView: React.FC<LoginViewProps> = ({ sessionNotice, onSuccessLo
     }
   };
 
-  const activeError = error || sessionNotice;
+  const activeError =
+    error ||
+    (!authConfigValid
+      ? sessionNotice ||
+        'Configuração de segurança ausente: defina VITE_AUTHORIZED_ADMIN_UID no ambiente para habilitar o acesso.'
+      : sessionNotice);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-950 to-blue-950 flex items-center justify-center p-4 sm:p-6 text-slate-100">
@@ -137,8 +154,8 @@ export const LoginView: React.FC<LoginViewProps> = ({ sessionNotice, onSuccessLo
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={isLoading}
-              className="w-full py-2.5 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-blue-600/30 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+              disabled={isLoading || !authConfigValid}
+              className="w-full py-2.5 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-blue-600/30 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <>
