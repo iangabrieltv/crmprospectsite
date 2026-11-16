@@ -60,7 +60,8 @@ async function assertEmulatorsRunning(): Promise<void> {
     const fsRes = await fetch(
       `${FIRESTORE_EMULATOR_URL}/emulator/v1/projects/${PROJECT_ID}/databases`
     );
-    firestoreOk = fsRes.status < 500;
+    const contentType = fsRes.headers.get('content-type') || '';
+    firestoreOk = fsRes.ok && contentType.includes('application/json');
   } catch {
     firestoreOk = false;
   }
