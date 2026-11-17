@@ -1,0 +1,46 @@
+rules_version = '2';
+
+// Firebase Storage Security Rules — Kaizen (Agência Privada)
+// IMPORTANTE: NÃO PUBLICAR REMOTAMENTE SEM AUTORIZAÇÃO EXPRESSA.
+// Mantém o bucket estritamente privado para o administrador único configurado.
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function authorizedAdminUid() {
+      return 'ykGdQS5z6Udjl8zYX7DLD6Gt5CR2';
+    }
+
+    function isAuthorizedAdmin() {
+      return request.auth != null
+        && request.auth.uid == authorizedAdminUid()
+        && request.auth.token.email_verified == true;
+    }
+
+    function isSafeExtension(fileName) {
+      return fileName.matches('.*\\.(pdf|doc|docx|xls|xlsx|ppt|pptx|png|jpg|jpeg|svg|mp4|txt|csv|zip)$');
+    }
+
+    function isAllowedSize() {
+      return request.resource.size > 0 && request.resource.size <= 26214400; // 25 MB
+    }
+
+    match /workspaces/{workspaceId}/resources/{fileId}/{fileName} {
+      allow read, delete: if workspaceId == 'adm_equipeie'
+        && isAuthorizedAdmin()
+        && fileId.matches('^[a-zA-Z0-9_\\-]{1,128}$');
+
+      allow create, update: if workspaceId == 'adm_equipeie'
+        && isAuthorizedAdmin()
+        && fileId.matches('^[a-zA-Z0-9_\\-]{1,128}$')
+        && fileName.size() >= 1
+        && fileName.size() <= 200
+        && isSafeExtension(fileName.lower())
+        && isAllowedSize();
+    }
+
+    // Bloqueia qualquer outro caminho no bucket
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,6 +1,23 @@
 import React, { useRef, useState } from 'react';
 import { NicheCampaign, Lead, ImportedSheet } from '../types/crm';
 import {
+  AgendaEvent,
+  Client,
+  Project,
+  ProposalContract,
+  SocialChannel,
+  SocialPost,
+  Task,
+} from '../types/kaizen';
+import {
+  FinancialAuditLog,
+  FinancialCategory,
+  FinancialEntry,
+  FinancialRecurrence,
+  FinancialSettings,
+  FinancialTransaction,
+} from '../types/finance';
+import {
   loadLastBackupTimestamp,
   recordLastBackupTimestamp,
 } from '../utils/storage';
@@ -21,13 +38,29 @@ import {
   Plus,
   Trash2,
   Award,
-  CheckCircle2,
-  AlertTriangle,
   ArrowUpRight,
-  AlertCircle,
   ShieldCheck,
-  X,
 } from 'lucide-react';
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  Button,
+  Badge,
+  Alert,
+  Modal,
+  ConfirmDialog,
+  Input,
+  Select,
+  TableContainer,
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from './ui';
 
 export interface DeleteNicheChoice {
   nicheId: string;
@@ -39,6 +72,19 @@ interface GlobalAgencyViewProps {
   niches: NicheCampaign[];
   leads: Lead[];
   importedSheets: ImportedSheet[];
+  clients?: Client[];
+  proposals?: ProposalContract[];
+  projects?: Project[];
+  tasks?: Task[];
+  agendaEvents?: AgendaEvent[];
+  socialChannels?: SocialChannel[];
+  socialPosts?: SocialPost[];
+  financialEntries?: FinancialEntry[];
+  financialTransactions?: FinancialTransaction[];
+  financialCategories?: FinancialCategory[];
+  financialRecurrences?: FinancialRecurrence[];
+  financialSettings?: FinancialSettings;
+  financialAuditLogs?: FinancialAuditLog[];
   userName: string;
   onSelectNiche: (nicheId: string) => void;
   onOpenNewNicheModal: () => void;
@@ -47,6 +93,19 @@ interface GlobalAgencyViewProps {
     niches: NicheCampaign[];
     leads: Lead[];
     importedSheets: ImportedSheet[];
+    clients?: Client[];
+    proposals?: ProposalContract[];
+    projects?: Project[];
+    tasks?: Task[];
+    agendaEvents?: AgendaEvent[];
+    socialChannels?: SocialChannel[];
+    socialPosts?: SocialPost[];
+    financialEntries?: FinancialEntry[];
+    financialTransactions?: FinancialTransaction[];
+    financialCategories?: FinancialCategory[];
+    financialRecurrences?: FinancialRecurrence[];
+    financialSettings?: FinancialSettings;
+    financialAuditLogs?: FinancialAuditLog[];
     userName?: string;
   }) => Promise<void>;
   onResetToCleanBaseline?: () => Promise<void>;
@@ -66,6 +125,19 @@ export const GlobalAgencyView: React.FC<GlobalAgencyViewProps> = ({
   niches,
   leads,
   importedSheets,
+  clients = [],
+  proposals = [],
+  projects = [],
+  tasks = [],
+  agendaEvents = [],
+  socialChannels = [],
+  socialPosts = [],
+  financialEntries = [],
+  financialTransactions = [],
+  financialCategories = [],
+  financialRecurrences = [],
+  financialSettings,
+  financialAuditLogs = [],
   userName,
   onSelectNiche,
   onOpenNewNicheModal,
@@ -147,7 +219,6 @@ export const GlobalAgencyView: React.FC<GlobalAgencyViewProps> = ({
   );
   const championNiche = sortedByMrr[0];
 
-  // Complete v3.0 Backup Export (reads live cloud snapshot first, falls back clearly if needed)
   const handleExportJson = async () => {
     setIsExporting(true);
     setErrorMessage(null);
@@ -157,14 +228,63 @@ export const GlobalAgencyView: React.FC<GlobalAgencyViewProps> = ({
       let exportNiches = niches;
       let exportLeads = leads;
       let exportSheets = importedSheets;
+      let exportClients = clients;
+      let exportProposals = proposals;
+      let exportProjects = projects;
+      let exportTasks = tasks;
+      let exportAgendaEvents = agendaEvents;
+      let exportSocialChannels = socialChannels;
+      let exportSocialPosts = socialPosts;
+      let exportFinancialEntries = financialEntries;
+      let exportFinancialTransactions = financialTransactions;
+      let exportFinancialCategories = financialCategories;
+      let exportFinancialRecurrences = financialRecurrences;
+      let exportFinancialSettings = financialSettings;
+      let exportFinancialAuditLogs = financialAuditLogs;
       let fromCloud = false;
 
       try {
         const snapshot = await fetchFullWorkspaceSnapshot();
-        if (snapshot.niches.length > 0 || snapshot.leads.length > 0 || snapshot.importedSheets.length > 0) {
+        if (
+          snapshot.niches.length > 0 ||
+          snapshot.leads.length > 0 ||
+          snapshot.importedSheets.length > 0 ||
+          snapshot.clients.length > 0 ||
+          snapshot.proposals.length > 0 ||
+          snapshot.projects.length > 0 ||
+          snapshot.tasks.length > 0 ||
+          snapshot.agendaEvents.length > 0 ||
+          snapshot.socialChannels.length > 0 ||
+          snapshot.socialPosts.length > 0 ||
+          snapshot.financialEntries.length > 0 ||
+          snapshot.financialTransactions.length > 0 ||
+          snapshot.financialCategories.length > 0 ||
+          snapshot.financialRecurrences.length > 0 ||
+          Boolean(snapshot.financialSettings) ||
+          snapshot.financialAuditLogs.length > 0
+        ) {
           exportNiches = snapshot.niches;
           exportLeads = snapshot.leads;
           exportSheets = snapshot.importedSheets;
+          if (snapshot.clients.length > 0) exportClients = snapshot.clients;
+          if (snapshot.proposals.length > 0) exportProposals = snapshot.proposals;
+          if (snapshot.projects.length > 0) exportProjects = snapshot.projects;
+          if (snapshot.tasks.length > 0) exportTasks = snapshot.tasks;
+          if (snapshot.agendaEvents.length > 0) exportAgendaEvents = snapshot.agendaEvents;
+          if (snapshot.socialChannels.length > 0) exportSocialChannels = snapshot.socialChannels;
+          if (snapshot.socialPosts.length > 0) exportSocialPosts = snapshot.socialPosts;
+          if (snapshot.financialEntries.length > 0)
+            exportFinancialEntries = snapshot.financialEntries;
+          if (snapshot.financialTransactions.length > 0)
+            exportFinancialTransactions = snapshot.financialTransactions;
+          if (snapshot.financialCategories.length > 0)
+            exportFinancialCategories = snapshot.financialCategories;
+          if (snapshot.financialRecurrences.length > 0)
+            exportFinancialRecurrences = snapshot.financialRecurrences;
+          if (snapshot.financialSettings)
+            exportFinancialSettings = snapshot.financialSettings;
+          if (snapshot.financialAuditLogs.length > 0)
+            exportFinancialAuditLogs = snapshot.financialAuditLogs;
           fromCloud = true;
         }
       } catch {
@@ -175,6 +295,19 @@ export const GlobalAgencyView: React.FC<GlobalAgencyViewProps> = ({
         niches: exportNiches,
         leads: exportLeads,
         importedSheets: exportSheets,
+        clients: exportClients,
+        proposals: exportProposals,
+        projects: exportProjects,
+        tasks: exportTasks,
+        agendaEvents: exportAgendaEvents,
+        socialChannels: exportSocialChannels,
+        socialPosts: exportSocialPosts,
+        financialEntries: exportFinancialEntries,
+        financialTransactions: exportFinancialTransactions,
+        financialCategories: exportFinancialCategories,
+        financialRecurrences: exportFinancialRecurrences,
+        financialSettings: exportFinancialSettings,
+        financialAuditLogs: exportFinancialAuditLogs,
         userName,
       });
 
@@ -183,7 +316,7 @@ export const GlobalAgencyView: React.FC<GlobalAgencyViewProps> = ({
       recordLastBackupTimestamp();
 
       setFeedbackMessage(
-        `Backup completo v3.0 exportado (${exportNiches.length} nichos, ${exportLeads.length} leads, ${exportSheets.length} planilhas${
+        `Backup completo v3.0 exportado (${exportNiches.length} nichos, ${exportLeads.length} leads, ${exportClients.length} clientes, ${exportProposals.length} propostas, ${exportProjects.length} projetos, ${exportTasks.length} tarefas, ${exportFinancialEntries.length} lançamentos financeiros${
           fromCloud ? ' — validado direto do Firestore' : ' — a partir do estado local em memória'
         }).`
       );
@@ -199,7 +332,6 @@ export const GlobalAgencyView: React.FC<GlobalAgencyViewProps> = ({
     }
   };
 
-  // Step 1-4 of Safe Restore: Parse, validate integrity, analyze duplicates & show explicit summary modal
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -237,7 +369,6 @@ export const GlobalAgencyView: React.FC<GlobalAgencyViewProps> = ({
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  // Execute confirmed restore (optional pre-restore safety snapshot + awaited Firestore writes)
   const handleConfirmRestore = async () => {
     if (!pendingRestore) return;
     setIsRestoring(true);
@@ -249,6 +380,19 @@ export const GlobalAgencyView: React.FC<GlobalAgencyViewProps> = ({
           niches,
           leads,
           importedSheets,
+          clients,
+          proposals,
+          projects,
+          tasks,
+          agendaEvents,
+          socialChannels,
+          socialPosts,
+          financialEntries,
+          financialTransactions,
+          financialCategories,
+          financialRecurrences,
+          financialSettings,
+          financialAuditLogs,
           userName,
         });
         const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
@@ -266,12 +410,25 @@ export const GlobalAgencyView: React.FC<GlobalAgencyViewProps> = ({
         niches: prepared.nichesToWrite,
         leads: prepared.leadsToWrite,
         importedSheets: prepared.sheetsToWrite,
+        clients: prepared.clientsToWrite,
+        proposals: prepared.proposalsToWrite,
+        projects: prepared.projectsToWrite,
+        tasks: prepared.tasksToWrite,
+        agendaEvents: prepared.agendaEventsToWrite,
+        socialChannels: prepared.socialChannelsToWrite,
+        socialPosts: prepared.socialPostsToWrite,
+        financialEntries: prepared.financialEntriesToWrite,
+        financialTransactions: prepared.financialTransactionsToWrite,
+        financialCategories: prepared.financialCategoriesToWrite,
+        financialRecurrences: prepared.financialRecurrencesToWrite,
+        financialSettings: prepared.financialSettingsToWrite,
+        financialAuditLogs: prepared.financialAuditLogsToWrite,
         userName: pendingRestore.backup.userName,
       });
 
       setPendingRestore(null);
       setFeedbackMessage(
-        `Backup restaurado e sincronizado com o Firestore: ${prepared.nichesToWrite.length} nichos, ${prepared.leadsToWrite.length} leads, ${prepared.sheetsToWrite.length} planilhas` +
+        `Backup restaurado e sincronizado: ${prepared.nichesToWrite.length} nichos, ${prepared.leadsToWrite.length} leads, ${prepared.clientsToWrite.length} clientes, ${prepared.proposalsToWrite.length} propostas, ${prepared.projectsToWrite.length} projetos, ${prepared.tasksToWrite.length} tarefas, ${prepared.financialEntriesToWrite.length} lançamentos financeiros` +
           (prepared.skippedDuplicates > 0
             ? ` (${prepared.skippedDuplicates} duplicados ignorados por telefone).`
             : '.')
@@ -288,10 +445,11 @@ export const GlobalAgencyView: React.FC<GlobalAgencyViewProps> = ({
     }
   };
 
-  // Open explicit niche deletion dialog
   const handleOpenDeleteNicheModal = (niche: NicheCampaign, linkedLeadsCount: number) => {
     const otherNiches = niches.filter((n) => n.id !== niche.id);
-    setDeleteMode(linkedLeadsCount > 0 && otherNiches.length > 0 ? 'move_leads' : 'delete_leads');
+    setDeleteMode(
+      linkedLeadsCount > 0 && otherNiches.length > 0 ? 'move_leads' : 'delete_leads'
+    );
     setTargetNicheId(otherNiches[0]?.id || '');
     setNicheToDelete({ niche, linkedLeadsCount });
   };
@@ -350,235 +508,236 @@ export const GlobalAgencyView: React.FC<GlobalAgencyViewProps> = ({
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-8">
       {/* Header */}
-      <div className="border-b border-slate-200/80 pb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="border-b border-[var(--kz-border-subtle)] pb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-            <span>⚙️ Visão Global da Agência & Backup</span>
-          </h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Painel consolidado comparando performance entre todos os nichos, exportação/restauração completa e governança de dados.
+          <h2 className="kz-page-title">Relatórios Comparativos & Governança da Agência</h2>
+          <p className="kz-subtitle mt-1">
+            Comparativo consolidado de performance entre nichos, exportação/restauração v3.0 e
+            governança da base no Cloud Firestore.
           </p>
         </div>
 
-        <button
-          type="button"
+        <Button
+          variant="primary"
+          size="md"
+          leftIcon={<Plus className="w-3.5 h-3.5" />}
           onClick={onOpenNewNicheModal}
-          className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors cursor-pointer self-start sm:self-auto shadow-xs"
+          className="self-start sm:self-auto"
         >
-          <Plus className="w-3.5 h-3.5" />
-          <span>+ Criar Novo Nicho</span>
-        </button>
+          Criar Novo Nicho
+        </Button>
       </div>
 
       {/* Feedback banners */}
       {feedbackMessage && (
-        <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-900 flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-          <span>{feedbackMessage}</span>
-        </div>
+        <Alert variant="success" onDismiss={() => setFeedbackMessage(null)}>
+          {feedbackMessage}
+        </Alert>
       )}
 
       {errorMessage && (
-        <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-900 flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-          <span className="flex-1">{errorMessage}</span>
-          <button
-            type="button"
-            onClick={() => setErrorMessage(null)}
-            className="text-rose-500 hover:text-rose-800 cursor-pointer"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+        <Alert variant="danger" onDismiss={() => setErrorMessage(null)}>
+          {errorMessage}
+        </Alert>
       )}
 
       {/* Global Agency Aggregate KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-2xs">
-          <span className="text-[11px] font-medium text-slate-500 block">Total de Leads na Agência</span>
-          <div className="mt-2 text-2xl font-bold font-mono tabular-nums text-slate-900">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+        <Card padding="md">
+          <span className="text-[11px] font-medium text-[var(--kz-text-muted)] block">
+            Campanhas & Contatos Consolidados
+          </span>
+          <div className="mt-2 text-2xl kz-metric text-[var(--kz-text-primary)]">
             {totalLeads}
           </div>
-          <div className="mt-1 text-[11px] text-slate-500">
-            Distribuídos em {niches.length} nichos
+          <div className="mt-1 text-[11px] text-[var(--kz-text-muted)]">
+            Distribuídos em {niches.length} {niches.length === 1 ? 'nicho' : 'nichos'}
           </div>
-        </div>
+        </Card>
 
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-2xs">
-          <span className="text-[11px] font-medium text-slate-500 block">Clientes Fechados Ativos</span>
-          <div className="mt-2 text-2xl font-bold font-mono tabular-nums text-emerald-700">
+        <Card padding="md">
+          <span className="text-[11px] font-medium text-[var(--kz-text-muted)] block">
+            Fechamentos na Agência
+          </span>
+          <div className="mt-2 text-2xl kz-metric text-[var(--kz-success-text)]">
             {totalClosedCount}
           </div>
-          <div className="mt-1 text-[11px] text-slate-500">
+          <div className="mt-1 text-[11px] text-[var(--kz-text-muted)]">
             Taxa média: {globalConversionRate}%
           </div>
-        </div>
+        </Card>
 
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-2xs">
-          <span className="text-[11px] font-medium text-slate-500 block">Setup Total Faturado</span>
-          <div className="mt-2 text-2xl font-bold font-mono tabular-nums text-slate-900">
+        <Card padding="md">
+          <span className="text-[11px] font-medium text-[var(--kz-text-muted)] block">
+            Setup Total Faturado
+          </span>
+          <div className="mt-2 text-2xl kz-metric text-[var(--kz-text-primary)]">
             R$ {totalSetupRevenue.toLocaleString('pt-BR')}
           </div>
-          <div className="mt-1 text-[11px] text-slate-500">
+          <div className="mt-1 text-[11px] text-[var(--kz-text-muted)]">
             Criação e lançamento
           </div>
-        </div>
+        </Card>
 
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-2xs ring-1 ring-emerald-500/20 bg-emerald-50/15">
-          <span className="text-[11px] font-bold text-emerald-800 block">MRR Total Consolidado</span>
-          <div className="mt-2 text-2xl font-bold font-mono tabular-nums text-emerald-800">
+        <Card padding="md" className="border-[var(--kz-success-border)] bg-[var(--kz-success-bg)]/40">
+          <span className="text-[11px] font-bold text-[var(--kz-success-text)] block">
+            MRR Total Consolidado
+          </span>
+          <div className="mt-2 text-2xl kz-metric text-[var(--kz-success-text)]">
             R$ {totalMrrRevenue.toLocaleString('pt-BR')}/mês
           </div>
-          <div className="mt-1 text-[11px] text-emerald-700 font-mono font-medium">
+          <div className="mt-1 text-[11px] text-[var(--kz-success-text)] font-mono font-medium">
             Recorrência ativa mensal
           </div>
-        </div>
+        </Card>
       </div>
 
       {/* Comparative Matrix Table */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5 sm:p-6 shadow-2xs space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+      <Card padding="lg" className="space-y-4">
+        <CardHeader>
           <div>
-            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <span>Painel Comparativo de Performance por Nicho</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <CardTitle>Painel Comparativo de Performance por Nicho</CardTitle>
               {championNiche && (
-                <span className="text-[10px] font-semibold text-amber-900 bg-amber-100 px-2 py-0.5 rounded-full flex items-center gap-1">
-                  <Award className="w-3 h-3 text-amber-600" />
+                <Badge variant="accent" size="md">
+                  <Award className="w-3 h-3" />
                   Nicho Mais Rentável: {championNiche.niche.name}
-                </span>
+                </Badge>
               )}
-            </h3>
-            <p className="text-xs text-slate-500">
+            </div>
+            <CardDescription>
               Compare qual segmento gera o melhor retorno sobre o tempo investido em prospecção.
-            </p>
+            </CardDescription>
           </div>
-        </div>
+        </CardHeader>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="border-b border-slate-200 text-slate-500 font-medium">
-                <th className="py-2.5 px-3">Campanha / Nicho</th>
-                <th className="py-2.5 px-3">Cidade Base</th>
-                <th className="py-2.5 px-3 text-right">Leads</th>
-                <th className="py-2.5 px-3 text-right">Contatados</th>
-                <th className="py-2.5 px-3 text-right">Interessados</th>
-                <th className="py-2.5 px-3 text-right">Fechamentos</th>
-                <th className="py-2.5 px-3 text-right">Taxa Conv.</th>
-                <th className="py-2.5 px-3 text-right">Setup Faturado</th>
-                <th className="py-2.5 px-3 text-right">MRR Recorrente</th>
-                <th className="py-2.5 px-3 text-center">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 font-mono tabular-nums">
+        <TableContainer>
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead>Campanha / Nicho</TableHead>
+                <TableHead>Cidade Base</TableHead>
+                <TableHead className="text-right">Contatos</TableHead>
+                <TableHead className="text-right">Contatados</TableHead>
+                <TableHead className="text-right">Interessados</TableHead>
+                <TableHead className="text-right">Fechamentos</TableHead>
+                <TableHead className="text-right">Taxa Conv.</TableHead>
+                <TableHead className="text-right">Setup Faturado</TableHead>
+                <TableHead className="text-right">MRR Recorrente</TableHead>
+                <TableHead className="text-center">Ações</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody className="font-mono tabular-nums">
               {nicheAnalytics.map((item) => {
                 const isChampion = championNiche && championNiche.niche.id === item.niche.id;
                 return (
-                  <tr
+                  <TableRow
                     key={item.niche.id}
-                    className={`hover:bg-slate-50 transition-colors ${
-                      isChampion ? 'bg-amber-50/20 font-medium' : ''
-                    }`}
+                    className={isChampion ? 'bg-[var(--kz-accent-soft)] font-medium' : ''}
                   >
-                    <td className="py-3 px-3 font-sans">
+                    <TableCell className="font-sans">
                       <div className="flex items-center gap-2">
                         <span className="text-base">{item.niche.emoji}</span>
                         <div>
-                          <div className="font-semibold text-slate-900 flex items-center gap-1.5">
+                          <div className="font-semibold text-[var(--kz-text-primary)] flex items-center gap-1.5">
                             <span>{item.niche.name}</span>
                             {isChampion && (
-                              <Award className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                              <Award className="w-3.5 h-3.5 text-[var(--kz-accent)] shrink-0" />
                             )}
                           </div>
-                          <div className="text-[10px] text-slate-500 font-normal">
+                          <div className="text-[10px] text-[var(--kz-text-muted)] font-normal">
                             {item.niche.segment}
                           </div>
                         </div>
                       </div>
-                    </td>
-                    <td className="py-3 px-3 font-sans text-slate-600">{item.niche.city}</td>
-                    <td className="py-3 px-3 text-right text-slate-800">{item.totalLeads}</td>
-                    <td className="py-3 px-3 text-right text-slate-600">{item.contacted}</td>
-                    <td className="py-3 px-3 text-right text-amber-700">{item.interested}</td>
-                    <td className="py-3 px-3 text-right text-emerald-700 font-bold">{item.closed}</td>
-                    <td className="py-3 px-3 text-right">
-                      <span
-                        className={`px-1.5 py-0.5 rounded text-xs ${
-                          item.conversionRate >= 15
-                            ? 'bg-emerald-100 text-emerald-800 font-bold'
-                            : 'bg-slate-100 text-slate-700'
-                        }`}
-                      >
+                    </TableCell>
+                    <TableCell className="font-sans text-[var(--kz-text-secondary)]">
+                      {item.niche.city}
+                    </TableCell>
+                    <TableCell className="text-right text-[var(--kz-text-primary)]">
+                      {item.totalLeads}
+                    </TableCell>
+                    <TableCell className="text-right text-[var(--kz-text-secondary)]">
+                      {item.contacted}
+                    </TableCell>
+                    <TableCell className="text-right text-[var(--kz-warning-text)]">
+                      {item.interested}
+                    </TableCell>
+                    <TableCell className="text-right text-[var(--kz-success-text)] font-bold">
+                      {item.closed}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Badge variant={item.conversionRate >= 15 ? 'success' : 'neutral'}>
                         {item.conversionRate.toFixed(1)}%
-                      </span>
-                    </td>
-                    <td className="py-3 px-3 text-right text-slate-700">
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
                       R$ {item.setupRevenue.toLocaleString('pt-BR')}
-                    </td>
-                    <td className="py-3 px-3 text-right text-emerald-700 font-bold">
+                    </TableCell>
+                    <TableCell className="text-right text-[var(--kz-success-text)] font-bold">
                       R$ {item.mrrRevenue.toLocaleString('pt-BR')}/mês
-                    </td>
-                    <td className="py-3 px-3 text-center font-sans">
+                    </TableCell>
+                    <TableCell className="text-center font-sans">
                       <div className="flex items-center justify-center gap-1">
-                        <button
-                          type="button"
+                        <Button
+                          variant="ghost"
+                          size="xs"
+                          rightIcon={<ArrowUpRight className="w-3 h-3" />}
                           onClick={() => onSelectNiche(item.niche.id)}
-                          className="px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded font-medium transition-colors cursor-pointer flex items-center gap-1"
+                          className="text-[var(--kz-accent-text)]"
                         >
-                          <span>Abrir</span>
-                          <ArrowUpRight className="w-3 h-3" />
-                        </button>
+                          Abrir
+                        </Button>
                         {niches.length > 1 && (
                           <button
                             type="button"
                             onClick={() => handleOpenDeleteNicheModal(item.niche, item.totalLeads)}
-                            className="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors cursor-pointer"
+                            className="p-1 text-[var(--kz-text-subtle)] hover:text-[var(--kz-danger-solid)] rounded transition-colors cursor-pointer"
                             title="Excluir nicho"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         )}
                       </div>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 );
               })}
-            </tbody>
-          </table>
-        </div>
-      </div>
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Card>
 
       {/* Backup, Restore & Data Governance */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5 sm:p-6 shadow-2xs space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2">
-          <h3 className="text-sm font-bold text-slate-900">
-            Backup Completo (v3.0), Restauração Segura & Governança
-          </h3>
-          <span className="text-[11px] text-slate-500">
+      <Card padding="lg" className="space-y-4">
+        <CardHeader>
+          <CardTitle>Backup Completo (v3.0), Restauração Segura & Governança</CardTitle>
+          <span className="text-[11px] text-[var(--kz-text-muted)]">
             Último backup neste navegador:{' '}
-            <strong>
+            <strong className="text-[var(--kz-text-primary)]">
               {lastBackupAt ? new Date(lastBackupAt).toLocaleString('pt-BR') : 'Não registrado'}
             </strong>
           </span>
-        </div>
+        </CardHeader>
 
-        <p className="text-xs text-slate-600 leading-relaxed">
-          O backup v3.0 exporta integralmente <strong>leads</strong> (com notas, reuniões e retornos), <strong>nichos e scripts</strong>, e o <strong>histórico de planilhas importadas ({importedSheets.length})</strong> com validação de integridade, diretamente do Cloud Firestore.
+        <p className="text-xs text-[var(--kz-text-secondary)] leading-relaxed">
+          O backup v3.0 exporta integralmente <strong>leads</strong> (com notas, reuniões e
+          retornos), <strong>nichos e scripts</strong>, e o{' '}
+          <strong>histórico de planilhas importadas ({importedSheets.length})</strong> com
+          validação de integridade, diretamente do Cloud Firestore.
         </p>
 
-        <div className="flex flex-wrap items-center gap-3 pt-2">
-          {/* Export JSON */}
-          <button
-            type="button"
-            disabled={isExporting}
+        <div className="flex flex-wrap items-center gap-3 pt-1">
+          <Button
+            variant="primary"
+            size="md"
+            loading={isExporting}
+            leftIcon={<Download className="w-4 h-4" />}
             onClick={handleExportJson}
-            className="flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer disabled:opacity-60"
           >
-            <Download className="w-4 h-4" />
-            <span>{isExporting ? 'Coletando do Firestore...' : 'Exportar Backup Completo (JSON v3.0)'}</span>
-          </button>
+            {isExporting ? 'Coletando do Firestore...' : 'Exportar Backup Completo (JSON v3.0)'}
+          </Button>
 
-          {/* Import JSON */}
           <input
             type="file"
             ref={fileInputRef}
@@ -586,99 +745,152 @@ export const GlobalAgencyView: React.FC<GlobalAgencyViewProps> = ({
             accept=".json"
             className="hidden"
           />
-          <button
-            type="button"
+          <Button
+            variant="outline"
+            size="md"
+            leftIcon={<UploadCloud className="w-4 h-4" />}
             onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-2 px-4 py-2 text-xs font-semibold text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
           >
-            <UploadCloud className="w-4 h-4 text-slate-600" />
-            <span>Restaurar Backup (com Pré-visualização)</span>
-          </button>
+            Restaurar Backup (com Pré-visualização)
+          </Button>
 
-          {/* Explicit Baseline Reset */}
           {onResetToCleanBaseline && (
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="md"
+              leftIcon={<RotateCcw className="w-3.5 h-3.5" />}
               onClick={() => {
                 setResetConfirmText('');
                 setIsResetModalOpen(true);
               }}
-              className="flex items-center gap-2 px-4 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer ml-auto"
+              className="text-[var(--kz-danger-text)] hover:bg-[var(--kz-danger-bg)] sm:ml-auto"
             >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>Zerar Base para Padrão Inicial</span>
-            </button>
+              Zerar Base para Padrão Inicial
+            </Button>
           )}
         </div>
-      </div>
+      </Card>
 
-      {/* Modal: Safe Restore Preview & Explicit Confirmation */}
-      {pendingRestore && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 border border-slate-200 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-700">
-                  <ShieldCheck className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900">
-                    Pré-visualização da Restauração de Backup
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    Versão {pendingRestore.analysis.version} • Exportado em{' '}
-                    {new Date(pendingRestore.analysis.exportedAt).toLocaleString('pt-BR')}
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                disabled={isRestoring}
-                onClick={() => setPendingRestore(null)}
-                className="text-slate-400 hover:text-slate-700 cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
+      {/* Modal: Safe Restore Preview */}
+      <Modal
+        isOpen={Boolean(pendingRestore)}
+        onClose={() => setPendingRestore(null)}
+        size="md"
+        closeDisabled={isRestoring}
+        title="Pré-visualização da Restauração de Backup"
+        subtitle={
+          pendingRestore
+            ? `Versão ${pendingRestore.analysis.version} • Exportado em ${new Date(
+                pendingRestore.analysis.exportedAt
+              ).toLocaleString('pt-BR')}`
+            : undefined
+        }
+        icon={
+          <div className="w-9 h-9 rounded-full bg-[var(--kz-accent-soft)] flex items-center justify-center text-[var(--kz-accent-text)]">
+            <ShieldCheck className="w-5 h-5" />
+          </div>
+        }
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setPendingRestore(null)} disabled={isRestoring}>
+              Cancelar
+            </Button>
+            <Button variant="primary" loading={isRestoring} onClick={handleConfirmRestore}>
+              {isRestoring ? 'Sincronizando...' : 'Confirmar e Restaurar'}
+            </Button>
+          </>
+        }
+      >
+        {pendingRestore && (
+          <div className="space-y-4">
             {pendingRestore.warnings.length > 0 && (
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900 space-y-1">
+              <Alert variant="warning">
                 {pendingRestore.warnings.map((w, i) => (
                   <p key={i}>• {w}</p>
                 ))}
-              </div>
+              </Alert>
             )}
 
-            <div className="bg-slate-50 border border-slate-200 rounded-lg p-3.5 text-xs space-y-1.5 text-slate-700">
-              <div className="font-semibold text-slate-900 mb-1">Resumo do arquivo validado:</div>
+            <div className="bg-[var(--kz-bg-subtle)] border border-[var(--kz-border-subtle)] rounded-xl p-3.5 text-xs space-y-1.5 text-[var(--kz-text-secondary)]">
+              <div className="font-semibold text-[var(--kz-text-primary)] mb-1">
+                Resumo do arquivo validado:
+              </div>
               <div>
-                • <strong>Nichos/Campanhas:</strong> {pendingRestore.analysis.totalNichesInFile} no arquivo (
-                {pendingRestore.analysis.nichesNew} novos, {pendingRestore.analysis.nichesExisting} já existentes por ID)
+                • <strong>Nichos/Campanhas:</strong> {pendingRestore.analysis.totalNichesInFile} no
+                arquivo ({pendingRestore.analysis.nichesNew} novos,{' '}
+                {pendingRestore.analysis.nichesExisting} já existentes por ID)
               </div>
               <div>
                 • <strong>Leads:</strong> {pendingRestore.analysis.totalLeadsInFile} no arquivo (
-                {pendingRestore.analysis.leadsNew} novos, {pendingRestore.analysis.leadsExistingById} existentes por ID)
+                {pendingRestore.analysis.leadsNew} novos,{' '}
+                {pendingRestore.analysis.leadsExistingById} existentes por ID)
               </div>
               <div>
-                • <strong>Planilhas importadas:</strong> {pendingRestore.analysis.totalSheetsInFile} no arquivo (
-                {pendingRestore.analysis.sheetsNew} novas, {pendingRestore.analysis.sheetsExisting} existentes)
+                • <strong>Planilhas importadas:</strong>{' '}
+                {pendingRestore.analysis.totalSheetsInFile} no arquivo (
+                {pendingRestore.analysis.sheetsNew} novas, {pendingRestore.analysis.sheetsExisting}{' '}
+                existentes)
               </div>
+              {(pendingRestore.backup.clients?.length || 0) > 0 && (
+                <div>
+                  • <strong>Clientes:</strong> {pendingRestore.backup.clients?.length} no arquivo
+                </div>
+              )}
+              {(pendingRestore.backup.proposals?.length || 0) > 0 && (
+                <div>
+                  • <strong>Propostas & Contratos:</strong>{' '}
+                  {pendingRestore.backup.proposals?.length} no arquivo
+                </div>
+              )}
+              {(pendingRestore.backup.projects?.length || 0) > 0 && (
+                <div>
+                  • <strong>Projetos:</strong> {pendingRestore.backup.projects?.length} no arquivo
+                </div>
+              )}
+              {(pendingRestore.backup.tasks?.length || 0) > 0 && (
+                <div>
+                  • <strong>Minhas Tarefas:</strong> {pendingRestore.backup.tasks?.length} no arquivo
+                </div>
+              )}
+              {(pendingRestore.backup.agendaEvents?.length || 0) > 0 && (
+                <div>
+                  • <strong>Agenda Integrada:</strong>{' '}
+                  {pendingRestore.backup.agendaEvents?.length} compromissos no arquivo
+                </div>
+              )}
+              {((pendingRestore.backup.socialChannels?.length || 0) > 0 ||
+                (pendingRestore.backup.socialPosts?.length || 0) > 0) && (
+                <div>
+                  • <strong>Redes Sociais:</strong>{' '}
+                  {pendingRestore.backup.socialChannels?.length || 0} canais e{' '}
+                  {pendingRestore.backup.socialPosts?.length || 0} publicações no arquivo
+                </div>
+              )}
+              {((pendingRestore.backup.financialEntries?.length || 0) > 0 ||
+                (pendingRestore.backup.financialTransactions?.length || 0) > 0 ||
+                (pendingRestore.backup.financialRecurrences?.length || 0) > 0) && (
+                <div>
+                  • <strong>Financeiro:</strong>{' '}
+                  {pendingRestore.backup.financialEntries?.length || 0} lançamentos,{' '}
+                  {pendingRestore.backup.financialTransactions?.length || 0} movimentações e{' '}
+                  {pendingRestore.backup.financialRecurrences?.length || 0} recorrências
+                </div>
+              )}
               {pendingRestore.analysis.leadsPotentialPhoneDuplicates > 0 && (
-                <div className="text-amber-800 font-medium pt-1">
-                  ⚠ {pendingRestore.analysis.leadsPotentialPhoneDuplicates} novos leads possuem telefone já existente no mesmo nicho.
+                <div className="text-[var(--kz-warning-text)] font-medium pt-1">
+                  ⚠ {pendingRestore.analysis.leadsPotentialPhoneDuplicates} novos leads possuem
+                  telefone já existente no mesmo nicho.
                 </div>
               )}
               {pendingRestore.analysis.orphanLeadsInFile > 0 && (
-                <div className="text-amber-800 font-medium">
+                <div className="text-[var(--kz-warning-text)] font-medium">
                   ⚠ {pendingRestore.analysis.orphanLeadsInFile} leads referenciam um nicho ausente.
                 </div>
               )}
             </div>
 
             <div className="space-y-2 text-xs">
-              <label className="block font-semibold text-slate-700">
-                Tratamento de possíveis duplicidades:
-              </label>
+              <label className="block kz-label">Tratamento de possíveis duplicidades:</label>
               <div className="space-y-1.5">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
@@ -701,200 +913,135 @@ export const GlobalAgencyView: React.FC<GlobalAgencyViewProps> = ({
               </div>
             </div>
 
-            <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer bg-emerald-50/70 p-2.5 rounded-lg border border-emerald-200">
+            <label className="flex items-center gap-2 text-xs text-[var(--kz-text-secondary)] cursor-pointer bg-[var(--kz-success-bg)] p-2.5 rounded-xl border border-[var(--kz-success-border)]">
               <input
                 type="checkbox"
                 checked={createSafetySnapshotBeforeRestore}
                 onChange={(e) => setCreateSafetySnapshotBeforeRestore(e.target.checked)}
-                className="rounded text-emerald-600"
+                className="rounded text-[var(--kz-success-solid)]"
               />
               <span>
                 Baixar cópia de segurança do estado atual automaticamente antes de restaurar
               </span>
             </label>
-
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
-              <button
-                type="button"
-                disabled={isRestoring}
-                onClick={() => setPendingRestore(null)}
-                className="px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded-lg cursor-pointer"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                disabled={isRestoring}
-                onClick={handleConfirmRestore}
-                className="px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg cursor-pointer disabled:opacity-60"
-              >
-                {isRestoring ? 'Sincronizando com Firestore...' : 'Confirmar e Restaurar'}
-              </button>
-            </div>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
 
-      {/* Modal: Explicit Niche Deletion with Orphan Lead Handling */}
-      {nicheToDelete && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 border border-slate-200 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-rose-100 flex items-center justify-center shrink-0 text-rose-600">
-                <AlertTriangle className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-slate-900">
-                  Excluir Nicho "{nicheToDelete.niche.name}"
-                </h3>
-                <p className="text-xs text-slate-500">
-                  {nicheToDelete.linkedLeadsCount} leads vinculados neste nicho
-                </p>
-              </div>
-            </div>
+      {/* Modal: Explicit Niche Deletion */}
+      <ConfirmDialog
+        isOpen={Boolean(nicheToDelete)}
+        onClose={() => setNicheToDelete(null)}
+        onConfirm={handleConfirmDeleteNiche}
+        title={nicheToDelete ? `Excluir Nicho "${nicheToDelete.niche.name}"` : 'Excluir Nicho'}
+        description={
+          nicheToDelete ? `${nicheToDelete.linkedLeadsCount} leads vinculados neste nicho.` : ''
+        }
+        confirmLabel={isDeletingNiche ? 'Aplicando...' : 'Confirmar Exclusão'}
+        variant="danger"
+        loading={isDeletingNiche}
+        confirmDisabled={
+          Boolean(
+            nicheToDelete &&
+              nicheToDelete.linkedLeadsCount > 0 &&
+              deleteMode === 'move_leads' &&
+              !targetNicheId
+          )
+        }
+      >
+        {nicheToDelete && nicheToDelete.linkedLeadsCount > 0 ? (
+          <div className="space-y-3">
+            <p>
+              Para não deixar leads órfãos no Firestore, escolha o destino dos{' '}
+              <strong>{nicheToDelete.linkedLeadsCount} leads</strong> vinculados a esta campanha:
+            </p>
 
-            {nicheToDelete.linkedLeadsCount > 0 ? (
-              <div className="space-y-3 text-xs text-slate-700">
-                <p>
-                  Para não deixar leads órfãos no Firestore, escolha o destino dos{' '}
-                  <strong>{nicheToDelete.linkedLeadsCount} leads</strong> vinculados a esta campanha:
-                </p>
-
-                <label className="flex items-start gap-2 p-2.5 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50">
-                  <input
-                    type="radio"
-                    name="nicheDeleteMode"
-                    checked={deleteMode === 'move_leads'}
-                    onChange={() => setDeleteMode('move_leads')}
-                    className="mt-0.5"
-                  />
-                  <div className="flex-1 space-y-1.5">
-                    <span className="font-semibold text-slate-900 block">
-                      Transferir leads para outro nicho (recomendado)
-                    </span>
-                    {deleteMode === 'move_leads' && (
-                      <select
-                        value={targetNicheId}
-                        onChange={(e) => setTargetNicheId(e.target.value)}
-                        className="w-full text-xs px-2.5 py-1.5 border border-slate-300 rounded-md bg-white"
-                      >
-                        {niches
-                          .filter((n) => n.id !== nicheToDelete.niche.id)
-                          .map((n) => (
-                            <option key={n.id} value={n.id}>
-                              {n.emoji} {n.name}
-                            </option>
-                          ))}
-                      </select>
-                    )}
-                  </div>
-                </label>
-
-                <label className="flex items-start gap-2 p-2.5 rounded-lg border border-rose-200 bg-rose-50/50 cursor-pointer hover:bg-rose-50">
-                  <input
-                    type="radio"
-                    name="nicheDeleteMode"
-                    checked={deleteMode === 'delete_leads'}
-                    onChange={() => setDeleteMode('delete_leads')}
-                    className="mt-0.5"
-                  />
-                  <div>
-                    <span className="font-semibold text-rose-900 block">
-                      Excluir o nicho e apagar os {nicheToDelete.linkedLeadsCount} leads do Firestore
-                    </span>
-                    <span className="text-[11px] text-rose-700">
-                      Ação irreversível: os contatos serão removidos da coleção <code className="font-mono">leads</code>.
-                    </span>
-                  </div>
-                </label>
-              </div>
-            ) : (
-              <p className="text-xs text-slate-600">
-                Este nicho não possui leads vinculados. Ele será removido da coleção <code className="font-mono">niches</code> no Firestore.
-              </p>
-            )}
-
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
-              <button
-                type="button"
-                disabled={isDeletingNiche}
-                onClick={() => setNicheToDelete(null)}
-                className="px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded-lg cursor-pointer"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                disabled={isDeletingNiche || (nicheToDelete.linkedLeadsCount > 0 && deleteMode === 'move_leads' && !targetNicheId)}
-                onClick={handleConfirmDeleteNiche}
-                className="px-4 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg cursor-pointer disabled:opacity-50"
-              >
-                {isDeletingNiche ? 'Aplicando no Firestore...' : 'Confirmar Exclusão'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal: Explicit Clean Baseline Reset */}
-      {isResetModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 border border-slate-200 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-rose-100 flex items-center justify-center shrink-0 text-rose-600">
-                <AlertTriangle className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-slate-900">
-                  Zerar Base Completa (Nuvem + Local)
-                </h3>
-                <p className="text-xs text-slate-500">
-                  Operação irreversível sem backup prévio
-                </p>
-              </div>
-            </div>
-
-            <div className="bg-rose-50/70 border border-rose-200 rounded-lg p-3.5 text-xs text-rose-900 space-y-1">
-              <p className="font-semibold">Serão excluídos do Firestore:</p>
-              <p>• {leads.length} leads (coleção <code className="font-mono">leads</code>)</p>
-              <p>• {niches.length} nichos (coleção <code className="font-mono">niches</code>)</p>
-              <p>• {importedSheets.length} planilhas (coleção <code className="font-mono">importedSheets</code>)</p>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Digite <code className="font-mono bg-slate-100 px-1 py-0.5 rounded text-rose-700">ZERAR</code> para confirmar:
-              </label>
+            <label className="flex items-start gap-2 p-2.5 rounded-xl border border-[var(--kz-border-subtle)] cursor-pointer hover:bg-[var(--kz-bg-canvas)]">
               <input
-                type="text"
-                value={resetConfirmText}
-                onChange={(e) => setResetConfirmText(e.target.value)}
-                placeholder="Digite ZERAR"
-                className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg font-mono"
+                type="radio"
+                name="nicheDeleteMode"
+                checked={deleteMode === 'move_leads'}
+                onChange={() => setDeleteMode('move_leads')}
+                className="mt-0.5"
               />
-            </div>
+              <div className="flex-1 space-y-1.5">
+                <span className="font-semibold text-[var(--kz-text-primary)] block">
+                  Transferir leads para outro nicho (recomendado)
+                </span>
+                {deleteMode === 'move_leads' && (
+                  <Select
+                    value={targetNicheId}
+                    onChange={(e) => setTargetNicheId(e.target.value)}
+                  >
+                    {niches
+                      .filter((n) => n.id !== nicheToDelete.niche.id)
+                      .map((n) => (
+                        <option key={n.id} value={n.id}>
+                          {n.emoji} {n.name}
+                        </option>
+                      ))}
+                  </Select>
+                )}
+              </div>
+            </label>
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
-              <button
-                type="button"
-                disabled={isResetting}
-                onClick={() => setIsResetModalOpen(false)}
-                className="px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded-lg cursor-pointer"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                disabled={isResetting || resetConfirmText.trim().toUpperCase() !== 'ZERAR'}
-                onClick={handleConfirmCleanReset}
-                className="px-4 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg cursor-pointer disabled:opacity-40"
-              >
-                {isResetting ? 'Zerando...' : 'Confirmar Exclusão Total'}
-              </button>
-            </div>
+            <label className="flex items-start gap-2 p-2.5 rounded-xl border border-[var(--kz-danger-border)] bg-[var(--kz-danger-bg)]/70 cursor-pointer">
+              <input
+                type="radio"
+                name="nicheDeleteMode"
+                checked={deleteMode === 'delete_leads'}
+                onChange={() => setDeleteMode('delete_leads')}
+                className="mt-0.5"
+              />
+              <div>
+                <span className="font-semibold text-[var(--kz-danger-text)] block">
+                  Excluir o nicho e apagar os {nicheToDelete.linkedLeadsCount} leads do Firestore
+                </span>
+                <span className="text-[11px] text-[var(--kz-danger-text)]">
+                  Ação irreversível: os contatos serão removidos da coleção{' '}
+                  <code className="font-mono">leads</code>.
+                </span>
+              </div>
+            </label>
           </div>
+        ) : (
+          <p>
+            Este nicho não possui leads vinculados. Ele será removido da coleção{' '}
+            <code className="font-mono">niches</code> no Firestore.
+          </p>
+        )}
+      </ConfirmDialog>
+
+      {/* Modal: Clean Baseline Reset */}
+      <ConfirmDialog
+        isOpen={isResetModalOpen}
+        onClose={() => setIsResetModalOpen(false)}
+        onConfirm={handleConfirmCleanReset}
+        title="Zerar Base Completa (Nuvem + Local)"
+        description="Operação irreversível sem backup prévio."
+        confirmLabel={isResetting ? 'Zerando...' : 'Confirmar Exclusão Total'}
+        variant="danger"
+        loading={isResetting}
+        confirmDisabled={resetConfirmText.trim().toUpperCase() !== 'ZERAR'}
+      >
+        <div className="bg-[var(--kz-danger-bg)] border border-[var(--kz-danger-border)] rounded-xl p-3 text-xs text-[var(--kz-danger-text)] space-y-1">
+          <p className="font-semibold">Serão excluídos do Firestore:</p>
+          <p>• {leads.length} leads (coleção <code className="font-mono">leads</code>)</p>
+          <p>• {niches.length} nichos (coleção <code className="font-mono">niches</code>)</p>
+          <p>
+            • {importedSheets.length} planilhas (coleção{' '}
+            <code className="font-mono">importedSheets</code>)
+          </p>
         </div>
-      )}
+
+        <Input
+          label="Digite ZERAR para confirmar"
+          value={resetConfirmText}
+          onChange={(e) => setResetConfirmText(e.target.value)}
+          placeholder="Digite ZERAR"
+          className="font-mono"
+        />
+      </ConfirmDialog>
     </div>
   );
 };

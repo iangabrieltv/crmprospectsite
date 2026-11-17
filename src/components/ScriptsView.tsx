@@ -6,6 +6,7 @@ import {
   formatDisplayPhone
 } from '../utils/phone';
 import { getActiveFirebaseIdToken } from '../services/authService';
+import { ConfirmDialog } from './ui';
 import {
   FileText,
   Copy,
@@ -184,6 +185,12 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
   const [isImprovingWithAi, setIsImprovingWithAi] = useState(false);
   const [aiSuccessFeedback, setAiSuccessFeedback] = useState<string | null>(null);
   const [aiErrorFeedback, setAiErrorFeedback] = useState<string | null>(null);
+  const [pendingConfirm, setPendingConfirm] = useState<{
+    title: string;
+    description: string;
+    confirmLabel: string;
+    onConfirm: () => void;
+  } | null>(null);
 
   const currentLead = leads.find((l) => l.id === selectedLeadId);
 
@@ -348,14 +355,15 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const handleSendViaWhatsApp = (stepMessage?: string) => {
+  const getWhatsAppHref = (stepMessage?: string) => {
     const msgToSend = stepMessage ? interpolateScript(stepMessage, vars) : previewMessage;
+    return buildWhatsAppLink(targetPhone, msgToSend);
+  };
 
+  const handleTrackWhatsAppSend = () => {
     if (currentLead) {
       onFastWhatsAppContacted(currentLead);
     }
-    const link = buildWhatsAppLink(targetPhone, msgToSend);
-    window.open(link, '_blank', 'noopener,noreferrer');
   };
 
   // ==========================================
@@ -447,8 +455,7 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
     handleStartEditStep(stageId, newStep);
   };
 
-  const handleDeleteStep = (stageId: string, stepId: string) => {
-    if (!window.confirm('Tem certeza que deseja excluir esta mensagem do roteiro?')) return;
+  const executeDeleteStep = (stageId: string, stepId: string) => {
     const currentStages = activeScript.stages || [];
     const updatedStages = currentStages.map((st) => {
       if (st.id !== stageId) return st;
@@ -472,6 +479,15 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
       setEditingStepId(null);
       setEditingStageId(null);
     }
+  };
+
+  const handleDeleteStep = (stageId: string, stepId: string) => {
+    setPendingConfirm({
+      title: 'Excluir Mensagem do Roteiro',
+      description: 'Tem certeza que deseja excluir esta mensagem do roteiro?',
+      confirmLabel: 'Excluir Mensagem',
+      onConfirm: () => executeDeleteStep(stageId, stepId),
+    });
   };
 
   // ==========================================
@@ -540,8 +556,7 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
     handleStartEditObjection(newObj);
   };
 
-  const handleDeleteObjection = (objId: string) => {
-    if (!window.confirm('Excluir esta resposta de objeção do roteiro?')) return;
+  const executeDeleteObjection = (objId: string) => {
     const currentObjs = activeScript.objections || [];
     const updatedScript: ScriptDefinition = {
       ...activeScript,
@@ -556,6 +571,15 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
     if (editingObjectionId === objId) {
       setEditingObjectionId(null);
     }
+  };
+
+  const handleDeleteObjection = (objId: string) => {
+    setPendingConfirm({
+      title: 'Excluir Objeção do Roteiro',
+      description: 'Deseja excluir esta resposta de objeção do roteiro?',
+      confirmLabel: 'Excluir Objeção',
+      onConfirm: () => executeDeleteObjection(objId),
+    });
   };
 
   // ==========================================
@@ -616,15 +640,7 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
   };
 
   // Reset to original factory template
-  const handleResetToDefault = () => {
-    if (
-      !window.confirm(
-        `Deseja restaurar o roteiro "${activeScript.title}" para a versão original de fábrica? Suas edições personalizadas neste script serão substituídas pelas padrões.`
-      )
-    ) {
-      return;
-    }
-
+  const executeResetToDefault = () => {
     const defaultRef =
       selectedScriptId === 'script1'
         ? SCRIPT_1_MOCKUP
@@ -643,6 +659,15 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
 
     setEditingStepId(null);
     setEditingObjectionId(null);
+  };
+
+  const handleResetToDefault = () => {
+    setPendingConfirm({
+      title: 'Restaurar Roteiro Original',
+      description: `Deseja restaurar o roteiro "${activeScript.title}" para a versão original de fábrica? Suas edições personalizadas neste script serão substituídas pelas padrões.`,
+      confirmLabel: 'Restaurar Padrão',
+      onConfirm: executeResetToDefault,
+    });
   };
 
   // Helper chips to insert variable tags
@@ -665,12 +690,10 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
       {/* Top Header */}
-      <div className="border-b border-slate-200/80 pb-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="border-b border-[var(--kz-border-subtle)] pb-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-            <span>💬 Roteiros & Scripts de Abordagem</span>
-          </h1>
-          <p className="text-xs text-slate-500 mt-1">
+          <h2 className="kz-page-title">Roteiros & Scripts de Abordagem</h2>
+          <p className="kz-subtitle mt-1">
             Scripts customizáveis e validados. Você pode <strong>editar os blocos</strong> diretamente, adicionar mensagens e otimizar com IA.
           </p>
         </div>
@@ -680,7 +703,7 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
           <button
             type="button"
             onClick={handleResetToDefault}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[var(--kz-text-secondary)] hover:text-[var(--kz-text-primary)] bg-[var(--kz-bg-subtle)] hover:bg-[var(--kz-bg-hover)] border border-[var(--kz-border-default)] rounded-lg transition-colors cursor-pointer"
             title="Restaurar roteiro original de fábrica"
           >
             <RotateCcw className="w-3.5 h-3.5" />
@@ -689,43 +712,43 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
 
           {/* Searchable Lead Selector with Real-time Person Name Search */}
           <div className="relative" ref={leadDropdownRef}>
-            <div className="flex items-center gap-1.5 bg-white p-1 rounded-lg border border-slate-200 shadow-2xs">
-              <span className="text-xs font-semibold text-slate-700 pl-2 shrink-0">
+            <div className="flex items-center gap-1.5 bg-[var(--kz-bg-surface)] p-1 rounded-lg border border-[var(--kz-border-default)] shadow-[var(--kz-shadow-xs)]">
+              <span className="text-xs font-semibold text-[var(--kz-text-secondary)] pl-2 shrink-0">
                 Simular com Lead:
               </span>
 
               <button
                 type="button"
                 onClick={() => setIsLeadDropdownOpen((prev) => !prev)}
-                className="flex items-center gap-2 px-2.5 py-1 text-xs font-medium text-slate-900 bg-slate-50 hover:bg-slate-100 rounded-md border border-slate-200 transition-colors cursor-pointer max-w-[240px]"
+                className="flex items-center gap-2 px-2.5 py-1 text-xs font-medium text-[var(--kz-text-primary)] bg-[var(--kz-bg-subtle)] hover:bg-[var(--kz-bg-hover)] rounded-md border border-[var(--kz-border-subtle)] transition-colors cursor-pointer max-w-[240px]"
                 title="Clique para pesquisar pelo nome da pessoa ou clínica"
               >
                 {currentLead ? (
                   <span className="truncate flex items-center gap-1.5 text-left">
-                    <User className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                    <span className="font-bold text-slate-900 truncate">
+                    <User className="w-3.5 h-3.5 text-[var(--kz-accent)] shrink-0" />
+                    <span className="font-bold text-[var(--kz-text-primary)] truncate">
                       {currentLead.contactName || currentLead.companyName}
                     </span>
                     {currentLead.contactName && (
-                      <span className="text-slate-500 font-normal truncate hidden sm:inline">
+                      <span className="text-[var(--kz-text-muted)] font-normal truncate hidden sm:inline">
                         ({currentLead.companyName})
                       </span>
                     )}
                   </span>
                 ) : (
-                  <span className="text-blue-700 font-medium flex items-center gap-1.5">
-                    <Zap className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                  <span className="text-[var(--kz-accent-text)] font-medium flex items-center gap-1.5">
+                    <Zap className="w-3.5 h-3.5 text-[var(--kz-accent)] shrink-0" />
                     <span>-- Simulação Livre --</span>
                   </span>
                 )}
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0 ml-auto" />
+                <ChevronDown className="w-3.5 h-3.5 text-[var(--kz-text-subtle)] shrink-0 ml-auto" />
               </button>
 
               {currentLead && (
                 <button
                   type="button"
                   onClick={() => setSelectedLeadId('custom')}
-                  className="px-2 py-1 text-[11px] font-semibold text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded transition-colors cursor-pointer"
+                  className="px-2 py-1 text-[11px] font-semibold text-[var(--kz-text-muted)] hover:text-[var(--kz-text-primary)] hover:bg-[var(--kz-bg-hover)] rounded transition-colors cursor-pointer"
                   title="Voltar para simulação livre"
                 >
                   ✕ Livre
@@ -735,37 +758,37 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
 
             {/* Dropdown Popover with Search Bar */}
             {isLeadDropdownOpen && (
-              <div className="absolute right-0 top-full mt-1.5 w-80 sm:w-96 bg-white rounded-xl shadow-xl border border-slate-200 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+              <div className="absolute right-0 top-full mt-1.5 w-80 sm:w-96 bg-[var(--kz-bg-surface)] rounded-xl shadow-[var(--kz-shadow-lg)] border border-[var(--kz-border-default)] z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
                 {/* Search Bar at the Top */}
-                <div className="p-2.5 border-b border-slate-100 bg-slate-50/80">
+                <div className="p-2.5 border-b border-[var(--kz-border-subtle)] bg-[var(--kz-bg-subtle)]">
                   <div className="relative">
-                    <Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                    <Search className="w-4 h-4 text-[var(--kz-text-subtle)] absolute left-2.5 top-1/2 -translate-y-1/2" />
                     <input
                       type="text"
                       autoFocus
                       value={leadSearchQuery}
                       onChange={(e) => setLeadSearchQuery(e.target.value)}
                       placeholder="Pesquisar pelo nome da pessoa ou clínica..."
-                      className="w-full pl-8 pr-7 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 placeholder:text-slate-400 shadow-2xs"
+                      className="w-full pl-8 pr-7 py-1.5 text-xs bg-[var(--kz-bg-surface)] border border-[var(--kz-border-default)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--kz-accent-border)] focus:border-[var(--kz-accent)] text-[var(--kz-text-primary)] placeholder:text-[var(--kz-text-subtle)]"
                     />
                     {leadSearchQuery && (
                       <button
                         type="button"
                         onClick={() => setLeadSearchQuery('')}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-[var(--kz-text-subtle)] hover:text-[var(--kz-text-primary)] p-0.5 cursor-pointer"
                       >
                         ✕
                       </button>
                     )}
                   </div>
-                  <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono mt-1.5 px-0.5">
+                  <div className="flex items-center justify-between text-[10px] text-[var(--kz-text-subtle)] font-mono mt-1.5 px-0.5">
                     <span>Busca por nome, clínica ou telefone</span>
                     <span>{filteredSimulatorLeads.length} leads</span>
                   </div>
                 </div>
 
                 {/* Option: Simulação Livre */}
-                <div className="p-1 border-b border-slate-100 bg-blue-50/20">
+                <div className="p-1 border-b border-[var(--kz-border-subtle)] bg-[var(--kz-accent-soft)]">
                   <button
                     type="button"
                     onClick={() => {
@@ -775,23 +798,23 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
                     }}
                     className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold flex items-center justify-between cursor-pointer transition-colors ${
                       selectedLeadId === 'custom'
-                        ? 'bg-blue-600 text-white shadow-2xs'
-                        : 'text-blue-900 hover:bg-blue-100/60'
+                        ? 'bg-[var(--kz-accent)] text-[var(--kz-accent-fg)] font-bold'
+                        : 'text-[var(--kz-accent-text)] hover:bg-[var(--kz-bg-hover)]'
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      <Zap className={`w-3.5 h-3.5 ${selectedLeadId === 'custom' ? 'text-white' : 'text-amber-500'}`} />
+                      <Zap className={`w-3.5 h-3.5 ${selectedLeadId === 'custom' ? 'text-[var(--kz-accent-fg)]' : 'text-[var(--kz-accent)]'}`} />
                       <span>-- Simulação Livre (Manual) --</span>
                     </div>
-                    {selectedLeadId === 'custom' && <Check className="w-4 h-4 text-white shrink-0" />}
+                    {selectedLeadId === 'custom' && <Check className="w-4 h-4 text-[var(--kz-accent-fg)] shrink-0" />}
                   </button>
                 </div>
 
                 {/* Filtered Leads List */}
-                <div className="max-h-64 overflow-y-auto p-1 divide-y divide-slate-100">
+                <div className="max-h-64 overflow-y-auto p-1 divide-y divide-[var(--kz-border-subtle)]">
                   {filteredSimulatorLeads.length === 0 ? (
-                    <div className="p-5 text-center text-xs text-slate-500">
-                      Nenhum lead encontrado com <strong>"{leadSearchQuery}"</strong>.
+                    <div className="p-5 text-center text-xs text-[var(--kz-text-muted)]">
+                      Nenhum lead encontrado com <strong className="text-[var(--kz-text-primary)]">"{leadSearchQuery}"</strong>.
                     </div>
                   ) : (
                     filteredSimulatorLeads.map((lead) => {
@@ -807,36 +830,36 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
                           }}
                           className={`w-full text-left p-2.5 rounded-lg text-xs transition-colors cursor-pointer flex items-center justify-between gap-2 ${
                             isSelected
-                              ? 'bg-blue-50 text-blue-900 font-medium'
-                              : 'hover:bg-slate-50 text-slate-700'
+                              ? 'bg-[var(--kz-accent-soft)] text-[var(--kz-accent-text)] font-medium'
+                              : 'hover:bg-[var(--kz-bg-hover)] text-[var(--kz-text-secondary)]'
                           }`}
                         >
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-1.5 flex-wrap">
                               {lead.contactName ? (
                                 <>
-                                  <span className="font-bold text-slate-900">
+                                  <span className="font-bold text-[var(--kz-text-primary)]">
                                     {lead.contactName}
                                   </span>
-                                  <span className="text-slate-400 text-[11px]">·</span>
-                                  <span className="text-slate-600 text-[11px] truncate">
+                                  <span className="text-[var(--kz-text-subtle)] text-[11px]">·</span>
+                                  <span className="text-[var(--kz-text-muted)] text-[11px] truncate">
                                     {lead.companyName}
                                   </span>
                                 </>
                               ) : (
-                                <span className="font-bold text-slate-900 truncate">
+                                <span className="font-bold text-[var(--kz-text-primary)] truncate">
                                   {lead.companyName}
                                 </span>
                               )}
                             </div>
-                            <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-500 font-mono">
+                            <div className="flex items-center gap-2 mt-0.5 text-[11px] text-[var(--kz-text-muted)] font-mono">
                               <span>{lead.phone}</span>
                               {lead.city && <span>· {lead.city}</span>}
                             </div>
                           </div>
 
                           {isSelected && (
-                            <Check className="w-4 h-4 text-blue-600 shrink-0" />
+                            <Check className="w-4 h-4 text-[var(--kz-accent)] shrink-0" />
                           )}
                         </button>
                       );
@@ -851,19 +874,19 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
 
       {/* Active Lead Info Banner (when simulating with real lead) */}
       {currentLead && (
-        <div className="p-3 bg-emerald-50/70 border border-emerald-200/90 rounded-xl flex flex-wrap items-center justify-between gap-2 text-xs">
+        <div className="p-3 bg-[var(--kz-success-bg)] border border-[var(--kz-success-border)] rounded-xl flex flex-wrap items-center justify-between gap-2 text-xs">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
-            <span className="text-emerald-950">
+            <span className="w-2 h-2 rounded-full bg-[var(--kz-success-text)] shrink-0" />
+            <span className="text-[var(--kz-text-primary)]">
               Simulando com dados reais de: <strong>{currentLead.contactName || currentLead.companyName}</strong> {currentLead.contactName ? `(${currentLead.companyName})` : ''}
             </span>
             {currentLead.phone && (
-              <span className="text-emerald-800 font-mono text-[11px] bg-emerald-100/70 px-1.5 py-0.5 rounded">
+              <span className="text-[var(--kz-success-text)] font-mono text-[11px] bg-[var(--kz-bg-surface)] border border-[var(--kz-success-border)] px-1.5 py-0.5 rounded">
                 WhatsApp: {currentLead.phone}
               </span>
             )}
             {currentLead.city && (
-              <span className="text-emerald-700 text-[11px]">
+              <span className="text-[var(--kz-text-secondary)] text-[11px]">
                 · {currentLead.city}
               </span>
             )}
@@ -871,7 +894,7 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
           <button
             type="button"
             onClick={() => setSelectedLeadId('custom')}
-            className="text-xs text-emerald-800 hover:text-emerald-950 font-semibold underline cursor-pointer"
+            className="text-xs text-[var(--kz-success-text)] hover:text-[var(--kz-text-primary)] font-semibold underline cursor-pointer"
           >
             Voltar para Simulação Livre
           </button>
@@ -880,10 +903,10 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
 
       {/* Simulator Inputs (when Custom is selected) */}
       {selectedLeadId === 'custom' && (
-        <div className="p-3.5 bg-blue-50/60 border border-blue-200/80 rounded-xl space-y-2">
-          <div className="flex items-center justify-between text-[11px] text-blue-900 font-semibold">
+        <div className="p-3.5 bg-[var(--kz-bg-surface)] border border-[var(--kz-border-default)] rounded-xl space-y-2">
+          <div className="flex items-center justify-between text-[11px] text-[var(--kz-accent-text)] font-semibold flex-wrap gap-2">
             <span>Variáveis de Teste para o Roteiro:</span>
-            <span className="text-blue-600 font-normal">
+            <span className="text-[var(--kz-text-muted)] font-normal">
               Substitui automaticamente as tags &#123;empresa&#125;, &#123;contato&#125;, etc.
             </span>
           </div>
@@ -894,7 +917,7 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
               value={simCompany}
               onChange={(e) => setSimCompany(e.target.value)}
               placeholder="Empresa"
-              className="text-xs px-2.5 py-1.5 bg-white border border-blue-200 rounded-lg text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="text-xs px-2.5 py-1.5 bg-[var(--kz-bg-subtle)] border border-[var(--kz-border-default)] rounded-lg text-[var(--kz-text-primary)] placeholder:text-[var(--kz-text-subtle)] focus:outline-none focus:ring-1 focus:ring-[var(--kz-accent)] focus:border-[var(--kz-accent)]"
               title="Nome da Empresa {empresa}"
             />
             <input
@@ -902,7 +925,7 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
               value={simContact}
               onChange={(e) => setSimContact(e.target.value)}
               placeholder="Contato"
-              className="text-xs px-2.5 py-1.5 bg-white border border-blue-200 rounded-lg text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="text-xs px-2.5 py-1.5 bg-[var(--kz-bg-subtle)] border border-[var(--kz-border-default)] rounded-lg text-[var(--kz-text-primary)] placeholder:text-[var(--kz-text-subtle)] focus:outline-none focus:ring-1 focus:ring-[var(--kz-accent)] focus:border-[var(--kz-accent)]"
               title="Nome do Contato {contato}"
             />
             <input
@@ -910,7 +933,7 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
               value={simCity}
               onChange={(e) => setSimCity(e.target.value)}
               placeholder="Cidade"
-              className="text-xs px-2.5 py-1.5 bg-white border border-blue-200 rounded-lg text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="text-xs px-2.5 py-1.5 bg-[var(--kz-bg-subtle)] border border-[var(--kz-border-default)] rounded-lg text-[var(--kz-text-primary)] placeholder:text-[var(--kz-text-subtle)] focus:outline-none focus:ring-1 focus:ring-[var(--kz-accent)] focus:border-[var(--kz-accent)]"
               title="Cidade {cidade}"
             />
             <input
@@ -918,7 +941,7 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
               value={simPhone}
               onChange={(e) => setSimPhone(e.target.value)}
               placeholder="Telefone"
-              className="text-xs px-2.5 py-1.5 bg-white border border-blue-200 rounded-lg text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="text-xs px-2.5 py-1.5 bg-[var(--kz-bg-subtle)] border border-[var(--kz-border-default)] rounded-lg text-[var(--kz-text-primary)] placeholder:text-[var(--kz-text-subtle)] focus:outline-none focus:ring-1 focus:ring-[var(--kz-accent)] focus:border-[var(--kz-accent)]"
               title="Telefone WhatsApp"
             />
             <input
@@ -926,7 +949,7 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
               value={simMockup}
               onChange={(e) => setSimMockup(e.target.value)}
               placeholder="Link do Mockup"
-              className="text-xs px-2.5 py-1.5 bg-white border border-blue-200 rounded-lg text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:col-span-2"
+              className="text-xs px-2.5 py-1.5 bg-[var(--kz-bg-subtle)] border border-[var(--kz-border-default)] rounded-lg text-[var(--kz-text-primary)] placeholder:text-[var(--kz-text-subtle)] focus:outline-none focus:ring-1 focus:ring-[var(--kz-accent)] focus:border-[var(--kz-accent)] sm:col-span-2"
               title="Link da Prévia do Site {linkMockup}"
             />
           </div>
@@ -934,7 +957,7 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
       )}
 
       {/* Script Tab Switcher: Exatamente os 2 Scripts Oficiais */}
-      <div className="flex items-center gap-2 p-1.5 bg-slate-200/70 rounded-2xl flex-wrap">
+      <div className="flex items-center gap-2 p-1.5 bg-[var(--kz-bg-subtle)] border border-[var(--kz-border-subtle)] rounded-2xl flex-wrap">
         {scriptKeys.map((sId) => {
           const s = niche.scripts[sId];
           const isSelected = selectedScriptId === sId;
@@ -948,24 +971,24 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
               className={`flex-1 min-w-[240px] py-3 px-4 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2.5 ${
                 isSelected
                   ? isLigacao
-                    ? 'bg-white text-blue-950 shadow-sm border border-blue-200 ring-2 ring-blue-500/20'
-                    : 'bg-white text-emerald-950 shadow-sm border border-emerald-200 ring-2 ring-emerald-500/20'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                    ? 'bg-[var(--kz-bg-surface)] text-[var(--kz-text-primary)] shadow-[var(--kz-shadow-xs)] border border-[var(--kz-accent-border)] ring-1 ring-[var(--kz-accent-border)]'
+                    : 'bg-[var(--kz-bg-surface)] text-[var(--kz-text-primary)] shadow-[var(--kz-shadow-xs)] border border-[var(--kz-success-border)] ring-1 ring-[var(--kz-success-border)]'
+                  : 'text-[var(--kz-text-muted)] hover:text-[var(--kz-text-primary)] hover:bg-[var(--kz-bg-hover)]'
               }`}
             >
               {isLigacao ? (
-                <PhoneCall className={`w-4 h-4 ${isSelected ? 'text-blue-600' : 'text-slate-400'}`} />
+                <PhoneCall className={`w-4 h-4 ${isSelected ? 'text-[var(--kz-accent)]' : 'text-[var(--kz-text-subtle)]'}`} />
               ) : (
-                <MessageCircle className={`w-4 h-4 ${isSelected ? 'text-emerald-600' : 'text-slate-400'}`} />
+                <MessageCircle className={`w-4 h-4 ${isSelected ? 'text-[var(--kz-success-text)]' : 'text-[var(--kz-text-subtle)]'}`} />
               )}
               <span className="truncate">{s?.title || (isLigacao ? 'Script de Ligação' : 'Script de Mensagem')}</span>
               <span
                 className={`text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full ${
                   isSelected
                     ? isLigacao
-                      ? 'bg-blue-100 text-blue-800'
-                      : 'bg-emerald-100 text-emerald-800'
-                    : 'bg-slate-100 text-slate-500'
+                      ? 'bg-[var(--kz-accent-soft)] text-[var(--kz-accent-text)] border border-[var(--kz-accent-border)]'
+                      : 'bg-[var(--kz-success-bg)] text-[var(--kz-success-text)] border border-[var(--kz-success-border)]'
+                    : 'bg-[var(--kz-bg-surface)] text-[var(--kz-text-subtle)] border border-[var(--kz-border-subtle)]'
                 }`}
               >
                 {s?.stages?.length || 6} passos
@@ -976,32 +999,32 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
       </div>
 
       {/* GOLDEN RULE / OBJETIVO DO SCRIPT BANNER */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-950 text-white rounded-2xl p-5 shadow-sm space-y-3">
-        <div className="flex items-center gap-2 text-amber-300 font-bold text-xs uppercase tracking-wider">
-          <Sparkles className="w-4 h-4 text-amber-400" />
+      <div className="bg-[var(--kz-bg-surface)] border border-[var(--kz-accent-border)] text-[var(--kz-text-primary)] rounded-2xl p-5 shadow-[var(--kz-shadow-xs)] space-y-3">
+        <div className="flex items-center gap-2 text-[var(--kz-accent-text)] font-bold text-xs uppercase tracking-wider">
+          <Sparkles className="w-4 h-4 text-[var(--kz-accent)]" />
           <span>FLUXO ESTRATÉGICO DO SCRIPT</span>
         </div>
 
         {/* Dynamic Order Chain */}
-        <div className="flex flex-wrap items-center gap-1.5 text-xs font-semibold text-white/90">
+        <div className="flex flex-wrap items-center gap-1.5 text-xs font-semibold text-[var(--kz-text-secondary)]">
           {goldenRule.order.split('→').map((step, idx) => (
             <React.Fragment key={idx}>
-              <span className="px-2.5 py-1 bg-white/10 rounded-md">
+              <span className="px-2.5 py-1 bg-[var(--kz-bg-subtle)] border border-[var(--kz-border-subtle)] rounded-md text-[var(--kz-text-primary)]">
                 {step.trim()}
               </span>
               {idx < goldenRule.order.split('→').length - 1 && (
-                <span className="text-slate-400">→</span>
+                <span className="text-[var(--kz-accent)]">→</span>
               )}
             </React.Fragment>
           ))}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1 text-xs text-blue-100 border-t border-white/15">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 text-xs text-[var(--kz-text-secondary)] border-t border-[var(--kz-border-subtle)]">
           <p className="leading-relaxed">
-            <strong>Objetivo da Abordagem:</strong> {goldenRule.primaryGoal}
+            <strong className="text-[var(--kz-text-primary)]">Objetivo da Abordagem:</strong> {goldenRule.primaryGoal}
           </p>
           <p className="leading-relaxed">
-            <strong>Estratégia de Conversão:</strong> {goldenRule.insight}
+            <strong className="text-[var(--kz-text-primary)]">Estratégia de Conversão:</strong> {goldenRule.insight}
           </p>
         </div>
       </div>
@@ -1011,16 +1034,16 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
         {/* Left Column (7 cols): Detailed Steps & Objections with Inline Editing */}
         <div className="lg:col-span-7 space-y-5">
           {/* Header Controls for Stages: Open/Close all */}
-          <div className="flex items-center justify-between bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
+          <div className="flex items-center justify-between bg-[var(--kz-bg-surface)] p-3.5 rounded-xl border border-[var(--kz-border-subtle)] shadow-[var(--kz-shadow-xs)]">
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+              <div className="w-7 h-7 rounded-lg bg-[var(--kz-accent-soft)] border border-[var(--kz-accent-border)] text-[var(--kz-accent)] flex items-center justify-center">
                 <Layers className="w-4 h-4" />
               </div>
               <div>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--kz-text-primary)]">
                   Etapas & Mensagens do Script
                 </h3>
-                <span className="text-[11px] text-slate-500 font-medium">
+                <span className="text-[11px] text-[var(--kz-text-muted)] font-medium">
                   {(activeScript.stages || []).filter((s) => !!openStageIds[s.id]).length} de {(activeScript.stages || []).length} etapas abertas
                 </span>
               </div>
@@ -1030,7 +1053,7 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
               <button
                 type="button"
                 onClick={handleOpenAllStages}
-                className="px-3 py-1.5 text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200/80 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 active:scale-95 shadow-2xs"
+                className="px-3 py-1.5 text-xs font-bold text-[var(--kz-accent-text)] bg-[var(--kz-accent-soft)] hover:bg-[var(--kz-bg-hover)] border border-[var(--kz-accent-border)] rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 active:scale-95"
                 title="Abrir todas as etapas"
               >
                 <ChevronDown className="w-3.5 h-3.5" />
@@ -1039,7 +1062,7 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
               <button
                 type="button"
                 onClick={handleCloseAllStages}
-                className="px-3 py-1.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 active:scale-95"
+                className="px-3 py-1.5 text-xs font-bold text-[var(--kz-text-secondary)] bg-[var(--kz-bg-subtle)] hover:bg-[var(--kz-bg-hover)] border border-[var(--kz-border-default)] rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 active:scale-95"
                 title="Fechar todas as etapas"
               >
                 <ChevronUp className="w-3.5 h-3.5" />
@@ -1055,10 +1078,10 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
             return (
               <div
                 key={stage.id}
-                className={`bg-white rounded-xl border transition-all overflow-hidden ${
+                className={`bg-[var(--kz-bg-surface)] rounded-xl border transition-all overflow-hidden ${
                   isStageOpen
-                    ? 'border-blue-200 shadow-xs'
-                    : 'border-slate-200 hover:border-slate-300'
+                    ? 'border-[var(--kz-accent-border)] shadow-[var(--kz-shadow-xs)]'
+                    : 'border-[var(--kz-border-subtle)] hover:border-[var(--kz-border-default)]'
                 }`}
               >
                 {/* Stage Header */}
@@ -1075,8 +1098,8 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
                   }}
                   className={`p-4 flex items-center justify-between cursor-pointer border-b transition-colors select-none ${
                     isStageOpen
-                      ? 'bg-blue-50/40 border-blue-100 text-slate-900'
-                      : 'bg-white border-transparent hover:bg-slate-50 text-slate-700'
+                      ? 'bg-[var(--kz-bg-subtle)] border-[var(--kz-border-subtle)] text-[var(--kz-text-primary)]'
+                      : 'bg-[var(--kz-bg-surface)] border-transparent hover:bg-[var(--kz-bg-hover)] text-[var(--kz-text-secondary)]'
                   }`}
                   title={isStageOpen ? 'Clique para fechar esta etapa' : 'Clique para abrir esta etapa'}
                 >
@@ -1084,18 +1107,18 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
                     <span
                       className={`w-6 h-6 rounded-full font-bold text-xs flex items-center justify-center font-mono transition-colors ${
                         isStageOpen
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-slate-100 text-slate-700'
+                          ? 'bg-[var(--kz-accent)] text-[var(--kz-accent-fg)]'
+                          : 'bg-[var(--kz-bg-subtle)] text-[var(--kz-text-muted)] border border-[var(--kz-border-default)]'
                       }`}
                     >
                       {sIdx + 1}
                     </span>
                     <div>
-                      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--kz-text-primary)]">
                         {stage.stageTitle}
                       </h3>
                       {stage.description && (
-                        <p className="text-[11px] text-slate-500 font-normal">
+                        <p className="text-[11px] text-[var(--kz-text-muted)] font-normal">
                           {stage.description}
                         </p>
                       )}
@@ -1103,10 +1126,10 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-mono text-slate-500 bg-slate-100/90 px-2 py-0.5 rounded-md">
+                    <span className="text-[11px] font-mono text-[var(--kz-text-muted)] bg-[var(--kz-bg-subtle)] border border-[var(--kz-border-subtle)] px-2 py-0.5 rounded-md">
                       {stage.steps.length} {stage.steps.length === 1 ? 'bloco' : 'blocos'}
                     </span>
-                    <span className={`p-1 rounded-md transition-colors ${isStageOpen ? 'text-blue-600' : 'text-slate-400'}`}>
+                    <span className={`p-1 rounded-md transition-colors ${isStageOpen ? 'text-[var(--kz-accent)]' : 'text-[var(--kz-text-subtle)]'}`}>
                       {isStageOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                     </span>
                   </div>
@@ -1114,7 +1137,7 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
 
                 {/* Sub-steps in this stage */}
                 {isStageOpen && (
-                  <div className="p-4 space-y-4 divide-y divide-slate-100">
+                  <div className="p-4 space-y-4 divide-y divide-[var(--kz-border-subtle)]">
                     {stage.steps.map((step) => {
                       const isStepActive = !activeObjectionId && activeStepId === step.id;
                       const isEditingThisStep = editingStepId === step.id;
@@ -1127,11 +1150,11 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
                         return (
                           <div
                             key={step.id}
-                            className="pt-4 first:pt-0 p-4 bg-blue-50/70 border-2 border-blue-400 rounded-xl space-y-3 animate-in fade-in duration-150"
+                            className="pt-4 first:pt-0 p-4 bg-[var(--kz-bg-subtle)] border-2 border-[var(--kz-accent)] rounded-xl space-y-3 animate-in fade-in duration-150"
                           >
-                            <div className="flex items-center justify-between border-b border-blue-200/80 pb-2">
-                              <span className="text-xs font-bold text-blue-900 flex items-center gap-1.5">
-                                <Edit3 className="w-3.5 h-3.5 text-blue-600" />
+                            <div className="flex items-center justify-between border-b border-[var(--kz-border-default)] pb-2">
+                              <span className="text-xs font-bold text-[var(--kz-accent-text)] flex items-center gap-1.5">
+                                <Edit3 className="w-3.5 h-3.5 text-[var(--kz-accent)]" />
                                 <span>Editando Bloco da Etapa</span>
                               </span>
 
@@ -1140,17 +1163,17 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
                                   type="button"
                                   onClick={() => handleImproveWithAi(false, editTitle)}
                                   disabled={isImprovingWithAi}
-                                  className="flex items-center gap-1 px-3 py-1 text-xs font-bold text-purple-700 bg-purple-100/80 hover:bg-purple-200/80 border border-purple-300 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                                  className="flex items-center gap-1 px-3 py-1 text-xs font-bold text-[var(--kz-accent-text)] bg-[var(--kz-accent-soft)] hover:bg-[var(--kz-bg-hover)] border border-[var(--kz-accent-border)] rounded-lg transition-colors cursor-pointer disabled:opacity-50"
                                   title="Melhorar mensagem automaticamente com IA"
                                 >
-                                  <Sparkles className="w-3 h-3 text-purple-600" />
+                                  <Sparkles className="w-3 h-3 text-[var(--kz-accent)]" />
                                   <span>{isImprovingWithAi ? 'Melhorando...' : 'Melhorar com IA'}</span>
                                 </button>
 
                                 <button
                                   type="button"
                                   onClick={() => handleDeleteStep(stage.id, step.id)}
-                                  className="text-xs text-rose-600 hover:text-rose-800 p-1 hover:bg-rose-100/60 rounded-lg transition-colors cursor-pointer"
+                                  className="text-xs text-[var(--kz-danger-text)] hover:text-[var(--kz-text-primary)] p-1 hover:bg-[var(--kz-danger-bg)] rounded-lg transition-colors cursor-pointer"
                                   title="Excluir este bloco"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
@@ -1160,15 +1183,15 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
 
                             {/* Feedback messages */}
                             {aiSuccessFeedback && (
-                              <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800 flex items-center gap-2">
-                                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                              <div className="p-2.5 bg-[var(--kz-success-bg)] border border-[var(--kz-success-border)] rounded-lg text-xs text-[var(--kz-success-text)] flex items-center gap-2">
+                                <CheckCircle2 className="w-4 h-4 text-[var(--kz-success-text)] shrink-0" />
                                 <span>{aiSuccessFeedback}</span>
                               </div>
                             )}
 
                             {aiErrorFeedback && (
-                              <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-800 flex items-center gap-2">
-                                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                              <div className="p-2.5 bg-[var(--kz-danger-bg)] border border-[var(--kz-danger-border)] rounded-lg text-xs text-[var(--kz-danger-text)] flex items-center gap-2">
+                                <AlertCircle className="w-4 h-4 text-[var(--kz-danger-text)] shrink-0" />
                                 <span>{aiErrorFeedback}</span>
                               </div>
                             )}
@@ -1176,7 +1199,7 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
                             {/* Title & Trigger inputs */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                               <div>
-                                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                                <label className="block text-[11px] font-semibold text-[var(--kz-text-secondary)] mb-1">
                                   Título do Bloco / Passo
                                 </label>
                                 <input
@@ -1184,12 +1207,12 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
                                   value={editTitle}
                                   onChange={(e) => setEditTitle(e.target.value)}
                                   placeholder="Ex: 1. Mensagem de Abertura"
-                                  className="w-full text-xs px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                                  className="w-full text-xs px-2.5 py-1.5 bg-[var(--kz-bg-surface)] border border-[var(--kz-border-default)] rounded-lg text-[var(--kz-text-primary)] placeholder:text-[var(--kz-text-subtle)] focus:outline-none focus:ring-2 focus:ring-[var(--kz-accent-border)] focus:border-[var(--kz-accent)] font-medium"
                                 />
                               </div>
 
                               <div>
-                                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                                <label className="block text-[11px] font-semibold text-[var(--kz-text-secondary)] mb-1">
                                   Momento de Envio / Gatilho
                                 </label>
                                 <input
@@ -1197,7 +1220,7 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
                                   value={editCondition}
                                   onChange={(e) => setEditCondition(e.target.value)}
                                   placeholder="Ex: Enviar às 10h da manhã"
-                                  className="w-full text-xs px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  className="w-full text-xs px-2.5 py-1.5 bg-[var(--kz-bg-surface)] border border-[var(--kz-border-default)] rounded-lg text-[var(--kz-text-primary)] placeholder:text-[var(--kz-text-subtle)] focus:outline-none focus:ring-2 focus:ring-[var(--kz-accent-border)] focus:border-[var(--kz-accent)]"
                                 />
                               </div>
                             </div>
@@ -1205,10 +1228,10 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
                             {/* Script Message Textarea */}
                             <div>
                               <div className="flex items-center justify-between mb-1">
-                                <label className="text-[11px] font-semibold text-slate-700">
+                                <label className="text-[11px] font-semibold text-[var(--kz-text-secondary)]">
                                   Texto do Script (Mensagem enviada no WhatsApp):
                                 </label>
-                                <span className="text-[10px] text-slate-500">
+                                <span className="text-[10px] text-[var(--kz-text-muted)]">
                                   Clique nas tags abaixo para inserir no texto:
                                 </span>
                               </div>
@@ -1229,7 +1252,7 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
                                     key={item.tag}
                                     type="button"
                                     onClick={() => insertVariableTag(` ${item.tag} `, false)}
-                                    className="px-2 py-0.5 text-[10px] font-mono bg-white hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-md transition-colors cursor-pointer"
+                                    className="px-2 py-0.5 text-[10px] font-mono bg-[var(--kz-bg-surface)] hover:bg-[var(--kz-accent-soft)] text-[var(--kz-accent-text)] border border-[var(--kz-accent-border)] rounded-md transition-colors cursor-pointer"
                                   >
                                     {item.label}
                                   </button>
@@ -1241,13 +1264,13 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
                                 value={editMessage}
                                 onChange={(e) => setEditMessage(e.target.value)}
                                 placeholder="Digite a mensagem do roteiro..."
-                                className="w-full text-xs p-3 bg-white border border-slate-300 rounded-lg font-sans text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 leading-relaxed"
+                                className="w-full text-xs p-3 bg-[var(--kz-bg-surface)] border border-[var(--kz-border-default)] rounded-lg font-sans text-[var(--kz-text-primary)] placeholder:text-[var(--kz-text-subtle)] focus:outline-none focus:ring-2 focus:ring-[var(--kz-accent-border)] focus:border-[var(--kz-accent)] leading-relaxed"
                               />
                             </div>
 
                             {/* Tip / Strategic Advice */}
                             <div>
-                              <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                              <label className="block text-[11px] font-semibold text-[var(--kz-text-secondary)] mb-1">
                                 Dica Estratégica (Visível como lembrete para você):
                               </label>
                               <input
@@ -1255,16 +1278,16 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
                                 value={editTip}
                                 onChange={(e) => setEditTip(e.target.value)}
                                 placeholder="Ex: Nunca mande áudio no primeiro contato."
-                                className="w-full text-xs px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="w-full text-xs px-2.5 py-1.5 bg-[var(--kz-bg-surface)] border border-[var(--kz-border-default)] rounded-lg text-[var(--kz-text-primary)] placeholder:text-[var(--kz-text-subtle)] focus:outline-none focus:ring-2 focus:ring-[var(--kz-accent-border)] focus:border-[var(--kz-accent)]"
                               />
                             </div>
 
                             {/* Action Buttons: Save & Cancel */}
-                            <div className="flex items-center justify-end gap-2 pt-2 border-t border-blue-200">
+                            <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--kz-border-default)]">
                               <button
                                 type="button"
                                 onClick={handleCancelEditStep}
-                                className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-white border border-slate-200 rounded-lg transition-colors cursor-pointer"
+                                className="px-3 py-1.5 text-xs font-semibold text-[var(--kz-text-secondary)] hover:text-[var(--kz-text-primary)] bg-[var(--kz-bg-surface)] border border-[var(--kz-border-default)] rounded-lg transition-colors cursor-pointer"
                               >
                                 Cancelar
                               </button>
@@ -1272,7 +1295,7 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
                               <button
                                 type="button"
                                 onClick={() => handleSaveStep(stage.id, step.id)}
-                                className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-lg transition-colors cursor-pointer shadow-xs"
+                                className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold text-[var(--kz-accent-fg)] bg-[var(--kz-accent)] hover:bg-[var(--kz-accent-hover)] active:bg-[var(--kz-accent-active)] rounded-lg transition-colors cursor-pointer shadow-[var(--kz-shadow-xs)]"
                               >
                                 <Save className="w-3.5 h-3.5" />
                                 <span>Salvar Alterações</span>
@@ -1289,7 +1312,7 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
                         <div
                           key={step.id}
                           className={`pt-3.5 first:pt-0 rounded-xl transition-all ${
-                            isStepActive ? 'p-3 bg-blue-50/40 ring-1 ring-blue-300' : ''
+                            isStepActive ? 'p-3 bg-[var(--kz-accent-soft)] ring-1 ring-[var(--kz-accent-border)]' : ''
                           }`}
                         >
                           {/* Title, Condition & Buttons */}
@@ -1301,29 +1324,29 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
                                   setActiveStepId(step.id);
                                   setActiveObjectionId(null);
                                 }}
-                                className="text-xs font-bold text-slate-900 hover:text-blue-600 text-left transition-colors flex items-center gap-1.5 cursor-pointer flex-wrap"
+                                className="text-xs font-bold text-[var(--kz-text-primary)] hover:text-[var(--kz-accent-text)] text-left transition-colors flex items-center gap-1.5 cursor-pointer flex-wrap"
                               >
                                 {isStepActive && (
-                                  <span className="w-2 h-2 rounded-full bg-blue-600 shrink-0" />
+                                  <span className="w-2 h-2 rounded-full bg-[var(--kz-accent)] shrink-0" />
                                 )}
                                 <span>{step.title}</span>
 
                                 {step.format === 'audio' && (
-                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 shrink-0">
-                                    <Mic className="w-2.5 h-2.5 text-amber-700" />
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-[var(--kz-warning-bg)] text-[var(--kz-warning-text)] border border-[var(--kz-warning-border)] shrink-0">
+                                    <Mic className="w-2.5 h-2.5 text-[var(--kz-warning-text)]" />
                                     Áudio
                                   </span>
                                 )}
                                 {step.format === 'texto' && (
-                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0">
-                                    <MessageSquare className="w-2.5 h-2.5 text-emerald-700" />
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-[var(--kz-success-bg)] text-[var(--kz-success-text)] border border-[var(--kz-success-border)] shrink-0">
+                                    <MessageSquare className="w-2.5 h-2.5 text-[var(--kz-success-text)]" />
                                     Texto
                                   </span>
                                 )}
                               </button>
 
                               {step.condition && (
-                                <span className="text-[10px] text-slate-500 italic block mt-0.5">
+                                <span className="text-[10px] text-[var(--kz-text-muted)] italic block mt-0.5">
                                   Gatilho: {step.condition}
                                 </span>
                               )}
@@ -1334,27 +1357,27 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
                               <button
                                 type="button"
                                 onClick={() => handleStartEditStep(stage.id, step)}
-                                className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200/80 rounded-lg transition-colors cursor-pointer"
+                                className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-[var(--kz-accent-text)] bg-[var(--kz-accent-soft)] hover:bg-[var(--kz-bg-hover)] border border-[var(--kz-accent-border)] rounded-lg transition-colors cursor-pointer"
                                 title="Editar texto e detalhes deste bloco"
                               >
-                                <Edit3 className="w-3 h-3 text-blue-600" />
+                                <Edit3 className="w-3 h-3 text-[var(--kz-accent)]" />
                                 <span>Editar</span>
                               </button>
 
                               <button
                                 type="button"
                                 onClick={() => handleCopyText(step.message, step.id)}
-                                className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer"
+                                className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-[var(--kz-text-secondary)] bg-[var(--kz-bg-subtle)] border border-[var(--kz-border-default)] hover:bg-[var(--kz-bg-hover)] hover:text-[var(--kz-text-primary)] rounded-lg transition-colors cursor-pointer"
                                 title="Copiar texto pronto"
                               >
                                 {copiedId === step.id ? (
                                   <>
-                                    <Check className="w-3 h-3 text-emerald-600" />
-                                    <span className="text-emerald-700 font-semibold">Copiado</span>
+                                    <Check className="w-3 h-3 text-[var(--kz-success-text)]" />
+                                    <span className="text-[var(--kz-success-text)] font-semibold">Copiado</span>
                                   </>
                                 ) : (
                                   <>
-                                    <Copy className="w-3 h-3 text-slate-400" />
+                                    <Copy className="w-3 h-3 text-[var(--kz-text-subtle)]" />
                                     <span>Copiar</span>
                                   </>
                                 )}
@@ -1364,27 +1387,29 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
                                 <a
                                   href={`tel:${targetPhone.replace(/\D/g, '')}`}
                                   onClick={(e) => e.stopPropagation()}
-                                  className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors cursor-pointer shadow-2xs"
+                                  className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-[var(--kz-accent-fg)] bg-[var(--kz-accent)] hover:bg-[var(--kz-accent-hover)] rounded-lg transition-colors cursor-pointer shadow-[var(--kz-shadow-xs)]"
                                   title="Discar / Ligar agora para este lead"
                                 >
-                                  <PhoneCall className="w-3 h-3 text-white" />
+                                  <PhoneCall className="w-3 h-3" />
                                   <span>Ligar</span>
                                 </a>
                               )}
 
-                              <button
-                                type="button"
+                              <a
+                                href={getWhatsAppHref(step.message)}
+                                target="_blank"
+                                rel="noopener noreferrer"
                                 onClick={() => {
                                   setActiveStepId(step.id);
                                   setActiveObjectionId(null);
-                                  handleSendViaWhatsApp(step.message);
+                                  handleTrackWhatsAppSend();
                                 }}
-                                className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors cursor-pointer shadow-2xs"
+                                className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-white bg-[var(--kz-success-solid)] hover:brightness-110 rounded-lg transition-all cursor-pointer shadow-[var(--kz-shadow-xs)]"
                                 title="Disparar no WhatsApp"
                               >
                                 <MessageCircle className="w-3 h-3 fill-white/20" />
                                 <span>WhatsApp</span>
-                              </button>
+                              </a>
                             </div>
                           </div>
 
@@ -1394,7 +1419,7 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
                               setActiveStepId(step.id);
                               setActiveObjectionId(null);
                             }}
-                            className="p-3 bg-slate-50 rounded-lg border border-slate-200/80 text-xs text-slate-800 font-sans whitespace-pre-wrap leading-relaxed cursor-pointer hover:border-slate-300 transition-colors"
+                            className="p-3 bg-[var(--kz-bg-subtle)] rounded-lg border border-[var(--kz-border-subtle)] text-xs text-[var(--kz-text-primary)] font-sans whitespace-pre-wrap leading-relaxed cursor-pointer hover:border-[var(--kz-border-default)] transition-colors"
                             title="Clique para carregar no simulador ao lado"
                           >
                             {interpolatedStepMsg}
@@ -1402,8 +1427,8 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
 
                           {/* Tip / Strategic context */}
                           {step.tip && (
-                            <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-slate-500">
-                              <Info className="w-3 h-3 text-blue-500 shrink-0" />
+                            <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-[var(--kz-text-muted)]">
+                              <Info className="w-3 h-3 text-[var(--kz-accent)] shrink-0" />
                               <span>{step.tip}</span>
                             </div>
                           )}
@@ -1416,7 +1441,7 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
                       <button
                         type="button"
                         onClick={() => handleAddStepToStage(stage.id)}
-                        className="w-full py-2 px-3 border border-dashed border-slate-300 hover:border-blue-400 hover:bg-blue-50/50 rounded-lg text-xs font-semibold text-slate-600 hover:text-blue-700 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                        className="w-full py-2 px-3 border border-dashed border-[var(--kz-border-default)] hover:border-[var(--kz-accent)] hover:bg-[var(--kz-accent-soft)] rounded-lg text-xs font-semibold text-[var(--kz-text-muted)] hover:text-[var(--kz-accent-text)] transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                       >
                         <Plus className="w-3.5 h-3.5" />
                         <span>Adicionar Nova Mensagem nesta Etapa</span>
@@ -1430,21 +1455,21 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
 
           {/* QUEBRA DE OBJEÇÕES SECTION (WITH INLINE EDITING) */}
           {activeScript.objections && activeScript.objections.length > 0 && (
-            <div className="bg-white rounded-xl border border-amber-200/80 p-5 shadow-2xs space-y-4">
-              <div className="flex items-center justify-between border-b border-amber-100 pb-3">
+            <div className="bg-[var(--kz-bg-surface)] rounded-xl border border-[var(--kz-warning-border)] p-5 shadow-[var(--kz-shadow-xs)] space-y-4">
+              <div className="flex items-center justify-between border-b border-[var(--kz-border-subtle)] pb-3">
                 <div
                   onClick={() => setIsObjectionsSectionOpen(!isObjectionsSectionOpen)}
                   className="flex items-center gap-2 cursor-pointer select-none"
                   title={isObjectionsSectionOpen ? 'Clique para recolher' : 'Clique para expandir'}
                 >
-                  <ShieldAlert className="w-4 h-4 text-amber-600" />
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900">
+                  <ShieldAlert className="w-4 h-4 text-[var(--kz-warning-text)]" />
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--kz-text-primary)]">
                     Respostas para Objeções ({activeScript.objections.length})
                   </h3>
                   {isObjectionsSectionOpen ? (
-                    <ChevronUp className="w-3.5 h-3.5 text-amber-600" />
+                    <ChevronUp className="w-3.5 h-3.5 text-[var(--kz-warning-text)]" />
                   ) : (
-                    <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                    <ChevronDown className="w-3.5 h-3.5 text-[var(--kz-text-subtle)]" />
                   )}
                 </div>
 
@@ -1453,7 +1478,7 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
                     <button
                       type="button"
                       onClick={handleAddObjection}
-                      className="px-2.5 py-1 text-[11px] font-bold text-amber-900 bg-amber-100/80 hover:bg-amber-200 border border-amber-300 rounded-md transition-colors cursor-pointer flex items-center gap-1"
+                      className="px-2.5 py-1 text-[11px] font-bold text-[var(--kz-warning-text)] bg-[var(--kz-warning-bg)] hover:bg-[var(--kz-bg-hover)] border border-[var(--kz-warning-border)] rounded-md transition-colors cursor-pointer flex items-center gap-1"
                     >
                       <Plus className="w-3 h-3" />
                       <span>Nova Objeção</span>
@@ -1462,7 +1487,7 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
                     <button
                       type="button"
                       onClick={handleOpenAllObjections}
-                      className="px-2.5 py-1 text-[11px] font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-md transition-colors cursor-pointer"
+                      className="px-2.5 py-1 text-[11px] font-semibold text-[var(--kz-text-secondary)] bg-[var(--kz-bg-subtle)] hover:bg-[var(--kz-bg-hover)] border border-[var(--kz-border-default)] rounded-md transition-colors cursor-pointer"
                     >
                       Abrir Todas
                     </button>
@@ -1485,11 +1510,11 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
                       return (
                         <div
                           key={obj.id}
-                          className="p-4 bg-amber-50/80 border-2 border-amber-400 rounded-xl space-y-3 animate-in fade-in duration-150"
+                          className="p-4 bg-[var(--kz-bg-subtle)] border-2 border-[var(--kz-warning-text)] rounded-xl space-y-3 animate-in fade-in duration-150"
                         >
-                          <div className="flex items-center justify-between border-b border-amber-200 pb-2">
-                            <span className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
-                              <Edit3 className="w-3.5 h-3.5 text-amber-700" />
+                          <div className="flex items-center justify-between border-b border-[var(--kz-border-default)] pb-2">
+                            <span className="text-xs font-bold text-[var(--kz-warning-text)] flex items-center gap-1.5">
+                              <Edit3 className="w-3.5 h-3.5 text-[var(--kz-warning-text)]" />
                               <span>Editando Resposta de Objeção</span>
                             </span>
 
@@ -1498,16 +1523,16 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
                                 type="button"
                                 onClick={() => handleImproveWithAi(true, editObjTitle)}
                                 disabled={isImprovingWithAi}
-                                className="flex items-center gap-1 px-3 py-1 text-xs font-bold text-purple-700 bg-purple-100 hover:bg-purple-200 border border-purple-300 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                                className="flex items-center gap-1 px-3 py-1 text-xs font-bold text-[var(--kz-accent-text)] bg-[var(--kz-accent-soft)] hover:bg-[var(--kz-bg-hover)] border border-[var(--kz-accent-border)] rounded-lg transition-colors cursor-pointer disabled:opacity-50"
                               >
-                                <Sparkles className="w-3 h-3 text-purple-600" />
+                                <Sparkles className="w-3 h-3 text-[var(--kz-accent)]" />
                                 <span>{isImprovingWithAi ? 'Melhorando...' : 'Melhorar com IA'}</span>
                               </button>
 
                               <button
                                 type="button"
                                 onClick={() => handleDeleteObjection(obj.id)}
-                                className="text-xs text-rose-600 hover:text-rose-800 p-1 hover:bg-rose-100 rounded-lg transition-colors cursor-pointer"
+                                className="text-xs text-[var(--kz-danger-text)] hover:text-[var(--kz-text-primary)] p-1 hover:bg-[var(--kz-danger-bg)] rounded-lg transition-colors cursor-pointer"
                                 title="Excluir objeção"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
@@ -1517,7 +1542,7 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
 
                           {/* Title input */}
                           <div>
-                            <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                            <label className="block text-[11px] font-semibold text-[var(--kz-text-secondary)] mb-1">
                               Título da Objeção do Cliente
                             </label>
                             <input
@@ -1525,14 +1550,14 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
                               value={editObjTitle}
                               onChange={(e) => setEditObjTitle(e.target.value)}
                               placeholder="Ex: 'Já temos alguém que cuida do site'"
-                              className="w-full text-xs px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500 font-medium"
+                              className="w-full text-xs px-2.5 py-1.5 bg-[var(--kz-bg-surface)] border border-[var(--kz-border-default)] rounded-lg text-[var(--kz-text-primary)] placeholder:text-[var(--kz-text-subtle)] focus:outline-none focus:ring-2 focus:ring-[var(--kz-warning-border)] focus:border-[var(--kz-warning-text)] font-medium"
                             />
                           </div>
 
                           {/* Response textarea */}
                           <div>
                             <div className="flex items-center justify-between mb-1">
-                              <label className="text-[11px] font-semibold text-slate-700">
+                              <label className="text-[11px] font-semibold text-[var(--kz-text-secondary)]">
                                 Sua Resposta / Quebra de Objeção:
                               </label>
                               <div className="flex items-center gap-1">
@@ -1544,7 +1569,7 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
                                     key={item.tag}
                                     type="button"
                                     onClick={() => insertVariableTag(` ${item.tag} `, true)}
-                                    className="px-1.5 py-0.5 text-[10px] font-mono bg-white hover:bg-amber-100 text-amber-800 border border-amber-200 rounded transition-colors cursor-pointer"
+                                    className="px-1.5 py-0.5 text-[10px] font-mono bg-[var(--kz-bg-surface)] hover:bg-[var(--kz-warning-bg)] text-[var(--kz-warning-text)] border border-[var(--kz-warning-border)] rounded transition-colors cursor-pointer"
                                   >
                                     {item.label}
                                   </button>
@@ -1556,16 +1581,16 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
                               rows={5}
                               value={editObjResponse}
                               onChange={(e) => setEditObjResponse(e.target.value)}
-                              className="w-full text-xs p-3 bg-white border border-slate-300 rounded-lg font-sans text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500 leading-relaxed"
+                              className="w-full text-xs p-3 bg-[var(--kz-bg-surface)] border border-[var(--kz-border-default)] rounded-lg font-sans text-[var(--kz-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--kz-warning-border)] focus:border-[var(--kz-warning-text)] leading-relaxed"
                             />
                           </div>
 
                           {/* Save & Cancel */}
-                          <div className="flex items-center justify-end gap-2 pt-2 border-t border-amber-200">
+                          <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--kz-border-default)]">
                             <button
                               type="button"
                               onClick={handleCancelEditObjection}
-                              className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-white border border-slate-200 rounded-lg transition-colors cursor-pointer"
+                              className="px-3 py-1.5 text-xs font-semibold text-[var(--kz-text-secondary)] hover:text-[var(--kz-text-primary)] bg-[var(--kz-bg-surface)] border border-[var(--kz-border-default)] rounded-lg transition-colors cursor-pointer"
                             >
                               Cancelar
                             </button>
@@ -1573,7 +1598,7 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
                             <button
                               type="button"
                               onClick={() => handleSaveObjection(obj.id)}
-                              className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 active:bg-amber-800 rounded-lg transition-colors cursor-pointer shadow-xs"
+                              className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold text-[#0B0B0D] bg-[var(--kz-warning-solid)] hover:brightness-110 rounded-lg transition-all cursor-pointer shadow-[var(--kz-shadow-xs)]"
                             >
                               <Save className="w-3.5 h-3.5" />
                               <span>Salvar Resposta</span>
@@ -1591,8 +1616,8 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
                         key={obj.id}
                         className={`rounded-xl border transition-all overflow-hidden ${
                           isObjActive
-                            ? 'bg-amber-50/70 border-amber-300 ring-1 ring-amber-300'
-                            : 'bg-slate-50/70 border-slate-200 hover:border-slate-300'
+                            ? 'bg-[var(--kz-warning-bg)] border-[var(--kz-warning-border)] ring-1 ring-[var(--kz-warning-border)]'
+                            : 'bg-[var(--kz-bg-subtle)] border-[var(--kz-border-subtle)] hover:border-[var(--kz-border-default)]'
                         }`}
                       >
                         <div
@@ -1600,11 +1625,11 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
                           className="p-3.5 flex items-center justify-between gap-2 cursor-pointer select-none"
                           title={isObjOpen ? 'Clique para fechar' : 'Clique para abrir'}
                         >
-                          <span className="text-xs font-bold text-slate-900 hover:text-amber-800 flex items-center gap-1.5">
+                          <span className="text-xs font-bold text-[var(--kz-text-primary)] hover:text-[var(--kz-warning-text)] flex items-center gap-1.5">
                             {isObjOpen ? (
-                              <ChevronUp className="w-3.5 h-3.5 text-amber-600" />
+                              <ChevronUp className="w-3.5 h-3.5 text-[var(--kz-warning-text)]" />
                             ) : (
-                              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                              <ChevronDown className="w-3.5 h-3.5 text-[var(--kz-text-subtle)]" />
                             )}
                             <span>{obj.title}</span>
                           </span>
@@ -1613,52 +1638,54 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
                             <button
                               type="button"
                               onClick={() => handleStartEditObjection(obj)}
-                              className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg transition-colors cursor-pointer"
+                              className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-[var(--kz-warning-text)] bg-[var(--kz-warning-bg)] hover:bg-[var(--kz-bg-hover)] border border-[var(--kz-warning-border)] rounded-lg transition-colors cursor-pointer"
                               title="Editar resposta desta objeção"
                             >
-                              <Edit3 className="w-3 h-3 text-amber-700" />
+                              <Edit3 className="w-3 h-3 text-[var(--kz-warning-text)]" />
                               <span>Editar</span>
                             </button>
 
                             <button
                               type="button"
                               onClick={() => handleCopyText(obj.response, obj.id)}
-                              className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer"
+                              className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-[var(--kz-text-secondary)] bg-[var(--kz-bg-surface)] border border-[var(--kz-border-default)] hover:bg-[var(--kz-bg-hover)] hover:text-[var(--kz-text-primary)] rounded-lg transition-colors cursor-pointer"
                             >
                               {copiedId === obj.id ? (
                                 <>
-                                  <Check className="w-3 h-3 text-emerald-600" />
-                                  <span className="text-emerald-700 font-semibold">Copiado</span>
+                                  <Check className="w-3 h-3 text-[var(--kz-success-text)]" />
+                                  <span className="text-[var(--kz-success-text)] font-semibold">Copiado</span>
                                 </>
                               ) : (
                                 <>
-                                  <Copy className="w-3 h-3 text-slate-400" />
+                                  <Copy className="w-3 h-3 text-[var(--kz-text-subtle)]" />
                                   <span>Copiar</span>
                                 </>
                               )}
                             </button>
 
-                            <button
-                              type="button"
+                            <a
+                              href={getWhatsAppHref(obj.response)}
+                              target="_blank"
+                              rel="noopener noreferrer"
                               onClick={() => {
                                 setActiveObjectionId(obj.id);
-                                handleSendViaWhatsApp(obj.response);
+                                handleTrackWhatsAppSend();
                               }}
-                              className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors cursor-pointer"
+                              className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-white bg-[var(--kz-success-solid)] hover:brightness-110 rounded-lg transition-all cursor-pointer"
                             >
                               <MessageCircle className="w-3 h-3 fill-white/20" />
                               <span>WhatsApp</span>
-                            </button>
+                            </a>
                           </div>
                         </div>
 
                         {isObjOpen && (
                           <div
                             onClick={() => setActiveObjectionId(obj.id)}
-                            className="p-3.5 pt-0 text-xs text-slate-800 whitespace-pre-wrap leading-relaxed cursor-pointer"
+                            className="p-3.5 pt-0 text-xs text-[var(--kz-text-primary)] whitespace-pre-wrap leading-relaxed cursor-pointer"
                             title="Clique para carregar no simulador"
                           >
-                            <div className="p-3 bg-white rounded-lg border border-amber-200/60 font-sans">
+                            <div className="p-3 bg-[var(--kz-bg-surface)] rounded-lg border border-[var(--kz-border-subtle)] font-sans">
                               {interpolatedResponse}
                             </div>
                           </div>
@@ -1674,24 +1701,24 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
 
         {/* Right Column (5 cols): Live Chat Simulator & Quick Send */}
         <div className="lg:col-span-5 sticky top-20 space-y-4">
-          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-2xs space-y-4">
+          <div className="bg-[var(--kz-bg-surface)] rounded-xl border border-[var(--kz-border-subtle)] p-5 shadow-[var(--kz-shadow-xs)] space-y-4">
             {/* Header info */}
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div className="flex items-center justify-between border-b border-[var(--kz-border-subtle)] pb-3">
               <div>
-                <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                <span className="text-xs font-bold text-[var(--kz-text-primary)] flex items-center gap-1.5">
                   {(selectedScriptId === 'script_ligacao' || selectedScriptId === 'script3') ? (
                     <>
-                      <PhoneCall className="w-4 h-4 text-blue-600" />
+                      <PhoneCall className="w-4 h-4 text-[var(--kz-accent)]" />
                       <span>Roteiro de Fala / Ligação Telefônica</span>
                     </>
                   ) : (
                     <>
-                      <MessageCircle className="w-4 h-4 text-emerald-600" />
+                      <MessageCircle className="w-4 h-4 text-[var(--kz-success-text)]" />
                       <span>Visualização no WhatsApp</span>
                     </>
                   )}
                 </span>
-                <span className="text-[11px] text-slate-500 line-clamp-1">
+                <span className="text-[11px] text-[var(--kz-text-muted)] line-clamp-1">
                   {activeObjection ? activeObjection.title : currentActiveStep?.title || 'Mensagem Selecionada'}
                 </span>
               </div>
@@ -1699,13 +1726,13 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
               {(selectedScriptId === 'script_ligacao' || selectedScriptId === 'script3') ? (
                 <a
                   href={`tel:${targetPhone.replace(/\D/g, '')}`}
-                  className="text-[10px] font-mono text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded-full font-bold flex items-center gap-1 transition-colors"
+                  className="text-[10px] font-mono text-[var(--kz-accent-text)] bg-[var(--kz-accent-soft)] border border-[var(--kz-accent-border)] hover:bg-[var(--kz-bg-hover)] px-2 py-0.5 rounded-full font-bold flex items-center gap-1 transition-colors"
                 >
                   <PhoneCall className="w-3 h-3" />
                   <span>Discar</span>
                 </a>
               ) : (
-                <span className="text-[10px] font-mono text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full font-bold">
+                <span className="text-[10px] font-mono text-[var(--kz-success-text)] bg-[var(--kz-success-bg)] border border-[var(--kz-success-border)] px-2 py-0.5 rounded-full font-bold">
                   wa.me pronto
                 </span>
               )}
@@ -1713,100 +1740,100 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
 
             {/* Script Display Canvas */}
             {(selectedScriptId === 'script_ligacao' || selectedScriptId === 'script3') ? (
-              <div className="bg-slate-900 text-white rounded-2xl border border-slate-800 overflow-hidden shadow-xs">
+              <div className="bg-[var(--kz-bg-canvas)] text-[var(--kz-text-primary)] rounded-2xl border border-[var(--kz-border-default)] overflow-hidden shadow-[var(--kz-shadow-xs)]">
                 {/* Cold Call Telephony Header */}
-                <div className="bg-slate-800 px-3.5 py-2.5 flex items-center justify-between text-xs border-b border-slate-700/80">
+                <div className="bg-[var(--kz-bg-subtle)] px-3.5 py-2.5 flex items-center justify-between text-xs border-b border-[var(--kz-border-subtle)]">
                   <div className="flex items-center gap-2 truncate">
-                    <div className="w-7 h-7 rounded-full bg-blue-600 flex items-center justify-center font-bold text-xs text-white">
+                    <div className="w-7 h-7 rounded-full bg-[var(--kz-accent)] flex items-center justify-center font-bold text-xs text-[var(--kz-accent-fg)]">
                       <PhoneCall className="w-3.5 h-3.5" />
                     </div>
                     <div className="truncate">
-                      <div className="font-semibold truncate">{vars.empresa}</div>
-                      <div className="text-[10px] text-slate-300 font-mono truncate">
+                      <div className="font-semibold truncate text-[var(--kz-text-primary)]">{vars.empresa}</div>
+                      <div className="text-[10px] text-[var(--kz-text-muted)] font-mono truncate">
                         {formatDisplayPhone(targetPhone)}
                       </div>
                     </div>
                   </div>
-                  <div className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <div className="text-[10px] text-[var(--kz-success-text)] font-semibold flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--kz-success-text)]" />
                     <span>Em Chamada</span>
                   </div>
                 </div>
 
                 {/* Cold Call Speech Canvas */}
                 <div className="p-4 sm:p-5 min-h-[200px] max-h-[360px] overflow-y-auto space-y-3">
-                  <div className="text-[10px] uppercase font-bold tracking-wider text-blue-400 flex items-center gap-1.5">
+                  <div className="text-[10px] uppercase font-bold tracking-wider text-[var(--kz-accent-text)] flex items-center gap-1.5">
                     <span>O que você deve falar:</span>
                   </div>
 
-                  <div className="bg-slate-800/80 rounded-xl p-3.5 border border-slate-700 text-xs text-slate-100 leading-relaxed font-sans whitespace-pre-wrap selection:bg-blue-600">
+                  <div className="bg-[var(--kz-bg-subtle)] rounded-xl p-3.5 border border-[var(--kz-border-default)] text-xs text-[var(--kz-text-primary)] leading-relaxed font-sans whitespace-pre-wrap selection:bg-[var(--kz-accent)] selection:text-[var(--kz-accent-fg)]">
                     {previewMessage}
                   </div>
 
-                  <div className="text-[11px] text-slate-400 italic">
+                  <div className="text-[11px] text-[var(--kz-text-muted)] italic">
                     💡 Fale pausadamente, com segurança e sem tom mecânico.
                   </div>
                 </div>
               </div>
             ) : (
-              <div className="bg-[#EFEAE2] rounded-2xl border border-[#DAD3C8] overflow-hidden shadow-xs">
+              <div className="bg-[#0B141A] rounded-2xl border border-[var(--kz-border-default)] overflow-hidden shadow-[var(--kz-shadow-xs)]">
                 {/* WhatsApp Mockup Header */}
-                <div className="bg-[#075E54] text-white px-3.5 py-2.5 flex items-center justify-between text-xs">
+                <div className="bg-[#202C33] text-[#E9EDEF] px-3.5 py-2.5 flex items-center justify-between text-xs border-b border-white/10">
                   <div className="flex items-center gap-2 truncate">
-                    <div className="w-7 h-7 rounded-full bg-emerald-700 flex items-center justify-center font-bold text-xs text-white">
+                    <div className="w-7 h-7 rounded-full bg-[#005C4B] flex items-center justify-center font-bold text-xs text-white">
                       {vars.empresa.slice(0, 1) || 'C'}
                     </div>
                     <div className="truncate">
-                      <div className="font-semibold truncate">{vars.empresa}</div>
-                      <div className="text-[10px] text-emerald-100/80 font-mono truncate">
+                      <div className="font-semibold truncate text-[#E9EDEF]">{vars.empresa}</div>
+                      <div className="text-[10px] text-[#8696A0] font-mono truncate">
                         {formatDisplayPhone(targetPhone)}
                       </div>
                     </div>
                   </div>
-                  <div className="text-[10px] text-emerald-200 font-mono shrink-0">Online</div>
+                  <div className="text-[10px] text-[#34D399] font-mono shrink-0">Online</div>
                 </div>
 
-                {/* Chat Canvas with authentic balloon */}
+                {/* Chat Canvas with authentic dark WhatsApp balloon */}
                 <div className="p-4 sm:p-5 min-h-[220px] max-h-[360px] overflow-y-auto space-y-3">
                   <div className="text-center">
-                    <span className="text-[10px] bg-white/80 text-slate-500 px-2 py-0.5 rounded-md font-mono">
+                    <span className="text-[10px] bg-[#182229] text-[#8696A0] border border-white/5 px-2.5 py-0.5 rounded-md font-mono">
                       HOJE
                     </span>
                   </div>
 
                   {/* Format Indicator (Audio vs Text) */}
                   {currentActiveStep?.format === 'audio' && (
-                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-900 rounded-xl text-xs font-semibold border border-amber-200">
-                      <Mic className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--kz-warning-bg)] text-[var(--kz-warning-text)] rounded-xl text-xs font-semibold border border-[var(--kz-warning-border)]">
+                      <Mic className="w-3.5 h-3.5 text-[var(--kz-warning-text)] shrink-0" />
                       <span>Gravar como Áudio no WhatsApp (Tom natural e profissional)</span>
                     </div>
                   )}
                   {currentActiveStep?.format === 'texto' && (
-                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-900 rounded-xl text-xs font-semibold border border-emerald-200">
-                      <MessageSquare className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--kz-success-bg)] text-[var(--kz-success-text)] rounded-xl text-xs font-semibold border border-[var(--kz-success-border)]">
+                      <MessageSquare className="w-3.5 h-3.5 text-[var(--kz-success-text)] shrink-0" />
                       <span>Enviar como Mensagem de Texto</span>
                     </div>
                   )}
 
                   {/* Sent Bubble */}
-                  <div className="max-w-[92%] ml-auto bg-[#E7FFDB] rounded-2xl rounded-tr-xs p-3.5 shadow-2xs border border-[#CCE8C0] text-xs text-slate-900 leading-relaxed font-sans whitespace-pre-wrap">
+                  <div className="max-w-[92%] ml-auto bg-[#005C4B] rounded-2xl rounded-tr-xs p-3.5 shadow-sm border border-[#00745F] text-xs text-[#E9EDEF] leading-relaxed font-sans whitespace-pre-wrap">
                     {previewMessage}
 
                     {previewMessage.includes(vars.linkMockup) && (
-                      <div className="mt-2.5 p-2 bg-white/85 rounded-lg border border-emerald-200/80 text-[11px] flex items-center justify-between">
+                      <div className="mt-2.5 p-2 bg-black/25 rounded-lg border border-white/10 text-[11px] flex items-center justify-between">
                         <div className="truncate">
-                          <div className="font-bold text-slate-900 truncate">Prévia do Site da Clínica</div>
-                          <div className="text-[10px] text-slate-500 font-mono truncate">
+                          <div className="font-bold text-[#E9EDEF] truncate">Prévia do Site da Clínica</div>
+                          <div className="text-[10px] text-[#8696A0] font-mono truncate">
                             {vars.linkMockup}
                           </div>
                         </div>
-                        <ExternalLink className="w-3.5 h-3.5 text-blue-600 shrink-0 ml-1" />
+                        <ExternalLink className="w-3.5 h-3.5 text-[#53BDEB] shrink-0 ml-1" />
                       </div>
                     )}
 
-                    <div className="text-right text-[10px] text-emerald-700/80 mt-1.5 font-mono flex items-center justify-end gap-1">
+                    <div className="text-right text-[10px] text-[#8696A0] mt-1.5 font-mono flex items-center justify-end gap-1">
                       <span>14:32</span>
-                      <span className="text-emerald-600 font-bold">✓✓</span>
+                      <span className="text-[#53BDEB] font-bold">✓✓</span>
                     </div>
                   </div>
                 </div>
@@ -1819,16 +1846,16 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
                 <button
                   type="button"
                   onClick={() => handleCopyText(currentRawMessage, 'preview-box')}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer"
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-semibold text-[var(--kz-text-secondary)] bg-[var(--kz-bg-subtle)] border border-[var(--kz-border-default)] hover:bg-[var(--kz-bg-hover)] hover:text-[var(--kz-text-primary)] rounded-lg transition-colors cursor-pointer"
                 >
                   {copiedId === 'preview-box' ? (
                     <>
-                      <Check className="w-3.5 h-3.5 text-emerald-600" />
-                      <span className="text-emerald-700 font-bold">Texto Copiado!</span>
+                      <Check className="w-3.5 h-3.5 text-[var(--kz-success-text)]" />
+                      <span className="text-[var(--kz-success-text)] font-bold">Texto Copiado!</span>
                     </>
                   ) : (
                     <>
-                      <Copy className="w-3.5 h-3.5 text-slate-500" />
+                      <Copy className="w-3.5 h-3.5 text-[var(--kz-text-muted)]" />
                       <span>Copiar Roteiro</span>
                     </>
                   )}
@@ -1837,45 +1864,47 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
                 {(selectedScriptId === 'script_ligacao' || selectedScriptId === 'script3') && targetPhone && (
                   <a
                     href={`tel:${targetPhone.replace(/\D/g, '')}`}
-                    className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-lg shadow-xs transition-colors cursor-pointer"
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-bold text-[var(--kz-accent-fg)] bg-[var(--kz-accent)] hover:bg-[var(--kz-accent-hover)] rounded-lg shadow-[var(--kz-shadow-xs)] transition-colors cursor-pointer"
                   >
                     <PhoneCall className="w-3.5 h-3.5" />
                     <span>Ligar Agora</span>
                   </a>
                 )}
 
-                <button
-                  type="button"
-                  onClick={() => handleSendViaWhatsApp()}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-lg shadow-xs transition-colors cursor-pointer"
+                <a
+                  href={getWhatsAppHref()}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={handleTrackWhatsAppSend}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-bold text-white bg-[var(--kz-success-solid)] hover:brightness-110 rounded-lg shadow-[var(--kz-shadow-xs)] transition-all cursor-pointer"
                 >
                   <MessageCircle className="w-3.5 h-3.5 fill-white/20" />
                   <span>{(selectedScriptId === 'script_ligacao' || selectedScriptId === 'script3') ? 'Mandar no WhatsApp' : 'Abrir no WhatsApp'}</span>
-                </button>
+                </a>
               </div>
 
-              <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 text-[11px] text-slate-600 space-y-1">
-                <div className="font-semibold text-slate-800">Variáveis Ativas no Preview:</div>
-                <div className="grid grid-cols-2 gap-1 font-mono text-[10px] text-slate-500">
+              <div className="p-3 bg-[var(--kz-bg-subtle)] rounded-lg border border-[var(--kz-border-subtle)] text-[11px] text-[var(--kz-text-muted)] space-y-1">
+                <div className="font-semibold text-[var(--kz-text-secondary)]">Variáveis Ativas no Preview:</div>
+                <div className="grid grid-cols-2 gap-1 font-mono text-[10px] text-[var(--kz-text-muted)]">
                   <div>
-                    &#123;empresa&#125;: <strong className="text-slate-800 font-sans">{vars.empresa}</strong>
+                    &#123;empresa&#125;: <strong className="text-[var(--kz-text-primary)] font-sans">{vars.empresa}</strong>
                   </div>
                   <div>
-                    &#123;cidade&#125;: <strong className="text-slate-800 font-sans">{vars.cidade}</strong>
+                    &#123;cidade&#125;: <strong className="text-[var(--kz-text-primary)] font-sans">{vars.cidade}</strong>
                   </div>
                   <div>
-                    &#123;seuNome&#125;: <strong className="text-slate-800 font-sans">{vars.seuNome}</strong>
+                    &#123;seuNome&#125;: <strong className="text-[var(--kz-text-primary)] font-sans">{vars.seuNome}</strong>
                   </div>
                   <div>
-                    &#123;contato&#125;: <strong className="text-slate-800 font-sans">{vars.contato}</strong>
+                    &#123;contato&#125;: <strong className="text-[var(--kz-text-primary)] font-sans">{vars.contato}</strong>
                   </div>
                   {selectedScriptId === 'script3' && (
                     <>
                       <div>
-                        [Xª Posição]: <strong className="text-amber-700 font-sans">{vars.posicaoGoogle}</strong>
+                        [Xª Posição]: <strong className="text-[var(--kz-warning-text)] font-sans">{vars.posicaoGoogle}</strong>
                       </div>
                       <div>
-                        [Horários]: <strong className="text-blue-700 font-sans">Opção 1 e 2</strong>
+                        [Horários]: <strong className="text-[var(--kz-accent-text)] font-sans">Opção 1 e 2</strong>
                       </div>
                     </>
                   )}
@@ -1885,6 +1914,19 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        isOpen={Boolean(pendingConfirm)}
+        onClose={() => setPendingConfirm(null)}
+        onConfirm={() => {
+          pendingConfirm?.onConfirm();
+          setPendingConfirm(null);
+        }}
+        title={pendingConfirm?.title || 'Confirmar ação'}
+        description={pendingConfirm?.description || ''}
+        confirmLabel={pendingConfirm?.confirmLabel || 'Confirmar'}
+        variant="danger"
+      />
     </div>
   );
 };

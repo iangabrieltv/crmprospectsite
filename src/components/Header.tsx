@@ -1,30 +1,49 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   NicheCampaign,
   AppTab,
-  FUNNEL_STAGES
+  Lead,
 } from '../types/crm';
+import { AgendaEvent, Task } from '../types/kaizen';
+import { FinancialEntry } from '../types/finance';
+import { getRouteMeta } from '../config/navigation';
+import { auth } from '../utils/firebase';
 import {
-  Kanban,
-  BarChart3,
-  Calendar,
-  FileText,
-  Upload,
-  Globe,
+  KAIZEN_TIMEZONE,
+  addDaysYmd,
+  formatBrlFromCents,
+  formatDateBr,
+  getEffectiveEntryStatus,
+  getEntryPendingCents,
+  getTodayInTimezone,
+} from '../services/finance';
+import {
   Plus,
   ChevronDown,
-  Building2,
-  Sparkles,
   User,
   Check,
   LogOut,
-  Database,
   Cloud,
   Trash2,
-  AlertTriangle,
-  RotateCcw,
-  PhoneCall
+  Bell,
+  Calendar,
+  PhoneCall,
+  CheckSquare,
+  Menu,
+  Settings,
+  Upload,
+  Wallet,
 } from 'lucide-react';
+import {
+  Button,
+  Breadcrumbs,
+  Dropdown,
+  Modal,
+  ConfirmDialog,
+  Input,
+  Alert,
+} from './ui';
+import { toLocalDateString } from '../utils/dashboardMetrics';
 
 interface HeaderProps {
   niches: NicheCampaign[];
@@ -36,17 +55,21 @@ interface HeaderProps {
   onSelectTab: (tab: AppTab) => void;
   userName: string;
   onUpdateUserName: (name: string) => void;
+  leads: Lead[];
+  tasks?: Task[];
+  agendaEvents?: AgendaEvent[];
+  financialEntries?: FinancialEntry[];
+  financialAlertDaysAhead?: number;
   totalLeadsCount: number;
   allLeadsCount?: number;
   allNichesCount?: number;
   importedSheetsCount?: number;
   lastBackupAt?: string | null;
-  meetingsCount?: number;
-  callbacksCount?: number;
   onLogout?: () => void;
   isCloudSynced?: boolean;
   syncStatus?: 'synced' | 'saving' | 'error';
   onClearAllContacts?: () => Promise<void> | void;
+  onToggleMobileSidebar: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -59,60 +82,155 @@ export const Header: React.FC<HeaderProps> = ({
   onSelectTab,
   userName,
   onUpdateUserName,
-  totalLeadsCount: _totalLeadsCount,
+  leads,
+  tasks = [],
+  agendaEvents = [],
+  financialEntries = [],
+  financialAlertDaysAhead = 5,
+  totalLeadsCount,
   allLeadsCount,
   allNichesCount,
   importedSheetsCount = 0,
   lastBackupAt = null,
-  meetingsCount = 0,
-  callbacksCount = 0,
   onLogout,
   isCloudSynced = true,
   syncStatus = 'synced',
   onClearAllContacts,
+  onToggleMobileSidebar,
 }) => {
-  const [isNicheDropdownOpen, setIsNicheDropdownOpen] = useState(false);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [isClearModalOpen, setIsClearModalOpen] = useState(false);
   const [clearConfirmText, setClearConfirmText] = useState('');
   const [clearError, setClearError] = useState<string | null>(null);
   const [isClearing, setIsClearing] = useState(false);
   const [tempUserName, setTempUserName] = useState(userName);
-  const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdown on outside click
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setIsNicheDropdownOpen(false);
+  const routeMeta = getRouteMeta(activeTab);
+  const isCrmRoute =
+    activeTab === 'kanban' || activeTab === 'leads_list' || activeTab === 'importer';
+
+  // Real notifications ONLY (CRM callbacks/meetings + integrated AgendaEvents + Tasks + Financial due/overdue)
+  const realAlerts = useMemo(() => {
+    const todayStr = toLocalDateString(new Date());
+    const finTodayStr = getTodayInTimezone(KAIZEN_TIMEZONE);
+    const finHorizonStr = addDaysYmd(finTodayStr, Math.max(0, financialAlertDaysAhead));
+    const items: {
+      id: string;
+      kind: 'callback' | 'meeting' | 'task' | 'event' | 'finance';
+      targetTab: AppTab;
+      title: string;
+      subtitle: string;
+      timeLabel: string;
+      urgent: boolean;
+    }[] = [];
+
+    for (const lead of leads) {
+      if (
+        lead.callbackDate &&
+        lead.callbackDate <= todayStr &&
+        lead.callbackStatus !== 'realizado' &&
+        lead.callbackStatus !== 'cancelado'
+      ) {
+        items.push({
+          id: `cb-${lead.id}`,
+          kind: 'callback',
+          targetTab: 'agenda',
+          title: lead.companyName,
+          subtitle: lead.callbackNotes || 'Retorno comercial agendado',
+          timeLabel:
+            lead.callbackDate < todayStr
+              ? `Atrasado (${lead.callbackDate.split('-').reverse().join('/')})`
+              : lead.callbackTime
+              ? `Hoje às ${lead.callbackTime}`
+              : 'Hoje',
+          urgent: lead.callbackDate < todayStr,
+        });
       }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
-  const totalAgendaAlerts = meetingsCount + callbacksCount;
+      if (
+        lead.meetingDate &&
+        lead.meetingDate <= todayStr &&
+        lead.meetingStatus !== 'realizada' &&
+        lead.meetingStatus !== 'cancelada'
+      ) {
+        items.push({
+          id: `mt-${lead.id}`,
+          kind: 'meeting',
+          targetTab: 'agenda',
+          title: lead.companyName,
+          subtitle: lead.meetingNotes || 'Reunião comercial marcada',
+          timeLabel:
+            lead.meetingDate < todayStr
+              ? `Pendente (${lead.meetingDate.split('-').reverse().join('/')})`
+              : lead.meetingTime
+              ? `Hoje às ${lead.meetingTime}`
+              : 'Hoje',
+          urgent: lead.meetingDate < todayStr,
+        });
+      }
+    }
 
-  const navItems: {
-    tab: AppTab;
-    label: string;
-    icon: React.ReactNode;
-    badge?: number;
-    hasCallbacks?: boolean;
-  }[] = [
-    { tab: 'kanban', label: 'Pipeline', icon: <Kanban className="w-4 h-4 shrink-0" /> },
-    { tab: 'dashboard', label: 'Dashboard', icon: <BarChart3 className="w-4 h-4 shrink-0" /> },
-    {
-      tab: 'agenda',
-      label: 'Agenda',
-      icon: <Calendar className="w-4 h-4 shrink-0" />,
-      badge: totalAgendaAlerts,
-      hasCallbacks: callbacksCount > 0,
-    },
-    { tab: 'scripts', label: 'Scripts', icon: <FileText className="w-4 h-4 shrink-0" /> },
-    { tab: 'importer', label: 'Importador', icon: <Upload className="w-4 h-4 shrink-0" /> },
-    { tab: 'global', label: 'Visão Geral', icon: <Globe className="w-4 h-4 shrink-0" /> },
-  ];
+    for (const evt of agendaEvents) {
+      if (evt.status === 'agendado' && evt.date <= todayStr) {
+        items.push({
+          id: `evt-${evt.id}`,
+          kind: 'event',
+          targetTab: 'agenda',
+          title: evt.title,
+          subtitle: evt.description || 'Compromisso na Agenda Integrada',
+          timeLabel:
+            evt.date < todayStr
+              ? `Pendente (${evt.date.split('-').reverse().join('/')})`
+              : evt.startTime
+              ? `Hoje às ${evt.startTime}`
+              : 'Hoje',
+          urgent: evt.date < todayStr,
+        });
+      }
+    }
+
+    for (const task of tasks) {
+      if (task.status !== 'concluida' && task.dueDate && task.dueDate <= todayStr) {
+        items.push({
+          id: `tsk-${task.id}`,
+          kind: 'task',
+          targetTab: 'tasks',
+          title: task.title,
+          subtitle: task.phaseLabel || 'Tarefa operacional vinculada',
+          timeLabel:
+            task.dueDate < todayStr
+              ? `Tarefa atrasada (${task.dueDate.split('-').reverse().join('/')})`
+              : 'Vence hoje',
+          urgent: task.dueDate < todayStr,
+        });
+      }
+    }
+
+    for (const entry of financialEntries) {
+      const pendingCents = getEntryPendingCents(entry);
+      if (pendingCents <= 0) continue;
+      const effStatus = getEffectiveEntryStatus(entry, finTodayStr);
+      if (effStatus !== 'atrasada' && entry.dueDate > finHorizonStr) continue;
+      const isOverdue = effStatus === 'atrasada';
+      items.push({
+        id: `fin-${entry.id}`,
+        kind: 'finance',
+        targetTab: 'finance',
+        title: entry.description,
+        subtitle: `${entry.kind === 'receita' ? 'A receber' : 'A pagar'} · ${formatBrlFromCents(
+          pendingCents
+        )}`,
+        timeLabel: isOverdue
+          ? `Vencida em ${formatDateBr(entry.dueDate)}`
+          : entry.dueDate === finTodayStr
+          ? 'Vence hoje'
+          : `Vence em ${formatDateBr(entry.dueDate)}`,
+        urgent: isOverdue || entry.dueDate === finTodayStr,
+      });
+    }
+
+    return items.sort((a, b) => Number(b.urgent) - Number(a.urgent));
+  }, [leads, tasks, agendaEvents, financialEntries, financialAlertDaysAhead]);
 
   const handleSaveUserName = (e: React.FormEvent) => {
     e.preventDefault();
@@ -122,33 +240,79 @@ export const Header: React.FC<HeaderProps> = ({
     }
   };
 
-  return (
-    <header className="sticky top-0 z-40 bg-white border-b border-slate-200/80 shadow-xs w-full max-w-full">
-      {/* Top Bar Contract: 3 zones */}
-      <div className="w-full px-3 sm:px-6 h-16 flex items-center justify-between gap-2 sm:gap-4">
-        
-        {/* ZONE 1: Active Niche Selector Dropdown */}
-        <div className="flex items-center gap-2 shrink-0">
-          <div className="relative" ref={dropdownRef}>
-            <button
-              onClick={() => setIsNicheDropdownOpen(!isNicheDropdownOpen)}
-              className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 hover:border-slate-300 text-slate-800 text-xs sm:text-sm font-semibold transition-all cursor-pointer shadow-2xs"
-              title="Alternar nicho ou criar nova campanha"
-            >
-              <span className="text-base leading-none shrink-0">{activeNiche.emoji}</span>
-              <span className="max-w-[100px] sm:max-w-[200px] truncate text-slate-900 font-bold">
-                {activeNiche.name}
-              </span>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-            </button>
+  const handleConfirmClear = async () => {
+    if (!onClearAllContacts) return;
+    setIsClearing(true);
+    setClearError(null);
+    try {
+      await onClearAllContacts();
+      setIsClearModalOpen(false);
+    } catch (e) {
+      setClearError(
+        e instanceof Error
+          ? `Falha ao zerar banco: ${e.message}`
+          : 'Falha ao zerar banco na nuvem. Verifique sua conexão e permissões.'
+      );
+    } finally {
+      setIsClearing(false);
+    }
+  };
 
-            {isNicheDropdownOpen && (
-              <div className="absolute left-0 mt-1.5 w-72 max-w-[calc(100vw-24px)] bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
-                <div className="px-3 py-1.5 border-b border-slate-100 flex items-center justify-between">
-                  <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
-                    Nichos / Campanhas
-                  </span>
-                  <span className="text-[11px] text-slate-600 font-mono">
+  const adminEmail = auth.currentUser?.email || 'Administrador';
+
+  return (
+    <header className="sticky top-0 z-30 bg-[var(--kz-bg-header)] backdrop-blur-md border-b border-[var(--kz-border-subtle)] w-full shrink-0">
+      <div className="w-full px-3 sm:px-6 h-16 flex items-center justify-between gap-2 sm:gap-4">
+        {/* LEFT: Mobile Sidebar Toggle + Page Title + Breadcrumbs */}
+        <div className="flex items-center gap-2.5 min-w-0">
+          <button
+            type="button"
+            onClick={onToggleMobileSidebar}
+            className="md:hidden p-2 -ml-1 rounded-lg text-[var(--kz-text-secondary)] hover:bg-[var(--kz-bg-subtle)] cursor-pointer shrink-0"
+            aria-label="Abrir menu de navegação"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+
+          <div className="min-w-0">
+            <Breadcrumbs
+              className="hidden sm:flex mb-0.5"
+              items={routeMeta.breadcrumbs.map((b) => ({
+                label: b.label,
+                onClick: b.tab ? () => onSelectTab(b.tab!) : undefined,
+              }))}
+            />
+            <h1 className="text-sm sm:text-base font-bold text-[var(--kz-text-primary)] tracking-tight truncate leading-tight">
+              {routeMeta.title}
+            </h1>
+          </div>
+        </div>
+
+        {/* RIGHT: Niche Switcher, Contextual Actions, Sync Status, Real Alerts, Profile */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {/* Active Niche Selector */}
+          <Dropdown
+            align="right"
+            menuClassName="w-72"
+            trigger={() => (
+              <button
+                type="button"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 h-8 rounded-lg border border-[var(--kz-border-default)] bg-[var(--kz-bg-subtle)] hover:bg-[var(--kz-bg-muted)] hover:border-[var(--kz-border-strong)] text-[var(--kz-text-primary)] text-xs font-semibold transition-colors cursor-pointer"
+                title="Alternar nicho ou criar nova campanha"
+              >
+                <span className="text-sm leading-none shrink-0">{activeNiche.emoji}</span>
+                <span className="max-w-[90px] sm:max-w-[150px] truncate font-bold">
+                  {activeNiche.name}
+                </span>
+                <ChevronDown className="w-3.5 h-3.5 text-[var(--kz-text-muted)] shrink-0" />
+              </button>
+            )}
+          >
+            {(close) => (
+              <>
+                <div className="px-3 py-1.5 border-b border-[var(--kz-border-subtle)] flex items-center justify-between">
+                  <span className="kz-overline">Nichos / Campanhas</span>
+                  <span className="text-[11px] text-[var(--kz-text-muted)] font-mono">
                     {niches.length} ativos
                   </span>
                 </div>
@@ -159,122 +323,91 @@ export const Header: React.FC<HeaderProps> = ({
                     return (
                       <button
                         key={niche.id}
+                        type="button"
                         onClick={() => {
                           onSelectNiche(niche.id);
-                          setIsNicheDropdownOpen(false);
+                          close();
                         }}
                         className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between transition-colors cursor-pointer ${
                           isCurrent
-                            ? 'bg-blue-50 text-blue-900 font-semibold'
-                            : 'hover:bg-slate-50 text-slate-700'
+                            ? 'bg-[var(--kz-accent-soft)] text-[var(--kz-accent-text)] font-semibold'
+                            : 'hover:bg-[var(--kz-bg-muted)] text-[var(--kz-text-secondary)]'
                         }`}
                       >
                         <div className="flex items-center gap-2 truncate">
                           <span className="text-base">{niche.emoji}</span>
                           <div className="truncate">
                             <div className="truncate font-medium">{niche.name}</div>
-                            <div className="text-[10px] text-slate-600 font-normal truncate">
+                            <div className="text-[10px] text-[var(--kz-text-muted)] font-normal truncate">
                               {niche.city}
                             </div>
                           </div>
                         </div>
-                        {isCurrent && <Check className="w-3.5 h-3.5 text-blue-600 shrink-0" />}
+                        {isCurrent && (
+                          <Check className="w-3.5 h-3.5 text-[var(--kz-accent)] shrink-0" />
+                        )}
                       </button>
                     );
                   })}
                 </div>
 
-                <div className="p-1.5 border-t border-slate-100">
+                <div className="p-1.5 border-t border-[var(--kz-border-subtle)]">
                   <button
+                    type="button"
                     onClick={() => {
-                      setIsNicheDropdownOpen(false);
+                      close();
                       onOpenNewNicheModal();
                     }}
-                    className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors cursor-pointer"
+                    className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[var(--kz-accent-text)] bg-[var(--kz-accent-soft)] hover:bg-[var(--kz-accent)]/20 border border-[var(--kz-accent-border)] rounded-lg transition-colors cursor-pointer"
                   >
                     <Plus className="w-3.5 h-3.5" />
-                    + Novo Nicho / Campanha
+                    <span>Novo Nicho / Campanha</span>
                   </button>
                 </div>
-              </div>
+              </>
             )}
-          </div>
-        </div>
+          </Dropdown>
 
-        {/* ZONE 2: Clean Nav Tabs */}
-        <nav className="hidden md:flex items-center gap-1 shrink-0">
-          {navItems.map((item) => {
-            const isActive = activeTab === item.tab;
-            return (
-              <button
-                key={item.tab}
-                onClick={() => onSelectTab(item.tab)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap cursor-pointer shrink-0 ${
-                  isActive
-                    ? 'bg-slate-900 text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                }`}
-                title={item.label}
-              >
-                {item.icon}
-                <span>{item.label}</span>
-                {item.badge !== undefined && item.badge > 0 && (
-                  <span
-                    className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold leading-none flex items-center gap-0.5 ${
-                      item.hasCallbacks
-                        ? 'bg-amber-500 text-white animate-pulse'
-                        : isActive
-                        ? 'bg-emerald-500 text-white'
-                        : 'bg-emerald-100 text-emerald-800'
-                    }`}
-                  >
-                    {item.hasCallbacks && <PhoneCall className="w-2.5 h-2.5" />}
-                    <span>{item.badge}</span>
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </nav>
+          {/* Contextual Import Button when on CRM */}
+          {isCrmRoute && activeTab !== 'importer' && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="hidden lg:inline-flex"
+              leftIcon={<Upload className="w-3.5 h-3.5" />}
+              onClick={() => onSelectTab('importer')}
+            >
+              Importar
+            </Button>
+          )}
 
-        {/* ZONE 3: Primary Actions & User Identity */}
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          {/* Cloud Database Live Badge */}
-          <div
-            className={`flex items-center gap-1.5 px-2 sm:px-2.5 py-1 rounded-lg border text-[11px] font-medium shrink-0 transition-colors shadow-2xs ${
-              syncStatus === 'error'
-                ? 'bg-rose-50 border-rose-200 text-rose-800'
-                : syncStatus === 'saving'
-                ? 'bg-blue-50 border-blue-200 text-blue-800'
-                : isCloudSynced
-                ? 'bg-emerald-50 border-emerald-200/90 text-emerald-800'
-                : 'bg-amber-50 border-amber-200 text-amber-800'
-            }`}
-            title="Sincronização em tempo real com Cloud Firestore."
+          {/* Quick Add Lead CTA */}
+          <Button
+            variant="primary"
+            size="sm"
+            leftIcon={<Plus className="w-3.5 h-3.5" />}
+            onClick={onOpenNewLeadModal}
+            title="Cadastrar novo lead manualmente"
           >
-            <span
-              className={`w-2 h-2 rounded-full shrink-0 ${
-                syncStatus === 'error'
-                  ? 'bg-rose-500'
-                  : syncStatus === 'saving'
-                  ? 'bg-blue-500 animate-pulse'
-                  : isCloudSynced
-                  ? 'bg-emerald-500 animate-pulse'
-                  : 'bg-amber-500'
-              }`}
-            />
-            <Cloud
-              className={`w-3.5 h-3.5 shrink-0 ${
-                syncStatus === 'error'
-                  ? 'text-rose-600'
-                  : syncStatus === 'saving'
-                  ? 'text-blue-600'
-                  : isCloudSynced
-                  ? 'text-emerald-600'
-                  : 'text-amber-600'
-              }`}
-            />
-            <span className="hidden sm:inline font-semibold">
+            <span className="hidden sm:inline">Novo Lead</span>
+            <span className="sm:hidden">Lead</span>
+          </Button>
+
+          {/* Cloud Sync Pill */}
+          <div
+            className={`hidden sm:flex items-center gap-1.5 px-2.5 h-8 rounded-lg border text-[11px] font-semibold shrink-0 transition-colors ${
+              syncStatus === 'error'
+                ? 'bg-[var(--kz-danger-bg)] border-[var(--kz-danger-border)] text-[var(--kz-danger-text)]'
+                : syncStatus === 'saving'
+                ? 'bg-[var(--kz-accent-soft)] border-[var(--kz-accent-border)] text-[var(--kz-accent-text)]'
+                : isCloudSynced
+                ? 'bg-[var(--kz-success-bg)] border-[var(--kz-success-border)] text-[var(--kz-success-text)]'
+                : 'bg-[var(--kz-warning-bg)] border-[var(--kz-warning-border)] text-[var(--kz-warning-text)]'
+            }`}
+            title="Sincronização em tempo real com Cloud Firestore"
+          >
+            <Cloud className="w-3.5 h-3.5 shrink-0" />
+            <span className="hidden xl:inline">
               {syncStatus === 'error'
                 ? 'Erro de Sync'
                 : syncStatus === 'saving'
@@ -285,279 +418,283 @@ export const Header: React.FC<HeaderProps> = ({
             </span>
           </div>
 
-          {/* Quick Add Lead Button */}
-          <button
-            onClick={onOpenNewLeadModal}
-            className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-lg shadow-xs transition-colors cursor-pointer whitespace-nowrap shrink-0"
-            title="Cadastrar novo lead manualmente"
+          {/* Real Notifications Bell (shows ONLY real callbacks/meetings due today or overdue) */}
+          <Dropdown
+            align="right"
+            menuClassName="w-80"
+            trigger={() => (
+              <button
+                type="button"
+                className="relative h-8 w-8 rounded-lg border border-[var(--kz-border-default)] bg-[var(--kz-bg-subtle)] hover:bg-[var(--kz-bg-muted)] text-[var(--kz-text-secondary)] flex items-center justify-center transition-colors cursor-pointer"
+                title="Alertas reais da Agenda (reuniões e retornos de hoje)"
+                aria-label="Notificações da Agenda"
+              >
+                <Bell className="w-4 h-4" />
+                {realAlerts.length > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-[var(--kz-accent)] text-[var(--kz-accent-fg)] text-[9px] font-mono font-bold flex items-center justify-center">
+                    {realAlerts.length}
+                  </span>
+                )}
+              </button>
+            )}
           >
-            <Plus className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">+ Novo Lead</span>
-            <span className="sm:hidden">Lead</span>
-          </button>
+            {(close) => (
+              <>
+                <div className="px-3 py-2 border-b border-[var(--kz-border-subtle)] flex items-center justify-between">
+                  <span className="text-xs font-bold text-[var(--kz-text-primary)]">
+                    Alertas da Agenda
+                  </span>
+                  <span className="text-[10px] font-mono text-[var(--kz-text-muted)]">
+                    {realAlerts.length} {realAlerts.length === 1 ? 'item' : 'itens'}
+                  </span>
+                </div>
 
-          {/* User Name Tag */}
-          <button
-            onClick={() => {
-              setTempUserName(userName);
-              setIsUserModalOpen(true);
-            }}
-            className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-100 text-xs font-medium transition-colors cursor-pointer shrink-0"
-            title="Nome usado para personalizar os scripts de WhatsApp"
-          >
-            <User className="w-3 h-3 text-slate-500" />
-            <span className="max-w-[70px] sm:max-w-[100px] truncate">{userName}</span>
-          </button>
+                <div className="max-h-72 overflow-y-auto divide-y divide-[var(--kz-border-subtle)]">
+                  {realAlerts.length === 0 ? (
+                    <div className="px-4 py-6 text-center text-xs text-[var(--kz-text-muted)]">
+                      Nenhuma reunião ou retorno pendente para hoje.
+                    </div>
+                  ) : (
+                    realAlerts.map((alert) => (
+                      <button
+                        key={alert.id}
+                        type="button"
+                        onClick={() => {
+                          close();
+                          onSelectTab(alert.targetTab);
+                        }}
+                        className="w-full text-left px-3 py-2.5 hover:bg-[var(--kz-bg-muted)] transition-colors flex items-start gap-2.5 cursor-pointer"
+                      >
+                        <div
+                          className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
+                            alert.kind === 'callback'
+                              ? 'bg-[var(--kz-warning-bg)] text-[var(--kz-warning-text)]'
+                              : alert.kind === 'finance'
+                              ? alert.urgent
+                                ? 'bg-[var(--kz-danger-bg)] text-[var(--kz-danger-text)]'
+                                : 'bg-[var(--kz-accent-soft)] text-[var(--kz-accent-text)]'
+                              : alert.kind === 'task'
+                              ? 'bg-[var(--kz-accent-soft)] text-[var(--kz-accent-text)]'
+                              : 'bg-[var(--kz-success-bg)] text-[var(--kz-success-text)]'
+                          }`}
+                        >
+                          {alert.kind === 'callback' ? (
+                            <PhoneCall className="w-3.5 h-3.5" />
+                          ) : alert.kind === 'finance' ? (
+                            <Wallet className="w-3.5 h-3.5" />
+                          ) : alert.kind === 'task' ? (
+                            <CheckSquare className="w-3.5 h-3.5" />
+                          ) : (
+                            <Calendar className="w-3.5 h-3.5" />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-xs font-semibold text-[var(--kz-text-primary)] truncate">
+                            {alert.title}
+                          </div>
+                          <div className="text-[11px] text-[var(--kz-text-muted)] truncate">
+                            {alert.subtitle}
+                          </div>
+                          <div
+                            className={`text-[10px] font-mono mt-0.5 ${
+                              alert.urgent
+                                ? 'text-[var(--kz-danger-text)] font-bold'
+                                : 'text-[var(--kz-text-secondary)]'
+                            }`}
+                          >
+                            {alert.timeLabel}
+                          </div>
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
 
-          {/* Clean Contacts (Start from zero) Button */}
-          {onClearAllContacts && (
-            <button
-              onClick={() => {
-                setClearConfirmText('');
-                setClearError(null);
-                setIsClearModalOpen(true);
-              }}
-              className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200 transition-colors cursor-pointer shrink-0"
-              title="Zerar banco de dados na nuvem (requer confirmação explícita)"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-          )}
+                <div className="p-1.5 border-t border-[var(--kz-border-subtle)]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      close();
+                      onSelectTab('agenda');
+                    }}
+                    className="w-full text-center py-1.5 text-xs font-semibold text-[var(--kz-accent-text)] hover:bg-[var(--kz-accent-soft)] rounded-lg transition-colors cursor-pointer"
+                  >
+                    Abrir Agenda Completa
+                  </button>
+                </div>
+              </>
+            )}
+          </Dropdown>
 
-          {/* Logout Button */}
-          {onLogout && (
-            <button
-              onClick={onLogout}
-              className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
-              title="Sair da conta"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Mobile Nav Links bar */}
-      <div className="md:hidden px-3 sm:px-4 py-2 border-t border-slate-100 flex items-center gap-1 overflow-x-auto no-scrollbar">
-        {navItems.map((item) => {
-          const isActive = activeTab === item.tab;
-          return (
-            <button
-              key={item.tab}
-              onClick={() => onSelectTab(item.tab)}
-              className={`flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-md whitespace-nowrap cursor-pointer transition-colors shrink-0 ${
-                isActive
-                  ? 'bg-slate-900 text-white font-semibold'
-                  : 'text-slate-600 hover:bg-slate-100'
-              }`}
-            >
-              {item.icon}
-              <span>{item.label}</span>
-              {item.badge !== undefined && item.badge > 0 && (
-                <span
-                  className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-mono font-bold leading-none flex items-center gap-0.5 ${
-                    item.hasCallbacks
-                      ? 'bg-amber-500 text-white animate-pulse'
-                      : isActive
-                      ? 'bg-emerald-500 text-white'
-                      : 'bg-emerald-100 text-emerald-800'
-                  }`}
-                >
-                  {item.hasCallbacks && <PhoneCall className="w-2 h-2" />}
-                  <span>{item.badge}</span>
+          {/* Admin Profile & Account Menu */}
+          <Dropdown
+            align="right"
+            menuClassName="w-60"
+            trigger={() => (
+              <button
+                type="button"
+                className="flex items-center gap-1.5 px-2 h-8 rounded-lg border border-[var(--kz-border-default)] bg-[var(--kz-bg-subtle)] hover:bg-[var(--kz-bg-muted)] text-[var(--kz-text-primary)] text-xs font-medium transition-colors cursor-pointer"
+                title="Perfil do administrador e opções da conta"
+              >
+                <div className="w-5 h-5 rounded-md bg-[var(--kz-accent-soft)] text-[var(--kz-accent-text)] font-bold text-[11px] flex items-center justify-center shrink-0">
+                  {userName?.charAt(0)?.toUpperCase() || 'K'}
+                </div>
+                <span className="hidden md:inline max-w-[90px] truncate font-semibold">
+                  {userName}
                 </span>
-              )}
-            </button>
-          );
-        })}
+                <ChevronDown className="w-3 h-3 text-[var(--kz-text-muted)] shrink-0" />
+              </button>
+            )}
+          >
+            {(close) => (
+              <>
+                <div className="px-3 py-2 border-b border-[var(--kz-border-subtle)]">
+                  <div className="text-xs font-bold text-[var(--kz-text-primary)] truncate">
+                    {userName}
+                  </div>
+                  <div className="text-[11px] text-[var(--kz-text-muted)] truncate">
+                    {adminEmail}
+                  </div>
+                </div>
+
+                <div className="py-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      close();
+                      setTempUserName(userName);
+                      setIsUserModalOpen(true);
+                    }}
+                    className="w-full text-left px-3 py-2 text-xs text-[var(--kz-text-secondary)] hover:bg-[var(--kz-bg-subtle)] flex items-center gap-2 cursor-pointer"
+                  >
+                    <User className="w-3.5 h-3.5 text-[var(--kz-text-muted)]" />
+                    <span>Editar nome nos scripts</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      close();
+                      onSelectTab('settings');
+                    }}
+                    className="w-full text-left px-3 py-2 text-xs text-[var(--kz-text-secondary)] hover:bg-[var(--kz-bg-subtle)] flex items-center gap-2 cursor-pointer"
+                  >
+                    <Settings className="w-3.5 h-3.5 text-[var(--kz-text-muted)]" />
+                    <span>Configurações do Sistema</span>
+                  </button>
+
+                  {onClearAllContacts && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        close();
+                        setClearConfirmText('');
+                        setClearError(null);
+                        setIsClearModalOpen(true);
+                      }}
+                      className="w-full text-left px-3 py-2 text-xs text-[var(--kz-danger-text)] hover:bg-[var(--kz-danger-bg)] flex items-center gap-2 cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Zerar base de dados</span>
+                    </button>
+                  )}
+                </div>
+
+                {onLogout && (
+                  <div className="pt-1 border-t border-[var(--kz-border-subtle)]">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        close();
+                        onLogout();
+                      }}
+                      className="w-full text-left px-3 py-2 text-xs font-semibold text-[var(--kz-text-secondary)] hover:bg-[var(--kz-bg-subtle)] flex items-center gap-2 cursor-pointer"
+                    >
+                      <LogOut className="w-3.5 h-3.5 text-[var(--kz-text-muted)]" />
+                      <span>Sair da conta</span>
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </Dropdown>
+        </div>
       </div>
 
       {/* User Name Modal */}
-      {isUserModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-5 border border-slate-200">
-            <h3 className="text-sm font-bold text-slate-900 mb-1">
-              Configurar Nome do Vendedor
-            </h3>
-            <p className="text-xs text-slate-500 mb-4">
-              Este nome será usado na variável <code className="font-mono bg-slate-100 px-1 py-0.5 rounded text-[11px]">&#123;SeuNome&#125;</code> ao disparar mensagens pelo WhatsApp.
-            </p>
-            <form onSubmit={handleSaveUserName} className="space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">
-                  Seu Nome ou Nome da Agência
-                </label>
-                <input
-                  type="text"
-                  value={tempUserName}
-                  onChange={(e) => setTempUserName(e.target.value)}
-                  className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Ex: Gabriel"
-                  autoFocus
-                />
-              </div>
-              <div className="flex items-center justify-end gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={() => setIsUserModalOpen(false)}
-                  className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors cursor-pointer"
-                >
-                  Salvar Nome
-                </button>
-              </div>
-            </form>
+      <Modal
+        isOpen={isUserModalOpen}
+        onClose={() => setIsUserModalOpen(false)}
+        size="sm"
+        title="Configurar Nome do Operador"
+        subtitle="Aplicado na variável {SeuNome} ao disparar mensagens no WhatsApp"
+      >
+        <form onSubmit={handleSaveUserName} className="space-y-4">
+          <Input
+            label="Seu Nome ou Nome da Agência"
+            value={tempUserName}
+            onChange={(e) => setTempUserName(e.target.value)}
+            placeholder="Ex: Ian"
+            autoFocus
+            required
+          />
+          <div className="flex items-center justify-end gap-2 pt-1">
+            <Button variant="ghost" onClick={() => setIsUserModalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button type="submit" variant="primary">
+              Salvar Nome
+            </Button>
           </div>
+        </form>
+      </Modal>
+
+      {/* Clear Contacts Confirmation Modal */}
+      <ConfirmDialog
+        isOpen={isClearModalOpen}
+        onClose={() => setIsClearModalOpen(false)}
+        onConfirm={handleConfirmClear}
+        title="Zerar Banco de Dados (Ação Irreversível)"
+        description="Exclui dados da nuvem (Firestore) e do cache local deste navegador."
+        confirmLabel="Confirmar Exclusão Total"
+        variant="danger"
+        loading={isClearing}
+        confirmDisabled={clearConfirmText.trim().toUpperCase() !== 'ZERAR'}
+      >
+        <div className="space-y-2 text-xs bg-[var(--kz-danger-bg)] p-3 rounded-xl border border-[var(--kz-danger-border)] text-[var(--kz-danger-text)]">
+          <p className="font-semibold">Documentos e coleções que serão apagados:</p>
+          <ul className="list-disc pl-4 space-y-1">
+            <li>
+              <strong>{allLeadsCount ?? totalLeadsCount} leads</strong> (coleção{' '}
+              <code className="font-mono">leads</code>)
+            </li>
+            <li>
+              <strong>{allNichesCount ?? niches.length} nichos/campanhas</strong> (coleção{' '}
+              <code className="font-mono">niches</code>)
+            </li>
+            <li>
+              <strong>{importedSheetsCount} registros</strong> de histórico (coleção{' '}
+              <code className="font-mono">importedSheets</code>)
+            </li>
+          </ul>
+          <p className="text-[11px] pt-1">
+            <strong>Último backup neste navegador:</strong>{' '}
+            {lastBackupAt
+              ? new Date(lastBackupAt).toLocaleString('pt-BR')
+              : 'Nenhum registrado — recomenda-se exportar o JSON completo antes de continuar.'}
+          </p>
         </div>
-      )}
 
-      {/* Modal: Começar do Zero (Limpar Nuvem) com confirmação explícita e resumo de impacto */}
-      {isClearModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 border border-slate-200 animate-in fade-in zoom-in-95 duration-150 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-rose-100 flex items-center justify-center shrink-0 text-rose-600">
-                <AlertTriangle className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-slate-900">
-                  Zerar Banco de Dados (Ação Irreversível)
-                </h3>
-                <p className="text-xs text-slate-500">
-                  Exclui dados da nuvem (Firestore) e do cache local deste navegador
-                </p>
-              </div>
-            </div>
+        <Input
+          label="Para confirmar, digite ZERAR abaixo"
+          value={clearConfirmText}
+          onChange={(e) => setClearConfirmText(e.target.value)}
+          placeholder="Digite ZERAR"
+          className="font-mono"
+        />
 
-            <div className="space-y-2 text-xs text-slate-700 leading-relaxed bg-rose-50/70 p-3.5 rounded-lg border border-rose-200">
-              <p className="font-semibold text-rose-900">Documentos e coleções que serão apagados:</p>
-              <ul className="list-disc pl-4 space-y-1 text-rose-800">
-                <li>
-                  <strong>{allLeadsCount ?? _totalLeadsCount} leads</strong> (coleção <code className="font-mono">leads</code> — incluindo notas, reuniões e retornos)
-                </li>
-                <li>
-                  <strong>{allNichesCount ?? niches.length} nichos/campanhas</strong> (coleção <code className="font-mono">niches</code> — substituídos apenas pela campanha padrão vazia)
-                </li>
-                <li>
-                  <strong>{importedSheetsCount} registros</strong> de histórico (coleção <code className="font-mono">importedSheets</code>)
-                </li>
-              </ul>
-              <p className="pt-1 text-[11px] text-rose-800">
-                <strong>Reversibilidade:</strong> Esta operação <strong>não pode ser desfeita</strong> sem um arquivo de backup.
-              </p>
-              <p className="text-[11px] text-slate-700">
-                <strong>Último backup exportado neste navegador:</strong>{' '}
-                {lastBackupAt
-                  ? new Date(lastBackupAt).toLocaleString('pt-BR')
-                  : 'Nenhum backup recente registrado neste navegador — recomenda-se exportar o JSON completo na aba Visão Geral antes de continuar.'}
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Para confirmar, digite <code className="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-rose-700">ZERAR</code> abaixo:
-              </label>
-              <input
-                type="text"
-                value={clearConfirmText}
-                onChange={(e) => setClearConfirmText(e.target.value)}
-                placeholder="Digite ZERAR"
-                className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500 font-mono"
-              />
-            </div>
-
-            {clearError && (
-              <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-800">
-                {clearError}
-              </div>
-            )}
-
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
-              <button
-                type="button"
-                disabled={isClearing}
-                onClick={() => setIsClearModalOpen(false)}
-                className="px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                disabled={isClearing || clearConfirmText.trim().toUpperCase() !== 'ZERAR'}
-                onClick={async () => {
-                  if (!onClearAllContacts) return;
-                  setIsClearing(true);
-                  setClearError(null);
-                  try {
-                    await onClearAllContacts();
-                    setIsClearModalOpen(false);
-                  } catch (e) {
-                    setClearError(
-                      e instanceof Error
-                        ? `Falha ao zerar banco: ${e.message}`
-                        : 'Falha ao zerar banco na nuvem. Verifique sua conexão e permissões.'
-                    );
-                  } finally {
-                    setIsClearing(false);
-                  }
-                }}
-                className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 active:bg-rose-800 rounded-lg shadow-xs transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {isClearing ? (
-                  <>
-                    <RotateCcw className="w-3.5 h-3.5 animate-spin" />
-                    <span>Limpando base...</span>
-                  </>
-                ) : (
-                  <>
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Confirmar Exclusão Total</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MOBILE BOTTOM NAVIGATION BAR (Fixed at bottom on mobile screens < md) */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/90 flex items-center justify-around px-1 py-1 shadow-lg">
-        {navItems.map((item) => {
-          const isActive = activeTab === item.tab;
-          return (
-            <button
-              key={item.tab}
-              onClick={() => onSelectTab(item.tab)}
-              className={`flex-1 flex flex-col items-center justify-center py-1 px-1 rounded-lg transition-colors cursor-pointer relative min-h-[44px] ${
-                isActive ? 'text-blue-600 font-bold' : 'text-slate-500 hover:text-slate-900 font-medium'
-              }`}
-            >
-              <div className="relative">
-                {React.cloneElement(item.icon as React.ReactElement<{ className?: string }>, {
-                  className: `w-5 h-5 shrink-0 ${isActive ? 'text-blue-600' : 'text-slate-500'}`,
-                })}
-                {item.badge !== undefined && item.badge > 0 && (
-                  <span
-                    className={`absolute -top-1 -right-2 px-1 py-0.2 rounded-full text-[9px] font-mono font-bold leading-none ${
-                      item.hasCallbacks ? 'bg-amber-500 text-white animate-pulse' : 'bg-emerald-600 text-white'
-                    }`}
-                  >
-                    {item.badge}
-                  </span>
-                )}
-              </div>
-              <span className="text-[10px] mt-0.5 tracking-tight truncate max-w-[55px]">
-                {item.label}
-              </span>
-            </button>
-          );
-        })}
-      </nav>
+        {clearError && <Alert variant="danger">{clearError}</Alert>}
+      </ConfirmDialog>
     </header>
   );
 };

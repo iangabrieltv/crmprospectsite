@@ -1,0 +1,1118 @@
+# KAIZEN — ETAPA 4
+# SISTEMA FINANCEIRO COMPLETO
+### Arquitetura, UX/UI, Gestão Financeira, Fluxo de Caixa, Cobranças, Despesas, Recorrências e Relatórios
+
+**STATUS: AUTORIZAÇÃO PARA IMPLEMENTAÇÃO EM AMBIENTE DE DESENVOLVIMENTO**
+
+## 1. VISÃO GERAL E OBJETIVO
+
+Transformar o módulo Financeiro do Kaizen em um sistema completo de gestão financeira empresarial, permitindo controlar toda a movimentação financeira da agência em um único ambiente.
+
+O sistema deverá permitir acompanhar:
+
+- Quanto a Kaizen faturou.
+- Quanto efetivamente recebeu.
+- Quanto ainda tem para receber.
+- Quanto precisa pagar.
+- Quanto já gastou.
+- Quanto possui disponível.
+- Qual é o lucro do período.
+- Quais clientes estão inadimplentes.
+- Quais contratos geram receitas recorrentes.
+- Quais despesas são recorrentes.
+- Como está a evolução financeira da agência.
+- Qual é a previsão de caixa para os próximos meses.
+
+O objetivo é que o administrador consiga compreender a situação financeira da empresa sem precisar manter planilhas paralelas.
+
+**REGRA FUNDAMENTAL:** o Financeiro deve ser integrado aos demais módulos do Kaizen, mas precisa ter suas próprias regras de negócio, validações e registros financeiros. Nenhum outro módulo poderá alterar silenciosamente movimentações financeiras já confirmadas.
+
+Não criar apenas telas demonstrativas. Implementar funcionalidades reais, persistência no Firebase/Firestore e cálculos consistentes.
+
+---
+
+# 2. AUDITORIA E PREPARAÇÃO
+
+Antes de desenvolver:
+
+1. Auditar o módulo Financeiro atual, caso exista.
+2. Verificar a estrutura real do Firebase/Firestore.
+3. Verificar o estado efetivo dos módulos Clientes, Propostas, Contratos, Projetos, Tarefas e Agenda.
+4. Identificar os serviços, componentes e padrões já existentes.
+5. Identificar os relacionamentos entre clientes, contratos, projetos e registros financeiros.
+6. Verificar se existem dados financeiros legados.
+7. Identificar possíveis conflitos entre estruturas antigas e novas.
+
+Não presumir que as etapas anteriores estejam concluídas apenas porque existem relatórios dizendo que foram implementadas.
+
+Preservar os dados e aproveitar a arquitetura existente sempre que possível.
+
+Antes de modificar schemas, documentar os impactos e a estratégia de compatibilidade.
+
+---
+
+# 3. ARQUITETURA DO MÓDULO FINANCEIRO
+
+Organizar o módulo com navegação própria e estrutura clara.
+
+## Menu Financeiro
+
+Criar as seguintes áreas:
+
+1. Visão Geral.
+2. Receitas.
+3. Despesas.
+4. Contas a Receber.
+5. Contas a Pagar.
+6. Fluxo de Caixa.
+7. Recorrências.
+8. Categorias.
+9. Relatórios.
+10. Configurações Financeiras.
+
+Cada área deve possuir funcionalidades específicas e compartilhar os mesmos registros financeiros, sem duplicação de dados.
+
+## Princípio de organização
+
+Uma receita cadastrada deve alimentar automaticamente:
+
+- Visão Geral.
+- Receitas.
+- Contas a Receber, enquanto estiver pendente.
+- Fluxo de Caixa.
+- Relatórios.
+- Histórico financeiro do cliente, quando vinculado.
+
+Uma despesa cadastrada deve alimentar automaticamente:
+
+- Visão Geral.
+- Despesas.
+- Contas a Pagar, enquanto estiver pendente.
+- Fluxo de Caixa.
+- Relatórios.
+
+Não criar cópias independentes de uma mesma movimentação para alimentar cada tela.
+
+---
+
+# 4. DASHBOARD FINANCEIRO
+
+Criar uma página inicial de gestão financeira com visual profissional e indicadores de fácil interpretação.
+
+## 4.1 Indicadores principais
+
+Apresentar cards com:
+
+**Receita recebida**
+Total efetivamente recebido no período selecionado.
+
+**Receita prevista**
+Total de receitas futuras ou pendentes previstas para o período.
+
+**Despesas pagas**
+Total de despesas efetivamente pagas.
+
+**Despesas previstas**
+Total de despesas ainda pendentes.
+
+**Lucro realizado**
+Receitas recebidas menos despesas pagas, considerando o mesmo critério de período.
+
+**Contas a receber**
+Total de valores pendentes de recebimento.
+
+**Contas a pagar**
+Total de valores pendentes de pagamento.
+
+**Saldo de caixa**
+Saldo inicial mais entradas efetivamente recebidas menos saídas efetivamente pagas.
+
+**Inadimplência**
+Total de valores vencidos e não recebidos.
+
+## 4.2 Filtros de período
+
+Disponibilizar filtros:
+
+- Hoje.
+- Esta semana.
+- Este mês.
+- Mês anterior.
+- Últimos 30 dias.
+- Últimos 90 dias.
+- Este trimestre.
+- Este semestre.
+- Este ano.
+- Personalizado.
+
+Todos os indicadores, gráficos e tabelas devem responder aos filtros.
+
+## 4.3 Gráficos
+
+Criar visualizações para:
+
+- Receitas x despesas.
+- Evolução do lucro.
+- Evolução do saldo de caixa.
+- Receitas por cliente.
+- Despesas por categoria.
+- Receitas por serviço.
+- Valores recebidos x pendentes.
+- Evolução da inadimplência.
+
+Os gráficos devem utilizar dados reais do Firestore.
+
+## 4.4 Alertas financeiros
+
+Criar uma área de alertas com:
+
+- Contas vencidas.
+- Contas próximas do vencimento.
+- Receitas pendentes.
+- Despesas próximas do vencimento.
+- Contratos com pagamentos previstos.
+- Recorrências com falha de processamento.
+
+Os alertas devem levar diretamente ao registro relacionado.
+
+Não criar uma seção genérica de últimas movimentações no dashboard.
+
+---
+
+# 5. RECEITAS
+
+Criar um sistema completo para cadastrar e acompanhar todas as entradas financeiras da Kaizen.
+
+## 5.1 Cadastro de receitas
+
+Campos:
+
+- Descrição.
+- Cliente vinculado.
+- Serviço contratado.
+- Projeto relacionado.
+- Proposta relacionada.
+- Contrato relacionado.
+- Categoria da receita.
+- Valor total.
+- Data de competência.
+- Data de vencimento.
+- Data de recebimento.
+- Forma de pagamento.
+- Status.
+- Recorrência, quando aplicável.
+- Observações.
+
+Permitir cadastrar receitas manualmente, mesmo quando não houver cliente ou contrato vinculado.
+
+## 5.2 Status
+
+- Prevista.
+- Pendente.
+- Parcialmente recebida.
+- Recebida.
+- Atrasada.
+- Cancelada.
+
+## 5.3 Operações
+
+Permitir:
+
+- Criar receita.
+- Editar receita.
+- Consultar detalhes.
+- Registrar recebimento.
+- Consultar histórico de recebimentos.
+- Alterar vencimento.
+- Cancelar receita.
+- Filtrar e pesquisar.
+- Exportar informações.
+
+## 5.4 Registro de recebimento
+
+Ao confirmar um recebimento, solicitar:
+
+- Valor recebido.
+- Data do recebimento.
+- Forma de pagamento.
+- Observação opcional.
+
+O sistema deverá:
+
+1. Registrar o recebimento.
+2. Atualizar o valor recebido acumulado.
+3. Calcular o saldo pendente.
+4. Atualizar o status.
+5. Atualizar o fluxo de caixa.
+6. Atualizar os indicadores financeiros.
+7. Atualizar o histórico do cliente, quando aplicável.
+
+**IMPORTANTE:** não permitir que uma receita seja considerada recebida apenas porque sua data de vencimento passou ou porque um contrato foi fechado.
+
+A confirmação precisa ser feita pelo administrador.
+
+## 5.5 Recebimentos parciais
+
+Embora a operação financeira possa ser simples, permitir múltiplos recebimentos vinculados à mesma receita.
+
+Exemplo:
+
+- Receita contratada: R$ 1.000.
+- Primeiro recebimento: R$ 400.
+- Segundo recebimento: R$ 600.
+- Total recebido: R$ 1.000.
+- Saldo pendente: R$ 0.
+
+Cada recebimento deve possuir registro próprio e histórico.
+
+Não permitir que o valor recebido ultrapasse o saldo pendente sem uma operação explícita de ajuste.
+
+---
+
+# 6. DESPESAS
+
+Criar um sistema para controlar todos os custos e gastos da agência.
+
+## 6.1 Cadastro
+
+Campos:
+
+- Descrição.
+- Fornecedor.
+- Categoria.
+- Valor.
+- Data de competência.
+- Data de vencimento.
+- Data de pagamento.
+- Forma de pagamento.
+- Recorrência.
+- Status.
+- Observações.
+- Comprovante ou arquivo anexo, se houver suporte adequado.
+
+## 6.2 Categorias iniciais
+
+- Softwares e assinaturas.
+- Marketing e anúncios.
+- Equipamentos.
+- Internet e telefonia.
+- Serviços terceirizados.
+- Impostos e taxas.
+- Educação e cursos.
+- Hospedagem e infraestrutura.
+- Transporte.
+- Operacional.
+- Outras despesas.
+
+Permitir criar, editar e desativar categorias personalizadas.
+
+Não excluir categorias que já estejam vinculadas a lançamentos históricos.
+
+## 6.3 Status
+
+- Prevista.
+- Pendente.
+- Parcialmente paga.
+- Paga.
+- Atrasada.
+- Cancelada.
+
+## 6.4 Pagamento
+
+Ao registrar pagamento, solicitar:
+
+- Valor pago.
+- Data do pagamento.
+- Forma de pagamento.
+- Observação.
+
+Atualizar automaticamente os indicadores e o fluxo de caixa.
+
+Permitir pagamentos parciais com histórico individual, assim como nas receitas.
+
+---
+
+# 7. CONTAS A RECEBER
+
+Criar uma área específica para controlar valores que a Kaizen tem direito de receber.
+
+Apresentar:
+
+- Cliente.
+- Descrição.
+- Contrato ou projeto relacionado.
+- Valor original.
+- Valor recebido.
+- Saldo pendente.
+- Data de vencimento.
+- Status.
+- Dias de atraso.
+
+## Filtros
+
+- Todas.
+- A vencer.
+- Vencidas.
+- Recebidas.
+- Parcialmente recebidas.
+- Canceladas.
+
+## Ações
+
+- Visualizar cobrança.
+- Registrar recebimento.
+- Editar vencimento.
+- Consultar histórico.
+- Abrir cadastro do cliente.
+- Abrir contrato relacionado.
+- Copiar informações da cobrança.
+
+Criar identificação visual clara para vencimentos próximos e vencidos.
+
+---
+
+# 8. CONTAS A PAGAR
+
+Criar área específica para compromissos financeiros da agência.
+
+Apresentar:
+
+- Fornecedor.
+- Descrição.
+- Categoria.
+- Valor.
+- Valor pago.
+- Saldo pendente.
+- Vencimento.
+- Status.
+
+## Filtros
+
+- Todas.
+- A vencer.
+- Vencidas.
+- Pagas.
+- Parcialmente pagas.
+- Canceladas.
+
+Permitir registrar pagamentos, editar vencimentos e consultar histórico.
+
+---
+
+# 9. FLUXO DE CAIXA
+
+Implementar um fluxo de caixa real, com visão histórica e projeção futura.
+
+## 9.1 Visão do fluxo
+
+Apresentar:
+
+- Saldo inicial.
+- Entradas realizadas.
+- Saídas realizadas.
+- Saldo final.
+- Entradas previstas.
+- Saídas previstas.
+- Saldo projetado.
+
+## 9.2 Visualizações
+
+- Diário.
+- Semanal.
+- Mensal.
+- Anual.
+
+## 9.3 Estrutura da movimentação
+
+Cada movimentação deve exibir:
+
+- Data.
+- Descrição.
+- Tipo: entrada ou saída.
+- Categoria.
+- Cliente ou fornecedor.
+- Valor.
+- Status.
+- Saldo acumulado.
+
+## 9.4 Separação entre realizado e previsto
+
+É obrigatório separar:
+
+**Fluxo realizado:** utiliza apenas recebimentos e pagamentos efetivamente confirmados.
+
+**Fluxo projetado:** considera também contas futuras e pendentes.
+
+Não somar valores previstos como se fossem dinheiro disponível.
+
+## 9.5 Saldo inicial
+
+Criar configuração de saldo inicial para o início do controle financeiro.
+
+Permitir informar:
+
+- Valor inicial.
+- Data de referência.
+- Descrição.
+- Observação.
+
+O saldo inicial deve ser tratado como posição inicial de caixa, não como receita operacional.
+
+Não permitir que a alteração retroativa do saldo inicial modifique silenciosamente períodos já fechados ou relatórios históricos.
+
+---
+
+# 10. RECORRÊNCIAS E ASSINATURAS
+
+Criar um gerenciador de movimentações recorrentes.
+
+Exemplos:
+
+- Assinaturas de softwares.
+- Hospedagem.
+- Serviços mensais.
+- Contratos recorrentes.
+- Mensalidades de clientes.
+- Despesas fixas.
+
+## Frequências
+
+- Semanal.
+- Mensal.
+- Bimestral.
+- Trimestral.
+- Semestral.
+- Anual.
+- Personalizada.
+
+## Configuração
+
+Cada recorrência deve permitir:
+
+- Nome.
+- Tipo: receita ou despesa.
+- Valor.
+- Categoria.
+- Cliente ou fornecedor.
+- Frequência.
+- Data de início.
+- Data de encerramento.
+- Próxima ocorrência.
+- Status.
+- Observações.
+
+## Regras
+
+- Gerar ocorrências de forma controlada.
+- Evitar duplicação de lançamentos.
+- Utilizar identificadores únicos de recorrência e período.
+- Permitir pausar e reativar.
+- Permitir encerrar.
+- Permitir alterar o valor para ocorrências futuras.
+- Preservar ocorrências anteriores.
+
+Uma recorrência não significa recebimento ou pagamento automático.
+
+As ocorrências devem gerar lançamentos previstos ou pendentes, que somente serão confirmados mediante ação do administrador.
+
+Implementar processamento idempotente: executar duas vezes a mesma rotina não pode criar duas cobranças para o mesmo período.
+
+Se o ambiente não possuir agendador configurado, implementar uma rotina segura de geração e explicar a necessidade de execução periódica. Não simular automação em segundo plano inexistente.
+
+---
+
+# 11. INTEGRAÇÃO COM CLIENTES
+
+O financeiro deve estar diretamente conectado ao módulo Clientes.
+
+Dentro do cadastro de cada cliente, criar uma seção Financeiro contendo:
+
+- Total contratado.
+- Total faturado.
+- Total recebido.
+- Total pendente.
+- Total vencido.
+- Histórico de pagamentos.
+- Receitas vinculadas.
+- Contratos relacionados.
+- Projetos relacionados.
+
+Permitir abrir cada movimentação diretamente pelo cadastro do cliente.
+
+Não somar duas vezes o mesmo contrato ou lançamento.
+
+---
+
+# 12. INTEGRAÇÃO COM PROPOSTAS E CONTRATOS
+
+Criar integração entre o comercial e o financeiro.
+
+## Propostas
+
+Uma proposta aceita pode servir de origem para a criação de um contrato ou planejamento financeiro, conforme o fluxo comercial existente.
+
+## Contratos
+
+Permitir transformar condições financeiras de um contrato em previsões de receita.
+
+Exemplos:
+
+**Contrato pontual**
+- Valor total.
+- Vencimento.
+- Condição de pagamento.
+
+**Contrato recorrente**
+- Valor mensal.
+- Frequência.
+- Data inicial.
+- Data final.
+- Vencimentos.
+
+**Contrato parcelado**
+- Valor total.
+- Quantidade de parcelas.
+- Valor das parcelas.
+- Datas de vencimento.
+
+### Regras de integração
+
+- Criar lançamentos somente mediante confirmação ou regra explícita do fluxo.
+- Evitar gerar receitas duplicadas.
+- Manter referência ao contrato de origem.
+- Não considerar contrato fechado como dinheiro recebido.
+- Alterações no contrato não podem sobrescrever recebimentos já confirmados.
+- Cancelamentos precisam preservar histórico e respeitar lançamentos já realizados.
+
+---
+
+# 13. INTEGRAÇÃO COM PROJETOS
+
+Dentro de cada projeto, apresentar uma área financeira com:
+
+- Valor contratado.
+- Valor faturado.
+- Valor recebido.
+- Valor pendente.
+- Despesas vinculadas.
+- Resultado financeiro do projeto.
+
+Permitir vincular receitas e despesas a projetos.
+
+Calcular o resultado financeiro considerando os critérios de período e de valores realizados ou previstos.
+
+Não confundir valor contratado com receita recebida.
+
+---
+
+# 14. CATEGORIAS E ORGANIZAÇÃO FINANCEIRA
+
+Criar gerenciamento de categorias para receitas e despesas.
+
+Cada categoria deve possuir:
+
+- Nome.
+- Tipo.
+- Descrição.
+- Status.
+- Data de criação.
+
+Permitir:
+
+- Criar.
+- Editar.
+- Desativar.
+- Filtrar.
+- Consultar movimentações vinculadas.
+
+Categorias com movimentações históricas não devem ser excluídas fisicamente.
+
+---
+
+# 15. RELATÓRIOS FINANCEIROS
+
+Criar uma central de relatórios com filtros e indicadores.
+
+## Relatórios obrigatórios
+
+1. Receitas por período.
+2. Despesas por período.
+3. Lucro realizado.
+4. Resultado previsto.
+5. Fluxo de caixa.
+6. Receitas por cliente.
+7. Receitas por serviço.
+8. Despesas por categoria.
+9. Contas a receber.
+10. Contas a pagar.
+11. Inadimplência.
+12. Receitas recorrentes.
+13. Despesas recorrentes.
+14. Resultado financeiro por projeto.
+15. Comparativo entre meses.
+
+## Exportações
+
+Permitir:
+
+- Exportar CSV.
+- Gerar PDF.
+- Imprimir relatório.
+
+Os documentos devem apresentar:
+
+- Nome Kaizen.
+- Título do relatório.
+- Período selecionado.
+- Data de geração.
+- Indicadores.
+- Tabelas.
+- Totais.
+- Observações relevantes.
+
+Exportações devem utilizar os mesmos filtros e critérios dos dados exibidos na interface.
+
+---
+
+# 16. CONFIGURAÇÕES FINANCEIRAS
+
+Criar uma área para configurações gerais.
+
+Permitir configurar:
+
+- Nome da empresa.
+- Moeda padrão: BRL (R$).
+- Formato brasileiro de datas.
+- Fuso horário: America/Maceio.
+- Saldo inicial.
+- Categorias.
+- Formas de pagamento.
+- Preferências de vencimento.
+- Preferências de alertas.
+
+Formas de pagamento iniciais:
+
+- Pix.
+- Dinheiro.
+- Transferência bancária.
+- Cartão de crédito.
+- Cartão de débito.
+- Boleto.
+- Outro.
+
+Não implementar integração bancária automática nesta etapa.
+
+Não afirmar que o sistema está conectado a bancos, gateways ou meios de pagamento sem integração real e autorização.
+
+---
+
+# 17. REGRAS FINANCEIRAS E INTEGRIDADE DOS DADOS
+
+Esta seção é obrigatória e deve orientar toda a implementação.
+
+## 17.1 Precisão monetária
+
+- Armazenar valores monetários em centavos inteiros, ou utilizar estratégia equivalente que evite erros de ponto flutuante.
+- Exibir valores no padrão brasileiro: R$ 1.234,56.
+- Validar valores negativos, nulos e inválidos.
+- Centralizar funções de cálculo financeiro.
+- Evitar cálculos diferentes para o mesmo indicador em telas distintas.
+
+## 17.2 Datas
+
+Diferenciar:
+
+- Data de competência.
+- Data de vencimento.
+- Data de pagamento ou recebimento.
+- Data de criação do registro.
+
+Não utilizar a mesma data para representar conceitos diferentes.
+
+Aplicar corretamente o fuso horário configurado.
+
+## 17.3 Histórico e auditoria
+
+Registrar operações importantes:
+
+- Criação.
+- Edição.
+- Recebimento.
+- Pagamento.
+- Cancelamento.
+- Alteração de vencimento.
+- Ajustes financeiros.
+
+Cada operação deve possuir data, identificação do registro e descrição da alteração.
+
+Não apagar fisicamente movimentações confirmadas para corrigir erros. Utilizar cancelamento, estorno ou ajuste documentado, mantendo o histórico.
+
+## 17.4 Consistência
+
+- Uma receita deve possuir uma identidade única.
+- Uma despesa deve possuir uma identidade única.
+- Recebimentos e pagamentos devem ser registros relacionados à movimentação original.
+- O saldo pendente deve ser calculado a partir do valor original e das operações confirmadas.
+- Não duplicar registros durante atualizações.
+- Operações relacionadas devem utilizar transações ou mecanismos seguros de consistência quando necessário.
+- Evitar atualizações parciais que deixem valores divergentes.
+
+## 17.5 Critérios contábeis e gerenciais
+
+Diferenciar claramente:
+
+- Receita contratada.
+- Receita prevista.
+- Receita faturada.
+- Receita recebida.
+- Despesa prevista.
+- Despesa paga.
+- Resultado realizado.
+- Resultado projetado.
+
+O indicador de lucro do dashboard deve ser identificado como resultado gerencial, e não como demonstração contábil ou lucro líquido fiscal oficialmente apurado.
+
+---
+
+# 18. DESIGN E EXPERIÊNCIA DO USUÁRIO
+
+Manter integralmente a identidade visual Premium Dark implementada na Etapa 1.
+
+Não voltar ao visual branco e verde.
+
+## Direção visual
+
+- Fundo principal grafite/preto.
+- Superfícies em tons de grafite.
+- Detalhes dourados discretos.
+- Tipografia moderna e legível.
+- Contraste adequado.
+- Cards elegantes.
+- Tabelas organizadas.
+- Gráficos limpos.
+- Ícones consistentes.
+- Bordas sutis.
+- Hierarquia visual clara.
+
+## Experiência
+
+O módulo deve transmitir a sensação de um sistema financeiro profissional.
+
+Criar:
+
+- Dashboard organizado.
+- Formulários claros.
+- Modais de confirmação.
+- Filtros acessíveis.
+- Pesquisa rápida.
+- Tabelas com paginação, quando necessário.
+- Estados vazios bem elaborados.
+- Feedback de carregamento.
+- Mensagens de sucesso e erro.
+- Confirmação antes de operações importantes.
+
+## Responsividade
+
+Priorizar desktop, mantendo experiência completa em celular.
+
+Em dispositivos móveis:
+
+- Adaptar tabelas.
+- Utilizar cards quando necessário.
+- Manter botões acessíveis.
+- Preservar filtros.
+- Facilitar o registro de recebimentos e pagamentos.
+
+Não sacrificar a usabilidade para tentar encaixar todas as informações em uma única tela.
+
+---
+
+# 19. ESTRUTURA TÉCNICA
+
+Antes de criar novas coleções, analisar o modelo atual.
+
+Definir uma arquitetura consistente para entidades como:
+
+- financialEntries.
+- financialTransactions.
+- financialCategories.
+- financialRecurrences.
+- financialSettings.
+- financialAuditLogs.
+
+Esses nomes são sugestões conceituais, não uma obrigação de duplicar coleções existentes.
+
+Definir claramente:
+
+- Identificadores.
+- Relacionamentos.
+- Campos obrigatórios.
+- Campos opcionais.
+- Status.
+- Regras de validação.
+- Estratégia de índices.
+- Estratégia de consultas.
+- Estratégia de compatibilidade.
+
+Reutilizar coleções e serviços existentes quando fizer sentido.
+
+Evitar coleções redundantes.
+
+Implementar serviços separados para:
+
+- Receitas.
+- Despesas.
+- Recebimentos.
+- Pagamentos.
+- Fluxo de caixa.
+- Recorrências.
+- Relatórios.
+- Auditoria.
+
+Manter componentes visuais separados da lógica de negócio.
+
+Não colocar todos os cálculos e operações financeiras diretamente nos componentes de interface.
+
+---
+
+# 20. SEGURANÇA
+
+O Kaizen é um sistema privado de administrador único.
+
+Manter:
+
+- Firebase Authentication.
+- Firestore.
+- Modelo de acesso administrativo existente.
+- Validação no backend ou nas regras aplicáveis.
+- Tratamento de erros.
+- Proteção das operações financeiras.
+
+Não criar múltiplos usuários, equipes ou convites.
+
+Não expor credenciais, tokens ou informações sensíveis.
+
+Não alterar permissões de produção para facilitar testes.
+
+---
+
+# 21. TESTES OBRIGATÓRIOS
+
+Executar testes automatizados e validações de integração.
+
+### Receitas
+
+- Criar receita.
+- Editar receita.
+- Registrar recebimento integral.
+- Registrar recebimento parcial.
+- Calcular saldo pendente.
+- Identificar atraso.
+- Cancelar sem perder histórico.
+
+### Despesas
+
+- Criar despesa.
+- Registrar pagamento.
+- Registrar pagamento parcial.
+- Calcular saldo.
+- Identificar vencimento.
+
+### Dashboard
+
+- Validar indicadores.
+- Validar filtros.
+- Validar gráficos.
+- Comparar resultados com os registros de origem.
+
+### Fluxo de caixa
+
+- Validar saldo inicial.
+- Validar entradas.
+- Validar saídas.
+- Validar saldo final.
+- Separar realizado e previsto.
+
+### Recorrências
+
+- Gerar ocorrências.
+- Evitar duplicação.
+- Pausar e reativar.
+- Alterar valores futuros.
+- Preservar ocorrências anteriores.
+
+### Integrações
+
+- Cliente e histórico financeiro.
+- Contrato e previsão de receita.
+- Projeto e resultado financeiro.
+- Cancelamento e preservação histórica.
+
+### Regressão
+
+Verificar se as funcionalidades das etapas anteriores continuam funcionando.
+
+Não declarar teste real do Firebase concluído se foram utilizados apenas mocks.
+
+Diferenciar claramente:
+
+- Testes unitários.
+- Testes de integração.
+- Testes com Firebase Emulator.
+- Validações manuais.
+- Validações em ambiente real.
+
+---
+
+# 22. DOCUMENTAÇÃO E ENTREGA
+
+Criar:
+
+`docs/RELATORIO_ETAPA_4.md`
+
+O relatório deve conter:
+
+1. Auditoria inicial.
+2. Arquitetura implementada.
+3. Coleções e schemas.
+4. Regras de negócio financeiras.
+5. Funcionalidades concluídas.
+6. Integrações realizadas.
+7. Arquivos criados.
+8. Arquivos modificados.
+9. Testes executados.
+10. Resultados dos testes.
+11. Problemas encontrados e corrigidos.
+12. Pendências.
+13. Dependências externas.
+14. Limitações conhecidas.
+15. Instruções para utilização do módulo.
+
+Atualizar também:
+
+`docs/KAIZEN_ROADMAP.md`
+
+Marcar como concluído somente aquilo que foi efetivamente implementado e validado.
+
+---
+
+# 23. LIMITES DE AUTORIZAÇÃO
+
+A implementação da Etapa 4 está autorizada no ambiente de desenvolvimento.
+
+Entretanto, NÃO está autorizada a realização das seguintes operações:
+
+- Apagar dados reais.
+- Resetar o Firestore.
+- Executar migrações destrutivas.
+- Excluir registros financeiros históricos.
+- Publicar regras do Firebase.
+- Alterar configurações de produção.
+- Fazer deploy na Vercel.
+- Contratar serviços pagos.
+- Criar integrações bancárias externas.
+- Realizar operações irreversíveis.
+
+Se alguma dessas ações for necessária, interromper somente a operação correspondente e solicitar autorização expressa.
+
+Não bloquear o restante da implementação quando for possível continuar com segurança.
+
+---
+
+# 24. ORDEM DE EXECUÇÃO
+
+Seguir rigorosamente esta sequência:
+
+**FASE 1 — Auditoria**
+- Inspecionar o sistema.
+- Verificar módulos anteriores.
+- Identificar schemas e integrações existentes.
+
+**FASE 2 — Arquitetura**
+- Definir entidades financeiras.
+- Definir relacionamentos.
+- Implementar validações.
+- Garantir integridade e compatibilidade.
+
+**FASE 3 — Operações financeiras**
+- Receitas.
+- Despesas.
+- Contas a receber.
+- Contas a pagar.
+- Recebimentos e pagamentos parciais.
+
+**FASE 4 — Gestão**
+- Dashboard.
+- Fluxo de caixa.
+- Categorias.
+- Recorrências.
+- Alertas.
+
+**FASE 5 — Integrações**
+- Clientes.
+- Propostas.
+- Contratos.
+- Projetos.
+
+**FASE 6 — Relatórios**
+- Indicadores.
+- Gráficos.
+- Exportações.
+
+**FASE 7 — Interface**
+- Refinamento visual.
+- Responsividade.
+- Estados de carregamento.
+- Feedback e validações.
+
+**FASE 8 — Validação**
+- Testes automatizados.
+- Testes de integração.
+- Testes de consistência.
+- Regressão.
+
+**FASE 9 — Documentação**
+- Relatório final.
+- Roadmap atualizado.
+- Pendências documentadas.
+
+---
+
+# 25. CRITÉRIOS PARA CONSIDERAR A ETAPA CONCLUÍDA
+
+A Etapa 4 somente poderá ser considerada concluída quando:
+
+- O módulo Financeiro estiver integrado à navegação.
+- Receitas e despesas forem persistidas corretamente.
+- Recebimentos e pagamentos atualizarem os saldos.
+- Contas a pagar e receber funcionarem.
+- O fluxo de caixa diferenciar valores realizados e previstos.
+- As recorrências não gerarem duplicações.
+- Os indicadores apresentarem cálculos consistentes.
+- Clientes, contratos e projetos estiverem integrados conforme o escopo.
+- Os relatórios utilizarem dados reais.
+- Os testes estiverem documentados.
+- Não houver regressões críticas.
+- O relatório final estiver atualizado.
+
+Não marcar funcionalidades como concluídas apenas porque a interface foi criada.
+
+---
+
+# INSTRUÇÃO FINAL
+
+Quero que você execute esta etapa como uma evolução real do produto Kaizen.
+
+Trabalhe sobre o projeto existente. Preserve tudo que já funciona. Não reconstrua o sistema inteiro sem necessidade.
+
+Priorize arquitetura correta, consistência financeira, experiência visual e integração entre os módulos.
+
+Não interrompa a execução para me pedir decisões que já estejam definidas neste documento. Quando encontrar uma decisão técnica não especificada, escolha a alternativa mais segura e compatível com a arquitetura existente e documente a escolha.
+
+Se encontrar limitações de acesso ao Firebase, credenciais ou ambiente, implemente e teste tudo o que for possível sem fingir que as validações externas foram realizadas.
+
+**AUTORIZAÇÃO: PODE INICIAR A ETAPA 4 AGORA.**
+
+Ao concluir, apresente o relatório técnico e funcional completo e aguarde minha aprovação.
+
+**Não iniciar a Etapa 5 automaticamente.**

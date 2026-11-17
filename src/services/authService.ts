@@ -7,6 +7,8 @@ import {
   setPersistence,
   browserLocalPersistence,
   browserSessionPersistence,
+  GoogleAuthProvider,
+  signInWithPopup,
 } from 'firebase/auth';
 import { auth } from '../utils/firebase';
 import {
@@ -106,7 +108,15 @@ export function mapFirebaseAuthError(error: unknown): string {
     case 'auth/network-request-failed':
       return 'Erro de conexão com o serviço de autenticação. Verifique sua internet.';
     case 'auth/operation-not-allowed':
-      return 'O login por E-mail/Senha ainda não foi habilitado no Firebase Console.';
+      return 'Este método de login ainda não foi habilitado no Firebase Console (Authentication → Sign-in method).';
+    case 'auth/popup-closed-by-user':
+      return 'Janela de login do Google fechada antes de concluir.';
+    case 'auth/popup-blocked':
+      return 'O navegador bloqueou o pop-up do Google. Permita pop-ups para este site e tente novamente.';
+    case 'auth/cancelled-popup-request':
+      return 'Solicitação de login com Google cancelada. Tente novamente.';
+    case 'auth/unauthorized-domain':
+      return 'Este domínio ainda não está autorizado no Firebase Console (Authentication → Settings → Authorized domains).';
     case 'auth/user-token-expired':
     case 'auth/requires-recent-login':
       return 'Sua sessão expirou. Faça login novamente para continuar.';
@@ -156,6 +166,61 @@ export async function loginWithEmailAndPassword(
   }
 
   return credential.user;
+}
+
+export async function loginWithGoogle(rememberMe: boolean): Promise<User> {
+  clearLegacyLocalAuthState();
+
+  const preCheck = evaluateSingleAdminAuthorization({
+    authenticatedUid: '__PRECHECK__',
+    authorizedUid: AUTHORIZED_ADMIN_UID,
+  });
+  if (!preCheck.configValid) {
+    throw new Error(
+      preCheck.reason ||
+        'Configuração de segurança ausente: defina VITE_AUTHORIZED_ADMIN_UID antes de fazer login.'
+    );
+  }
+
+  await setPersistence(
+    auth,
+    rememberMe ? browserLocalPersistence : browserSessionPersistence
+  );
+
+  const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
+
+  const credential = await signInWithPopup(auth, provider);
+  const authCheck = evaluateSingleAdminAuthorization({
+    authenticatedUid: credential.user?.uid,
+    authorizedUid: AUTHORIZED_ADMIN_UID,
+  });
+
+  if (!authCheck.allowed) {
+    await signOut(auth).catch(() => {});
+    throw new Error(
+      authCheck.reason ||
+        'Esta conta Google não está autorizada a acessar este sistema privado (UID não corresponde ao administrador).'
+    );
+  }
+
+  return credential.user;
+}
+
+/**
+ * Autentica temporariamente via Google apenas para descobrir o UID da conta
+ * quando VITE_AUTHORIZED_ADMIN_UID ainda não foi configurado.
+ * Encerra a sessão imediatamente e nunca libera acesso ao sistema.
+ */
+export async function inspectGoogleAccountUid(): Promise<{ uid: string; email: string | null }> {
+  const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
+
+  const credential = await signInWithPopup(auth, provider);
+  const uid = credential.user.uid;
+  const email = credential.user.email ?? null;
+  await signOut(auth).catch(() => {});
+  return { uid, email };
 }
 
 export async function logoutFromFirebase(): Promise<void> {

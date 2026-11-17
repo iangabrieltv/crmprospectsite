@@ -19,7 +19,7 @@ service cloud.firestore {
     // ANTES de publicar no console ou via `firebase deploy --only firestore:rules`.
     // Enquanto o placeholder permanecer presente, TODAS as operações são bloqueadas.
     function authorizedAdminUid() {
-      return 'REPLACE_WITH_YOUR_FIREBASE_UID';
+      return 'ykGdQS5z6Udjl8zYX7DLD6Gt5CR2';
     }
 
     function hasValidAdminUidConfig() {
@@ -53,6 +53,10 @@ service cloud.firestore {
 
     function optNum(v) {
       return v == null || v is int || v is float;
+    }
+
+    function optBool(v) {
+      return v == null || v is bool;
     }
 
     function isValidLead(data) {
@@ -147,6 +151,562 @@ service cloud.firestore {
         && (ls == null || (ls is list && ls.size() <= 50 && (ls.size() == 0 || ls[0] is map)));
     }
 
+    function isValidClient(data) {
+      let tl = data.get('timeline', null);
+      return data.keys().hasAll(['companyName', 'phone', 'status'])
+        && data.keys().hasOnly([
+          'id', 'originLeadId', 'originNicheId', 'companyName', 'contactName',
+          'document', 'email', 'phone', 'displayPhone', 'city', 'address',
+          'segment', 'websiteUrl', 'domainName', 'hostingProvider', 'status',
+          'setupValue', 'monthlyMrr', 'billingDay', 'contractStartDate',
+          'contractRenewalDate', 'serviceScope', 'socialManagementEnabled',
+          'notes', 'timeline', 'createdAt', 'schemaVersion', 'updatedAt'
+        ])
+        && data.companyName is string && data.companyName.size() >= 1 && data.companyName.size() <= 300
+        && data.phone is string && data.phone.size() <= 40
+        && data.status in ['onboarding', 'ativo', 'pausado', 'encerrado']
+        && optStr(data.get('id', null), 128)
+        && optStr(data.get('originLeadId', null), 128)
+        && optStr(data.get('originNicheId', null), 128)
+        && optStr(data.get('contactName', null), 200)
+        && optStr(data.get('document', null), 40)
+        && optStr(data.get('email', null), 200)
+        && optStr(data.get('displayPhone', null), 50)
+        && optStr(data.get('city', null), 150)
+        && optStr(data.get('address', null), 500)
+        && optStr(data.get('segment', null), 200)
+        && optStr(data.get('websiteUrl', null), 2000)
+        && optStr(data.get('domainName', null), 255)
+        && optStr(data.get('hostingProvider', null), 150)
+        && optStr(data.get('contractStartDate', null), 32)
+        && optStr(data.get('contractRenewalDate', null), 32)
+        && optStr(data.get('serviceScope', null), 2000)
+        && optBool(data.get('socialManagementEnabled', null))
+        && optStr(data.get('notes', null), 4000)
+        && optStr(data.get('createdAt', null), 64)
+        && optStr(data.get('updatedAt', null), 64)
+        && optNum(data.get('setupValue', null))
+        && optNum(data.get('monthlyMrr', null))
+        && optNum(data.get('billingDay', null))
+        && optNum(data.get('schemaVersion', null))
+        && (tl == null || (tl is list && tl.size() <= 200 && (tl.size() == 0 || tl[0] is map)));
+    }
+
+    function isValidProposal(data) {
+      let it = data.get('items', null);
+      let hist = data.get('history', null);
+      return data.keys().hasAll(['code', 'kind', 'title', 'status', 'recipientCompany', 'issuerName'])
+        && data.keys().hasOnly([
+          'id', 'code', 'kind', 'title', 'status', 'clientId', 'leadId',
+          'recipientCompany', 'recipientContact', 'recipientDocument',
+          'recipientPhone', 'recipientEmail', 'recipientCity',
+          'issuerName', 'issuerDocument', 'summary', 'items',
+          'discountValue', 'setupTotal', 'monthlyMrr',
+          'deliveryDeadlineDays', 'paymentTerms', 'clausesText',
+          'validUntil', 'sentAt', 'approvedAt', 'signedAt', 'notes',
+          'history', 'createdAt', 'schemaVersion', 'updatedAt'
+        ])
+        && data.code is string && data.code.size() >= 1 && data.code.size() <= 64
+        && data.kind in ['proposta', 'contrato']
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 300
+        && data.status in ['rascunho', 'enviada', 'em_negociacao', 'aprovada', 'assinada', 'recusada', 'expirada']
+        && data.recipientCompany is string && data.recipientCompany.size() >= 1 && data.recipientCompany.size() <= 300
+        && data.issuerName is string && data.issuerName.size() >= 1 && data.issuerName.size() <= 200
+        && optStr(data.get('id', null), 128)
+        && optStr(data.get('clientId', null), 128)
+        && optStr(data.get('leadId', null), 128)
+        && optStr(data.get('recipientContact', null), 200)
+        && optStr(data.get('recipientDocument', null), 40)
+        && optStr(data.get('recipientPhone', null), 40)
+        && optStr(data.get('recipientEmail', null), 200)
+        && optStr(data.get('recipientCity', null), 150)
+        && optStr(data.get('issuerDocument', null), 40)
+        && optStr(data.get('summary', null), 4000)
+        && optStr(data.get('paymentTerms', null), 1000)
+        && optStr(data.get('clausesText', null), 20000)
+        && optStr(data.get('validUntil', null), 32)
+        && optStr(data.get('sentAt', null), 64)
+        && optStr(data.get('approvedAt', null), 64)
+        && optStr(data.get('signedAt', null), 64)
+        && optStr(data.get('notes', null), 4000)
+        && optStr(data.get('createdAt', null), 64)
+        && optStr(data.get('updatedAt', null), 64)
+        && optNum(data.get('discountValue', null))
+        && optNum(data.get('setupTotal', null))
+        && optNum(data.get('monthlyMrr', null))
+        && optNum(data.get('deliveryDeadlineDays', null))
+        && optNum(data.get('schemaVersion', null))
+        && (it == null || (it is list && it.size() <= 50 && (it.size() == 0 || it[0] is map)))
+        && (hist == null || (hist is list && hist.size() <= 200 && (hist.size() == 0 || hist[0] is map)));
+    }
+
+    function isValidProject(data) {
+      let ph = data.get('phases', null);
+      let docs = data.get('documents', null);
+      let hist = data.get('history', null);
+      return data.keys().hasAll(['name', 'clientId', 'serviceType', 'templateId', 'status', 'ownerName'])
+        && data.keys().hasOnly([
+          'id', 'name', 'clientId', 'proposalId', 'serviceType', 'description',
+          'templateId', 'status', 'ownerName', 'startDate', 'dueDate', 'phases',
+          'documents', 'history', 'notes', 'completedAt',
+          'createdAt', 'schemaVersion', 'updatedAt'
+        ])
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 300
+        && data.clientId is string && data.clientId.size() >= 1 && data.clientId.size() <= 128
+        && data.serviceType is string && data.serviceType.size() >= 1 && data.serviceType.size() <= 200
+        && data.templateId in ['kaizen_start', 'kaizen_performance', 'personalizado']
+        && data.status in ['nao_iniciado', 'em_andamento', 'em_revisao', 'aguardando_cliente', 'concluido', 'pausado', 'cancelado']
+        && data.ownerName is string && data.ownerName.size() >= 1 && data.ownerName.size() <= 150
+        && optStr(data.get('id', null), 128)
+        && optStr(data.get('proposalId', null), 128)
+        && optStr(data.get('description', null), 4000)
+        && optStr(data.get('startDate', null), 32)
+        && optStr(data.get('dueDate', null), 32)
+        && optStr(data.get('notes', null), 4000)
+        && optStr(data.get('completedAt', null), 64)
+        && optStr(data.get('createdAt', null), 64)
+        && optStr(data.get('updatedAt', null), 64)
+        && optNum(data.get('schemaVersion', null))
+        && (ph == null || (ph is list && ph.size() <= 30 && (ph.size() == 0 || ph[0] is map)))
+        && (docs == null || (docs is list && docs.size() <= 100 && (docs.size() == 0 || docs[0] is map)))
+        && (hist == null || (hist is list && hist.size() <= 200 && (hist.size() == 0 || hist[0] is map)));
+    }
+
+    function isValidTask(data) {
+      let cl = data.get('checklist', null);
+      return data.keys().hasAll(['title', 'priority', 'status'])
+        && data.keys().hasOnly([
+          'id', 'title', 'description', 'projectId', 'clientId', 'phaseLabel',
+          'startDate', 'dueDate', 'priority', 'status', 'checklist', 'notes',
+          'completedAt', 'createdAt', 'schemaVersion', 'updatedAt'
+        ])
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 300
+        && data.priority in ['baixa', 'media', 'alta', 'urgente']
+        && data.status in ['a_fazer', 'em_andamento', 'em_revisao', 'aguardando', 'concluida']
+        && optStr(data.get('id', null), 128)
+        && optStr(data.get('description', null), 4000)
+        && optStr(data.get('projectId', null), 128)
+        && optStr(data.get('clientId', null), 128)
+        && optStr(data.get('phaseLabel', null), 150)
+        && optStr(data.get('startDate', null), 32)
+        && optStr(data.get('dueDate', null), 32)
+        && optStr(data.get('notes', null), 4000)
+        && optStr(data.get('completedAt', null), 64)
+        && optStr(data.get('createdAt', null), 64)
+        && optStr(data.get('updatedAt', null), 64)
+        && optNum(data.get('schemaVersion', null))
+        && (cl == null || (cl is list && cl.size() <= 100 && (cl.size() == 0 || cl[0] is map)));
+    }
+
+    function isValidAgendaEvent(data) {
+      let ext = data.get('externalSync', null);
+      return data.keys().hasAll(['title', 'date', 'type', 'status'])
+        && data.keys().hasOnly([
+          'id', 'title', 'description', 'date', 'startTime', 'endTime',
+          'type', 'status', 'clientId', 'leadId', 'projectId', 'taskId',
+          'meetingLink', 'notes', 'externalSync',
+          'createdAt', 'schemaVersion', 'updatedAt'
+        ])
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 300
+        && data.date is string && data.date.size() >= 8 && data.date.size() <= 32
+        && data.type in ['reuniao_cliente', 'reuniao_comercial', 'prazo_entrega', 'tarefa', 'lembrete', 'compromisso_interno', 'outro']
+        && data.status in ['agendado', 'concluido', 'cancelado']
+        && optStr(data.get('id', null), 128)
+        && optStr(data.get('description', null), 4000)
+        && optStr(data.get('startTime', null), 16)
+        && optStr(data.get('endTime', null), 16)
+        && optStr(data.get('clientId', null), 128)
+        && optStr(data.get('leadId', null), 128)
+        && optStr(data.get('projectId', null), 128)
+        && optStr(data.get('taskId', null), 128)
+        && optStr(data.get('meetingLink', null), 2000)
+        && optStr(data.get('notes', null), 4000)
+        && optStr(data.get('createdAt', null), 64)
+        && optStr(data.get('updatedAt', null), 64)
+        && optNum(data.get('schemaVersion', null))
+        && (ext == null || ext is map);
+    }
+
+    function isValidSocialChannel(data) {
+      return data.keys().hasAll(['ownerType', 'platform', 'handle', 'active'])
+        && data.keys().hasOnly([
+          'id', 'ownerType', 'clientId', 'platform', 'customPlatformName',
+          'handle', 'profileUrl', 'active', 'notes',
+          'createdAt', 'schemaVersion', 'updatedAt'
+        ])
+        && data.ownerType in ['kaizen', 'client']
+        && data.platform in ['instagram', 'facebook', 'tiktok', 'linkedin', 'outro']
+        && data.handle is string && data.handle.size() >= 1 && data.handle.size() <= 150
+        && data.active is bool
+        && optStr(data.get('id', null), 128)
+        && optStr(data.get('clientId', null), 128)
+        && optStr(data.get('customPlatformName', null), 100)
+        && optStr(data.get('profileUrl', null), 2000)
+        && optStr(data.get('notes', null), 2000)
+        && optStr(data.get('createdAt', null), 64)
+        && optStr(data.get('updatedAt', null), 64)
+        && optNum(data.get('schemaVersion', null));
+    }
+
+    function isValidSocialPost(data) {
+      return data.keys().hasAll(['title', 'ownerType', 'platform', 'format', 'assignee', 'status'])
+        && data.keys().hasOnly([
+          'id', 'title', 'ownerType', 'clientId', 'channelId', 'platform',
+          'customPlatformName', 'format', 'plannedDate', 'plannedTime',
+          'caption', 'scriptText', 'assetUrl', 'assignee', 'status',
+          'approvedAt', 'publishedAt', 'publishedConfirmedBy', 'notes',
+          'createdAt', 'schemaVersion', 'updatedAt'
+        ])
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 300
+        && data.ownerType in ['kaizen', 'client']
+        && data.platform in ['instagram', 'facebook', 'tiktok', 'linkedin', 'outro']
+        && data.format in ['post', 'carrossel', 'story', 'reels', 'video', 'outro']
+        && data.assignee is string && data.assignee.size() >= 1 && data.assignee.size() <= 150
+        && data.status in ['ideias', 'planejamento', 'producao', 'revisao', 'aprovado', 'publicado']
+        && optStr(data.get('id', null), 128)
+        && optStr(data.get('clientId', null), 128)
+        && optStr(data.get('channelId', null), 128)
+        && optStr(data.get('customPlatformName', null), 100)
+        && optStr(data.get('plannedDate', null), 32)
+        && optStr(data.get('plannedTime', null), 16)
+        && optStr(data.get('caption', null), 4000)
+        && optStr(data.get('scriptText', null), 10000)
+        && optStr(data.get('assetUrl', null), 2000)
+        && optStr(data.get('approvedAt', null), 64)
+        && optStr(data.get('publishedAt', null), 64)
+        && optStr(data.get('publishedConfirmedBy', null), 150)
+        && optStr(data.get('notes', null), 4000)
+        && optStr(data.get('createdAt', null), 64)
+        && optStr(data.get('updatedAt', null), 64)
+        && optNum(data.get('schemaVersion', null));
+    }
+
+    function isValidFinancialEntry(data) {
+      return data.keys().hasAll([
+          'kind', 'description', 'categoryId', 'amountCents', 'settledCents',
+          'competenceDate', 'dueDate', 'paymentMethod', 'status'
+        ])
+        && data.keys().hasOnly([
+          'id', 'kind', 'description', 'clientId', 'supplierName', 'serviceName',
+          'projectId', 'proposalId', 'contractCode', 'categoryId', 'recurrenceId',
+          'recurrencePeriodKey', 'installmentIndex', 'installmentTotal',
+          'amountCents', 'settledCents', 'adjustmentCents',
+          'competenceDate', 'dueDate', 'lastSettledDate', 'paymentMethod', 'status',
+          'attachmentUrl', 'notes', 'cancellationReason', 'cancelledAt',
+          'createdAt', 'schemaVersion', 'updatedAt'
+        ])
+        && data.kind in ['receita', 'despesa']
+        && data.description is string && data.description.size() >= 1 && data.description.size() <= 300
+        && data.categoryId is string && data.categoryId.size() >= 1 && data.categoryId.size() <= 128
+        && data.amountCents is int && data.amountCents > 0
+        && data.settledCents is int && data.settledCents >= 0
+        && data.competenceDate is string && data.competenceDate.size() >= 8 && data.competenceDate.size() <= 32
+        && data.dueDate is string && data.dueDate.size() >= 8 && data.dueDate.size() <= 32
+        && data.paymentMethod in ['pix', 'dinheiro', 'transferencia_bancaria', 'cartao_credito', 'cartao_debito', 'boleto', 'outro']
+        && data.status in ['prevista', 'pendente', 'parcialmente_recebida', 'recebida', 'parcialmente_paga', 'paga', 'atrasada', 'cancelada']
+        && optStr(data.get('id', null), 128)
+        && optStr(data.get('clientId', null), 128)
+        && optStr(data.get('supplierName', null), 200)
+        && optStr(data.get('serviceName', null), 200)
+        && optStr(data.get('projectId', null), 128)
+        && optStr(data.get('proposalId', null), 128)
+        && optStr(data.get('contractCode', null), 64)
+        && optStr(data.get('recurrenceId', null), 128)
+        && optStr(data.get('recurrencePeriodKey', null), 64)
+        && optNum(data.get('installmentIndex', null))
+        && optNum(data.get('installmentTotal', null))
+        && optNum(data.get('adjustmentCents', null))
+        && optStr(data.get('lastSettledDate', null), 32)
+        && optStr(data.get('attachmentUrl', null), 2000)
+        && optStr(data.get('notes', null), 4000)
+        && optStr(data.get('cancellationReason', null), 1000)
+        && optStr(data.get('cancelledAt', null), 64)
+        && optStr(data.get('createdAt', null), 64)
+        && optStr(data.get('updatedAt', null), 64)
+        && optNum(data.get('schemaVersion', null));
+    }
+
+    function isValidFinancialTransaction(data) {
+      return data.keys().hasAll([
+          'entryId', 'entryKind', 'kind', 'amountCents', 'date', 'paymentMethod', 'createdBy'
+        ])
+        && data.keys().hasOnly([
+          'id', 'entryId', 'entryKind', 'kind', 'amountCents', 'date',
+          'paymentMethod', 'notes', 'createdBy',
+          'createdAt', 'schemaVersion', 'updatedAt'
+        ])
+        && data.entryId is string && data.entryId.size() >= 1 && data.entryId.size() <= 128
+        && data.entryKind in ['receita', 'despesa']
+        && data.kind in ['recebimento', 'pagamento', 'estorno', 'ajuste']
+        && data.amountCents is int && data.amountCents > 0
+        && data.date is string && data.date.size() >= 8 && data.date.size() <= 32
+        && data.paymentMethod in ['pix', 'dinheiro', 'transferencia_bancaria', 'cartao_credito', 'cartao_debito', 'boleto', 'outro']
+        && data.createdBy is string && data.createdBy.size() >= 1 && data.createdBy.size() <= 150
+        && optStr(data.get('id', null), 128)
+        && optStr(data.get('notes', null), 2000)
+        && optStr(data.get('createdAt', null), 64)
+        && optStr(data.get('updatedAt', null), 64)
+        && optNum(data.get('schemaVersion', null));
+    }
+
+    function isValidFinancialCategory(data) {
+      return data.keys().hasAll(['name', 'kind', 'active'])
+        && data.keys().hasOnly([
+          'id', 'name', 'kind', 'description', 'active', 'isDefault',
+          'createdAt', 'schemaVersion', 'updatedAt'
+        ])
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 150
+        && data.kind in ['receita', 'despesa']
+        && data.active is bool
+        && optBool(data.get('isDefault', null))
+        && optStr(data.get('id', null), 128)
+        && optStr(data.get('description', null), 500)
+        && optStr(data.get('createdAt', null), 64)
+        && optStr(data.get('updatedAt', null), 64)
+        && optNum(data.get('schemaVersion', null));
+    }
+
+    function isValidFinancialRecurrence(data) {
+      return data.keys().hasAll([
+          'name', 'kind', 'amountCents', 'categoryId', 'paymentMethod',
+          'frequency', 'startDate', 'nextOccurrenceDate', 'status'
+        ])
+        && data.keys().hasOnly([
+          'id', 'name', 'kind', 'amountCents', 'categoryId', 'clientId',
+          'supplierName', 'serviceName', 'projectId', 'proposalId', 'paymentMethod',
+          'frequency', 'customIntervalDays', 'startDate', 'endDate',
+          'nextOccurrenceDate', 'status', 'notes', 'lastGeneratedAt',
+          'lastGeneratedPeriodKey', 'lastError',
+          'createdAt', 'schemaVersion', 'updatedAt'
+        ])
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 250
+        && data.kind in ['receita', 'despesa']
+        && data.amountCents is int && data.amountCents > 0
+        && data.categoryId is string && data.categoryId.size() >= 1 && data.categoryId.size() <= 128
+        && data.paymentMethod in ['pix', 'dinheiro', 'transferencia_bancaria', 'cartao_credito', 'cartao_debito', 'boleto', 'outro']
+        && data.frequency in ['semanal', 'mensal', 'bimestral', 'trimestral', 'semestral', 'anual', 'personalizada']
+        && data.startDate is string && data.startDate.size() >= 8 && data.startDate.size() <= 32
+        && data.nextOccurrenceDate is string && data.nextOccurrenceDate.size() >= 8 && data.nextOccurrenceDate.size() <= 32
+        && data.status in ['ativa', 'pausada', 'encerrada']
+        && optStr(data.get('id', null), 128)
+        && optStr(data.get('clientId', null), 128)
+        && optStr(data.get('supplierName', null), 200)
+        && optStr(data.get('serviceName', null), 200)
+        && optStr(data.get('projectId', null), 128)
+        && optStr(data.get('proposalId', null), 128)
+        && optNum(data.get('customIntervalDays', null))
+        && optStr(data.get('endDate', null), 32)
+        && optStr(data.get('notes', null), 2000)
+        && optStr(data.get('lastGeneratedAt', null), 64)
+        && optStr(data.get('lastGeneratedPeriodKey', null), 64)
+        && optStr(data.get('lastError', null), 500)
+        && optStr(data.get('createdAt', null), 64)
+        && optStr(data.get('updatedAt', null), 64)
+        && optNum(data.get('schemaVersion', null));
+    }
+
+    function isValidFinancialSettings(data) {
+      let hist = data.get('openingBalanceHistory', null);
+      let methods = data.get('paymentMethods', null);
+      return data.keys().hasAll([
+          'companyName', 'currency', 'dateFormat', 'timezone',
+          'openingBalanceCents', 'openingBalanceDate', 'openingBalanceDescription'
+        ])
+        && data.keys().hasOnly([
+          'id', 'companyName', 'currency', 'dateFormat', 'timezone',
+          'openingBalanceCents', 'openingBalanceDate', 'openingBalanceDescription',
+          'openingBalanceNotes', 'openingBalanceHistory', 'paymentMethods',
+          'alertDaysAhead', 'defaultDueDay', 'schemaVersion', 'updatedAt'
+        ])
+        && data.companyName is string && data.companyName.size() >= 1 && data.companyName.size() <= 200
+        && data.currency == 'BRL'
+        && data.dateFormat == 'DD/MM/YYYY'
+        && data.timezone is string && data.timezone.size() >= 1 && data.timezone.size() <= 64
+        && data.openingBalanceCents is int
+        && data.openingBalanceDate is string && data.openingBalanceDate.size() >= 8 && data.openingBalanceDate.size() <= 32
+        && data.openingBalanceDescription is string && data.openingBalanceDescription.size() >= 1 && data.openingBalanceDescription.size() <= 200
+        && optStr(data.get('id', null), 128)
+        && optStr(data.get('openingBalanceNotes', null), 2000)
+        && optNum(data.get('alertDaysAhead', null))
+        && optNum(data.get('defaultDueDay', null))
+        && optStr(data.get('updatedAt', null), 64)
+        && optNum(data.get('schemaVersion', null))
+        && (hist == null || (hist is list && hist.size() <= 100 && (hist.size() == 0 || hist[0] is map)))
+        && (methods == null || (methods is list && methods.size() <= 20 && (methods.size() == 0 || methods[0] is map)));
+    }
+
+    function isValidFinancialAuditLog(data) {
+      return data.keys().hasAll(['entityType', 'entityId', 'action', 'description', 'actor'])
+        && data.keys().hasOnly([
+          'id', 'entityType', 'entityId', 'action', 'description',
+          'amountCents', 'actor', 'createdAt', 'schemaVersion', 'updatedAt'
+        ])
+        && data.entityType in ['entry', 'transaction', 'category', 'recurrence', 'settings']
+        && data.entityId is string && data.entityId.size() >= 1 && data.entityId.size() <= 128
+        && data.action in [
+          'criacao', 'edicao', 'recebimento', 'pagamento', 'estorno',
+          'ajuste', 'vencimento_alterado', 'cancelamento',
+          'recorrencia_gerada', 'recorrencia_status', 'configuracao_alterada',
+          'integracao_proposta'
+        ]
+        && data.description is string && data.description.size() >= 1 && data.description.size() <= 1000
+        && data.actor is string && data.actor.size() >= 1 && data.actor.size() <= 150
+        && optStr(data.get('id', null), 128)
+        && optNum(data.get('amountCents', null))
+        && optStr(data.get('createdAt', null), 64)
+        && optStr(data.get('updatedAt', null), 64)
+        && optNum(data.get('schemaVersion', null));
+    }
+
+    // -------------------------------------------------------------------------
+    // VALIDADORES — ETAPA 5 (MATERIAIS, DOCUMENTOS, SCRIPTS E MODELOS)
+    // -------------------------------------------------------------------------
+    function isValidResourceFile(data) {
+      let tags = data.get('tags', null);
+      let taskIds = data.get('linkedTaskIds', null);
+      let postIds = data.get('linkedSocialPostIds', null);
+      return data.keys().hasAll([
+          'name', 'originalName', 'extension', 'sizeBytes',
+          'categoryId', 'status', 'storagePath', 'storageProvider', 'uploadedBy'
+        ])
+        && data.keys().hasOnly([
+          'id', 'name', 'originalName', 'mimeType', 'extension', 'sizeBytes',
+          'categoryId', 'description', 'tags', 'folderId', 'favorite', 'status',
+          'clientId', 'projectId', 'proposalId', 'linkedTaskIds', 'linkedSocialPostIds',
+          'clientSection', 'projectSection', 'storagePath', 'storageProvider',
+          'downloadUrl', 'localBlobKey', 'checksum', 'uploadedBy', 'uploadedAt',
+          'archivedAt', 'schemaVersion', 'updatedAt'
+        ])
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 250
+        && data.originalName is string && data.originalName.size() >= 1 && data.originalName.size() <= 250
+        && data.extension in ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'png', 'jpg', 'jpeg', 'svg', 'mp4', 'txt', 'csv', 'zip']
+        && data.sizeBytes is int && data.sizeBytes > 0 && data.sizeBytes <= 26214400
+        && data.categoryId is string && data.categoryId.size() >= 1 && data.categoryId.size() <= 128
+        && data.status in ['ativo', 'arquivado']
+        && data.storagePath is string && data.storagePath.size() >= 1 && data.storagePath.size() <= 400
+        && data.storageProvider in ['firebase_storage', 'indexeddb_dev', 'external_link']
+        && data.uploadedBy is string && data.uploadedBy.size() >= 1 && data.uploadedBy.size() <= 150
+        && optStr(data.get('id', null), 128)
+        && optStr(data.get('mimeType', null), 200)
+        && optStr(data.get('description', null), 2000)
+        && optStr(data.get('folderId', null), 128)
+        && optBool(data.get('favorite', null))
+        && optStr(data.get('clientId', null), 128)
+        && optStr(data.get('projectId', null), 128)
+        && optStr(data.get('proposalId', null), 128)
+        && optStr(data.get('clientSection', null), 64)
+        && optStr(data.get('projectSection', null), 64)
+        && optStr(data.get('downloadUrl', null), 2000)
+        && optStr(data.get('localBlobKey', null), 150)
+        && optStr(data.get('checksum', null), 128)
+        && optStr(data.get('uploadedAt', null), 64)
+        && optStr(data.get('archivedAt', null), 64)
+        && optStr(data.get('updatedAt', null), 64)
+        && optNum(data.get('schemaVersion', null))
+        && (tags == null || (tags is list && tags.size() <= 20))
+        && (taskIds == null || (taskIds is list && taskIds.size() <= 100))
+        && (postIds == null || (postIds is list && postIds.size() <= 100));
+    }
+
+    function isValidResourceFolder(data) {
+      return data.keys().hasAll(['name', 'scope'])
+        && data.keys().hasOnly([
+          'id', 'name', 'parentId', 'scope', 'clientId', 'projectId',
+          'description', 'colorAccent', 'createdAt', 'schemaVersion', 'updatedAt'
+        ])
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 150
+        && data.scope in ['geral', 'cliente', 'projeto', 'interno', 'marketing']
+        && optStr(data.get('id', null), 128)
+        && optStr(data.get('parentId', null), 128)
+        && optStr(data.get('clientId', null), 128)
+        && optStr(data.get('projectId', null), 128)
+        && optStr(data.get('description', null), 1000)
+        && optStr(data.get('colorAccent', null), 32)
+        && optStr(data.get('createdAt', null), 64)
+        && optStr(data.get('updatedAt', null), 64)
+        && optNum(data.get('schemaVersion', null));
+    }
+
+    function isValidResourceCategory(data) {
+      return data.keys().hasAll(['name', 'kind', 'slug', 'active'])
+        && data.keys().hasOnly([
+          'id', 'name', 'kind', 'slug', 'description', 'active',
+          'isDefault', 'sortOrder', 'createdAt', 'schemaVersion', 'updatedAt'
+        ])
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 150
+        && data.kind in ['arquivo', 'script', 'modelo']
+        && data.slug is string && data.slug.size() >= 1 && data.slug.size() <= 80
+        && data.active is bool
+        && optStr(data.get('id', null), 128)
+        && optStr(data.get('description', null), 500)
+        && optBool(data.get('isDefault', null))
+        && optNum(data.get('sortOrder', null))
+        && optStr(data.get('createdAt', null), 64)
+        && optStr(data.get('updatedAt', null), 64)
+        && optNum(data.get('schemaVersion', null));
+    }
+
+    function isValidCommercialScript(data) {
+      let tags = data.get('tags', null);
+      return data.keys().hasAll(['title', 'categoryId', 'channel', 'content', 'status', 'createdBy'])
+        && data.keys().hasOnly([
+          'id', 'title', 'categoryId', 'channel', 'description', 'content',
+          'tags', 'favorite', 'status', 'usageCount', 'referencedInHistory',
+          'createdBy', 'createdAt', 'archivedAt', 'schemaVersion', 'updatedAt'
+        ])
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 250
+        && data.categoryId is string && data.categoryId.size() >= 1 && data.categoryId.size() <= 128
+        && data.channel in ['whatsapp', 'ligacao', 'email', 'reuniao', 'proposta', 'geral']
+        && data.content is string && data.content.size() >= 1 && data.content.size() <= 20000
+        && data.status in ['ativo', 'arquivado']
+        && data.createdBy is string && data.createdBy.size() >= 1 && data.createdBy.size() <= 150
+        && optStr(data.get('id', null), 128)
+        && optStr(data.get('description', null), 1000)
+        && optBool(data.get('favorite', null))
+        && optNum(data.get('usageCount', null))
+        && optBool(data.get('referencedInHistory', null))
+        && optStr(data.get('createdAt', null), 64)
+        && optStr(data.get('archivedAt', null), 64)
+        && optStr(data.get('updatedAt', null), 64)
+        && optNum(data.get('schemaVersion', null))
+        && (tags == null || (tags is list && tags.size() <= 20));
+    }
+
+    function isValidModelTemplate(data) {
+      let tags = data.get('tags', null);
+      let taskDrafts = data.get('taskDrafts', null);
+      let propDraft = data.get('proposalDraft', null);
+      return data.keys().hasAll(['title', 'domain', 'kind', 'categoryId', 'content', 'status', 'createdBy'])
+        && data.keys().hasOnly([
+          'id', 'title', 'domain', 'kind', 'categoryId', 'description', 'content',
+          'tags', 'favorite', 'status', 'linkedProjectTemplateId', 'proposalDraft',
+          'taskDrafts', 'usageCount', 'createdBy', 'createdAt', 'archivedAt',
+          'schemaVersion', 'updatedAt'
+        ])
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 250
+        && data.domain in ['comercial', 'operacional', 'marketing', 'gestao']
+        && data.kind in [
+          'proposta', 'contrato', 'checklist', 'projeto', 'tarefa',
+          'plano_trabalho', 'processo_interno', 'texto_padrao', 'apresentacao'
+        ]
+        && data.categoryId is string && data.categoryId.size() >= 1 && data.categoryId.size() <= 128
+        && data.content is string && data.content.size() >= 1 && data.content.size() <= 50000
+        && data.status in ['ativo', 'arquivado']
+        && data.createdBy is string && data.createdBy.size() >= 1 && data.createdBy.size() <= 150
+        && optStr(data.get('id', null), 128)
+        && optStr(data.get('description', null), 1000)
+        && optBool(data.get('favorite', null))
+        && optStr(data.get('linkedProjectTemplateId', null), 64)
+        && optNum(data.get('usageCount', null))
+        && optStr(data.get('createdAt', null), 64)
+        && optStr(data.get('archivedAt', null), 64)
+        && optStr(data.get('updatedAt', null), 64)
+        && optNum(data.get('schemaVersion', null))
+        && (tags == null || (tags is list && tags.size() <= 20))
+        && (propDraft == null || propDraft is map)
+        && (taskDrafts == null || (taskDrafts is list && taskDrafts.size() <= 50));
+    }
+
     // -------------------------------------------------------------------------
     // WORKSPACE PRIVADO DO ADMINISTRADOR ÚNICO (PRESERVA CAMINHO DE PRODUÇÃO)
     // -------------------------------------------------------------------------
@@ -180,6 +740,171 @@ service cloud.firestore {
           && isAuthorizedAdmin()
           && isValidId(sheetId)
           && isValidImportedSheet(incoming());
+      }
+
+      match /clients/{clientId} {
+        allow list: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin();
+        allow get, delete: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin() && isValidId(clientId);
+        allow create, update: if workspaceId == 'adm_equipeie'
+          && isAuthorizedAdmin()
+          && isValidId(clientId)
+          && isValidClient(incoming());
+      }
+
+      match /proposals/{proposalId} {
+        allow list: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin();
+        allow get, delete: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin() && isValidId(proposalId);
+        allow create, update: if workspaceId == 'adm_equipeie'
+          && isAuthorizedAdmin()
+          && isValidId(proposalId)
+          && isValidProposal(incoming());
+      }
+
+      match /projects/{projectId} {
+        allow list: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin();
+        allow get, delete: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin() && isValidId(projectId);
+        allow create, update: if workspaceId == 'adm_equipeie'
+          && isAuthorizedAdmin()
+          && isValidId(projectId)
+          && isValidProject(incoming());
+      }
+
+      match /tasks/{taskId} {
+        allow list: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin();
+        allow get, delete: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin() && isValidId(taskId);
+        allow create, update: if workspaceId == 'adm_equipeie'
+          && isAuthorizedAdmin()
+          && isValidId(taskId)
+          && isValidTask(incoming());
+      }
+
+      match /agendaEvents/{eventId} {
+        allow list: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin();
+        allow get, delete: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin() && isValidId(eventId);
+        allow create, update: if workspaceId == 'adm_equipeie'
+          && isAuthorizedAdmin()
+          && isValidId(eventId)
+          && isValidAgendaEvent(incoming());
+      }
+
+      match /socialChannels/{channelId} {
+        allow list: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin();
+        allow get, delete: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin() && isValidId(channelId);
+        allow create, update: if workspaceId == 'adm_equipeie'
+          && isAuthorizedAdmin()
+          && isValidId(channelId)
+          && isValidSocialChannel(incoming());
+      }
+
+      match /socialPosts/{postId} {
+        allow list: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin();
+        allow get, delete: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin() && isValidId(postId);
+        allow create, update: if workspaceId == 'adm_equipeie'
+          && isAuthorizedAdmin()
+          && isValidId(postId)
+          && isValidSocialPost(incoming());
+      }
+
+      match /financialEntries/{entryId} {
+        allow list: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin();
+        allow get, delete: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin() && isValidId(entryId);
+        allow create, update: if workspaceId == 'adm_equipeie'
+          && isAuthorizedAdmin()
+          && isValidId(entryId)
+          && isValidFinancialEntry(incoming());
+      }
+
+      match /financialTransactions/{txId} {
+        allow list: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin();
+        allow get: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin() && isValidId(txId);
+        allow delete: if false;
+        allow create, update: if workspaceId == 'adm_equipeie'
+          && isAuthorizedAdmin()
+          && isValidId(txId)
+          && isValidFinancialTransaction(incoming());
+      }
+
+      match /financialCategories/{categoryId} {
+        allow list: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin();
+        allow get, delete: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin() && isValidId(categoryId);
+        allow create, update: if workspaceId == 'adm_equipeie'
+          && isAuthorizedAdmin()
+          && isValidId(categoryId)
+          && isValidFinancialCategory(incoming());
+      }
+
+      match /financialRecurrences/{recurrenceId} {
+        allow list: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin();
+        allow get, delete: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin() && isValidId(recurrenceId);
+        allow create, update: if workspaceId == 'adm_equipeie'
+          && isAuthorizedAdmin()
+          && isValidId(recurrenceId)
+          && isValidFinancialRecurrence(incoming());
+      }
+
+      match /financialSettings/{settingId} {
+        allow list: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin();
+        allow get: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin() && isValidId(settingId);
+        allow delete: if false;
+        allow create, update: if workspaceId == 'adm_equipeie'
+          && isAuthorizedAdmin()
+          && isValidId(settingId)
+          && isValidFinancialSettings(incoming());
+      }
+
+      match /financialAuditLogs/{logId} {
+        allow list: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin();
+        allow get: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin() && isValidId(logId);
+        allow delete, update: if false;
+        allow create: if workspaceId == 'adm_equipeie'
+          && isAuthorizedAdmin()
+          && isValidId(logId)
+          && isValidFinancialAuditLog(incoming());
+      }
+
+      match /resourceFiles/{fileId} {
+        allow list: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin();
+        allow get, delete: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin() && isValidId(fileId);
+        allow create, update: if workspaceId == 'adm_equipeie'
+          && isAuthorizedAdmin()
+          && isValidId(fileId)
+          && isValidResourceFile(incoming());
+      }
+
+      match /resourceFolders/{folderId} {
+        allow list: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin();
+        allow get, delete: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin() && isValidId(folderId);
+        allow create, update: if workspaceId == 'adm_equipeie'
+          && isAuthorizedAdmin()
+          && isValidId(folderId)
+          && isValidResourceFolder(incoming());
+      }
+
+      match /resourceCategories/{categoryId} {
+        allow list: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin();
+        allow get, delete: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin() && isValidId(categoryId);
+        allow create, update: if workspaceId == 'adm_equipeie'
+          && isAuthorizedAdmin()
+          && isValidId(categoryId)
+          && isValidResourceCategory(incoming());
+      }
+
+      match /commercialScripts/{scriptId} {
+        allow list: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin();
+        allow get, delete: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin() && isValidId(scriptId);
+        allow create, update: if workspaceId == 'adm_equipeie'
+          && isAuthorizedAdmin()
+          && isValidId(scriptId)
+          && isValidCommercialScript(incoming());
+      }
+
+      match /modelTemplates/{templateId} {
+        allow list: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin();
+        allow get, delete: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin() && isValidId(templateId);
+        allow create, update: if workspaceId == 'adm_equipeie'
+          && isAuthorizedAdmin()
+          && isValidId(templateId)
+          && isValidModelTemplate(incoming());
       }
     }
   }

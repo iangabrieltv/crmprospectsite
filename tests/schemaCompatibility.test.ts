@@ -19,6 +19,20 @@ test('Todos os padrões de ID gerados pelo CRM respeitam ^[a-zA-Z0-9_\\-]+$ e ta
     `lead-imp-${Date.now()}-0`,
     `niche-${Date.now()}`,
     `sheet-${Date.now()}`,
+    `cli-${Date.now()}-ab12c`,
+    `prop-${Date.now()}-xy89z`,
+    `proj-${Date.now()}-k9m2a`,
+    `task-${Date.now()}-p4q7r`,
+    `evt-${Date.now()}-u8v1w`,
+    `sch-${Date.now()}-c3d4e`,
+    `post-${Date.now()}-f5g6h`,
+    `fin-${Date.now()}-m1n2o`,
+    `fin-rec-frec-${Date.now()}-p3q4r-2026-11-17`,
+    `ftx-${Date.now()}-s5t6u`,
+    `fcat-${Date.now()}-v7w8x`,
+    `frec-${Date.now()}-y9z0a`,
+    `faud-${Date.now()}-b1c2d`,
+    'default',
   ];
 
   for (const id of sampleIds) {
@@ -90,12 +104,60 @@ test('Isolamento de segredos: src/config/env.ts não importa nem referencia GEMI
 });
 
 test('configure-rules-uid aplica UID no return de authorizedAdminUid() preservando guarda hasValidAdminUidConfig()', () => {
-  const rawRules = fs.readFileSync(path.resolve(process.cwd(), 'firestore.rules'), 'utf-8');
-  assert.equal(hasPendingUidPlaceholder(rawRules), true);
+  const realRules = fs.readFileSync(path.resolve(process.cwd(), 'firestore.rules'), 'utf-8');
+  assert.match(realRules, /(?:authorizedAdminUid\(\)|uid)\s*!=\s*'REPLACE_WITH_YOUR_FIREBASE_UID'/);
 
-  const configured = applyAdminUidToRulesContent(rawRules, 'RealAdminUid987654');
+  const fixtureTemplate = `
+    function authorizedAdminUid() {
+      return 'REPLACE_WITH_YOUR_FIREBASE_UID';
+    }
+    function hasValidAdminUidConfig() {
+      let uid = authorizedAdminUid();
+      return uid != 'REPLACE_WITH_YOUR_FIREBASE_UID';
+    }
+  `;
+  assert.equal(hasPendingUidPlaceholder(fixtureTemplate), true);
+
+  const configured = applyAdminUidToRulesContent(fixtureTemplate, 'RealAdminUid987654');
   assert.equal(hasPendingUidPlaceholder(configured), false);
   assert.match(configured, /return 'RealAdminUid987654';/);
   assert.match(configured, /(?:authorizedAdminUid\(\)|uid)\s*!=\s*'REPLACE_WITH_YOUR_FIREBASE_UID'/);
+});
+
+test('firebase-blueprint.json e firestore.rules declaram as 6 coleções financeiras da Etapa 4 com imutabilidade auditável', () => {
+  const blueprintRaw = fs.readFileSync(
+    path.resolve(process.cwd(), 'firebase-blueprint.json'),
+    'utf-8'
+  );
+  const blueprint = JSON.parse(blueprintRaw) as {
+    firestore?: Record<string, unknown>;
+    entities?: Record<string, unknown>;
+  };
+
+  const firestorePaths = Object.keys(blueprint.firestore || {});
+  const requiredPaths = [
+    '/workspaces/{workspaceId}/financialEntries/{entryId}',
+    '/workspaces/{workspaceId}/financialTransactions/{txId}',
+    '/workspaces/{workspaceId}/financialCategories/{categoryId}',
+    '/workspaces/{workspaceId}/financialRecurrences/{recurrenceId}',
+    '/workspaces/{workspaceId}/financialSettings/{settingId}',
+    '/workspaces/{workspaceId}/financialAuditLogs/{logId}',
+  ];
+
+  for (const reqPath of requiredPaths) {
+    assert.ok(
+      firestorePaths.includes(reqPath),
+      `Caminho ausente em firebase-blueprint.json: ${reqPath}`
+    );
+  }
+
+  const realRules = fs.readFileSync(path.resolve(process.cwd(), 'firestore.rules'), 'utf-8');
+  assert.match(realRules, /match \/financialEntries\/\{entryId\}/);
+  assert.match(realRules, /match \/financialTransactions\/\{txId\}/);
+  assert.match(realRules, /match \/financialCategories\/\{categoryId\}/);
+  assert.match(realRules, /match \/financialRecurrences\/\{recurrenceId\}/);
+  assert.match(realRules, /match \/financialSettings\/\{settingId\}/);
+  assert.match(realRules, /match \/financialAuditLogs\/\{logId\}/);
+  assert.match(realRules, /allow delete, update: if false;/);
 });
 

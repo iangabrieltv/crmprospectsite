@@ -80,6 +80,482 @@
         "updatedAt": { "type": "string" }
       },
       "required": ["name", "nicheId", "totalLeads"]
+    },
+    "Client": {
+      "title": "Client",
+      "description": "Cliente ativo ou histórico de cliente da agência Kaizen",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "originLeadId": { "type": "string" },
+        "originNicheId": { "type": "string" },
+        "companyName": { "type": "string" },
+        "contactName": { "type": "string" },
+        "document": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "displayPhone": { "type": "string" },
+        "city": { "type": "string" },
+        "address": { "type": "string" },
+        "segment": { "type": "string" },
+        "websiteUrl": { "type": "string" },
+        "domainName": { "type": "string" },
+        "hostingProvider": { "type": "string" },
+        "status": { "type": "string" },
+        "setupValue": { "type": "number" },
+        "monthlyMrr": { "type": "number" },
+        "billingDay": { "type": "number" },
+        "contractStartDate": { "type": "string" },
+        "contractRenewalDate": { "type": "string" },
+        "serviceScope": { "type": "string" },
+        "socialManagementEnabled": { "type": "boolean" },
+        "notes": { "type": "string" },
+        "timeline": { "type": "array" },
+        "createdAt": { "type": "string" },
+        "schemaVersion": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["companyName", "phone", "status"]
+    },
+    "ProposalContract": {
+      "title": "ProposalContract",
+      "description": "Proposta comercial ou contrato de prestação de serviços do Kaizen",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "code": { "type": "string" },
+        "kind": { "type": "string" },
+        "title": { "type": "string" },
+        "status": { "type": "string" },
+        "clientId": { "type": "string" },
+        "leadId": { "type": "string" },
+        "recipientCompany": { "type": "string" },
+        "recipientContact": { "type": "string" },
+        "recipientDocument": { "type": "string" },
+        "recipientPhone": { "type": "string" },
+        "recipientEmail": { "type": "string" },
+        "recipientCity": { "type": "string" },
+        "issuerName": { "type": "string" },
+        "issuerDocument": { "type": "string" },
+        "summary": { "type": "string" },
+        "items": { "type": "array" },
+        "discountValue": { "type": "number" },
+        "setupTotal": { "type": "number" },
+        "monthlyMrr": { "type": "number" },
+        "deliveryDeadlineDays": { "type": "number" },
+        "paymentTerms": { "type": "string" },
+        "clausesText": { "type": "string" },
+        "validUntil": { "type": "string" },
+        "sentAt": { "type": "string" },
+        "approvedAt": { "type": "string" },
+        "signedAt": { "type": "string" },
+        "notes": { "type": "string" },
+        "history": { "type": "array" },
+        "createdAt": { "type": "string" },
+        "schemaVersion": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["code", "kind", "title", "status", "recipientCompany", "issuerName"]
+    },
+    "Project": {
+      "title": "Project",
+      "description": "Projeto operacional vinculado a um cliente do Kaizen",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "clientId": { "type": "string" },
+        "proposalId": { "type": "string" },
+        "serviceType": { "type": "string" },
+        "description": { "type": "string" },
+        "templateId": { "type": "string" },
+        "status": { "type": "string" },
+        "ownerName": { "type": "string" },
+        "startDate": { "type": "string" },
+        "dueDate": { "type": "string" },
+        "phases": { "type": "array" },
+        "documents": { "type": "array" },
+        "history": { "type": "array" },
+        "notes": { "type": "string" },
+        "completedAt": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "schemaVersion": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["name", "clientId", "serviceType", "templateId", "status", "ownerName"]
+    },
+    "Task": {
+      "title": "Task",
+      "description": "Tarefa operacional (fonte única entre Projetos, Minhas Tarefas e Agenda)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "projectId": { "type": "string" },
+        "clientId": { "type": "string" },
+        "phaseLabel": { "type": "string" },
+        "startDate": { "type": "string" },
+        "dueDate": { "type": "string" },
+        "priority": { "type": "string" },
+        "status": { "type": "string" },
+        "checklist": { "type": "array" },
+        "notes": { "type": "string" },
+        "completedAt": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "schemaVersion": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["title", "priority", "status"]
+    },
+    "AgendaEvent": {
+      "title": "AgendaEvent",
+      "description": "Compromisso ou lembrete cadastrado na Agenda Integrada",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "date": { "type": "string" },
+        "startTime": { "type": "string" },
+        "endTime": { "type": "string" },
+        "type": { "type": "string" },
+        "status": { "type": "string" },
+        "clientId": { "type": "string" },
+        "leadId": { "type": "string" },
+        "projectId": { "type": "string" },
+        "taskId": { "type": "string" },
+        "meetingLink": { "type": "string" },
+        "notes": { "type": "string" },
+        "externalSync": { "type": "object" },
+        "createdAt": { "type": "string" },
+        "schemaVersion": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["title", "date", "type", "status"]
+    },
+    "SocialChannel": {
+      "title": "SocialChannel",
+      "description": "Canal social vinculado à Kaizen ou a um cliente com gestão contratada",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "ownerType": { "type": "string" },
+        "clientId": { "type": "string" },
+        "platform": { "type": "string" },
+        "customPlatformName": { "type": "string" },
+        "handle": { "type": "string" },
+        "profileUrl": { "type": "string" },
+        "active": { "type": "boolean" },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "schemaVersion": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["ownerType", "platform", "handle", "active"]
+    },
+    "SocialPost": {
+      "title": "SocialPost",
+      "description": "Publicação e item do calendário editorial de Redes Sociais",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "ownerType": { "type": "string" },
+        "clientId": { "type": "string" },
+        "channelId": { "type": "string" },
+        "platform": { "type": "string" },
+        "customPlatformName": { "type": "string" },
+        "format": { "type": "string" },
+        "plannedDate": { "type": "string" },
+        "plannedTime": { "type": "string" },
+        "caption": { "type": "string" },
+        "scriptText": { "type": "string" },
+        "assetUrl": { "type": "string" },
+        "assignee": { "type": "string" },
+        "status": { "type": "string" },
+        "approvedAt": { "type": "string" },
+        "publishedAt": { "type": "string" },
+        "publishedConfirmedBy": { "type": "string" },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "schemaVersion": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["title", "ownerType", "platform", "format", "assignee", "status"]
+    },
+    "FinancialEntry": {
+      "title": "FinancialEntry",
+      "description": "Lançamento financeiro unificado de receita ou despesa em centavos inteiros",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "kind": { "type": "string" },
+        "description": { "type": "string" },
+        "clientId": { "type": "string" },
+        "supplierName": { "type": "string" },
+        "serviceName": { "type": "string" },
+        "projectId": { "type": "string" },
+        "proposalId": { "type": "string" },
+        "contractCode": { "type": "string" },
+        "categoryId": { "type": "string" },
+        "recurrenceId": { "type": "string" },
+        "recurrencePeriodKey": { "type": "string" },
+        "installmentIndex": { "type": "number" },
+        "installmentTotal": { "type": "number" },
+        "amountCents": { "type": "number" },
+        "settledCents": { "type": "number" },
+        "adjustmentCents": { "type": "number" },
+        "competenceDate": { "type": "string" },
+        "dueDate": { "type": "string" },
+        "lastSettledDate": { "type": "string" },
+        "paymentMethod": { "type": "string" },
+        "status": { "type": "string" },
+        "attachmentUrl": { "type": "string" },
+        "notes": { "type": "string" },
+        "cancellationReason": { "type": "string" },
+        "cancelledAt": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "schemaVersion": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["kind", "description", "categoryId", "amountCents", "settledCents", "competenceDate", "dueDate", "paymentMethod", "status"]
+    },
+    "FinancialTransaction": {
+      "title": "FinancialTransaction",
+      "description": "Movimentação efetiva de caixa vinculada a uma receita ou despesa (recebimento, pagamento, estorno ou ajuste)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "entryId": { "type": "string" },
+        "entryKind": { "type": "string" },
+        "kind": { "type": "string" },
+        "amountCents": { "type": "number" },
+        "date": { "type": "string" },
+        "paymentMethod": { "type": "string" },
+        "notes": { "type": "string" },
+        "createdBy": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "schemaVersion": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["entryId", "entryKind", "kind", "amountCents", "date", "paymentMethod", "createdBy"]
+    },
+    "FinancialCategory": {
+      "title": "FinancialCategory",
+      "description": "Categoria financeira para classificação de receitas ou despesas",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "kind": { "type": "string" },
+        "description": { "type": "string" },
+        "active": { "type": "boolean" },
+        "isDefault": { "type": "boolean" },
+        "createdAt": { "type": "string" },
+        "schemaVersion": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["name", "kind", "active"]
+    },
+    "FinancialRecurrence": {
+      "title": "FinancialRecurrence",
+      "description": "Regra de recorrência financeira para receitas e despesas periódicas",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "kind": { "type": "string" },
+        "amountCents": { "type": "number" },
+        "categoryId": { "type": "string" },
+        "clientId": { "type": "string" },
+        "supplierName": { "type": "string" },
+        "serviceName": { "type": "string" },
+        "projectId": { "type": "string" },
+        "proposalId": { "type": "string" },
+        "paymentMethod": { "type": "string" },
+        "frequency": { "type": "string" },
+        "customIntervalDays": { "type": "number" },
+        "startDate": { "type": "string" },
+        "endDate": { "type": "string" },
+        "nextOccurrenceDate": { "type": "string" },
+        "status": { "type": "string" },
+        "notes": { "type": "string" },
+        "lastGeneratedAt": { "type": "string" },
+        "lastGeneratedPeriodKey": { "type": "string" },
+        "lastError": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "schemaVersion": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["name", "kind", "amountCents", "categoryId", "paymentMethod", "frequency", "startDate", "nextOccurrenceDate", "status"]
+    },
+    "FinancialSettings": {
+      "title": "FinancialSettings",
+      "description": "Configurações financeiras da agência, saldo inicial auditável e preferências de caixa",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "companyName": { "type": "string" },
+        "currency": { "type": "string" },
+        "dateFormat": { "type": "string" },
+        "timezone": { "type": "string" },
+        "openingBalanceCents": { "type": "number" },
+        "openingBalanceDate": { "type": "string" },
+        "openingBalanceDescription": { "type": "string" },
+        "openingBalanceNotes": { "type": "string" },
+        "openingBalanceHistory": { "type": "array" },
+        "paymentMethods": { "type": "array" },
+        "alertDaysAhead": { "type": "number" },
+        "defaultDueDay": { "type": "number" },
+        "schemaVersion": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["companyName", "currency", "dateFormat", "timezone", "openingBalanceCents", "openingBalanceDate", "openingBalanceDescription"]
+    },
+    "FinancialAuditLog": {
+      "title": "FinancialAuditLog",
+      "description": "Trilha de auditoria de operações financeiras do Kaizen",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "entityType": { "type": "string" },
+        "entityId": { "type": "string" },
+        "action": { "type": "string" },
+        "description": { "type": "string" },
+        "amountCents": { "type": "number" },
+        "actor": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "schemaVersion": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["entityType", "entityId", "action", "description", "actor"]
+    },
+    "ResourceFile": {
+      "title": "ResourceFile",
+      "description": "Metadados e vínculos relacionais de arquivo ou material da Central Kaizen",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "originalName": { "type": "string" },
+        "mimeType": { "type": "string" },
+        "extension": { "type": "string" },
+        "sizeBytes": { "type": "number" },
+        "categoryId": { "type": "string" },
+        "description": { "type": "string" },
+        "tags": { "type": "array" },
+        "folderId": { "type": "string" },
+        "favorite": { "type": "boolean" },
+        "status": { "type": "string" },
+        "clientId": { "type": "string" },
+        "projectId": { "type": "string" },
+        "proposalId": { "type": "string" },
+        "linkedTaskIds": { "type": "array" },
+        "linkedSocialPostIds": { "type": "array" },
+        "clientSection": { "type": "string" },
+        "projectSection": { "type": "string" },
+        "storagePath": { "type": "string" },
+        "storageProvider": { "type": "string" },
+        "downloadUrl": { "type": "string" },
+        "localBlobKey": { "type": "string" },
+        "checksum": { "type": "string" },
+        "uploadedBy": { "type": "string" },
+        "uploadedAt": { "type": "string" },
+        "archivedAt": { "type": "string" },
+        "schemaVersion": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["name", "originalName", "extension", "sizeBytes", "categoryId", "status", "storagePath", "storageProvider", "uploadedBy"]
+    },
+    "ResourceFolder": {
+      "title": "ResourceFolder",
+      "description": "Pasta organizacional hierárquica de arquivos da agência",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "parentId": { "type": "string" },
+        "scope": { "type": "string" },
+        "clientId": { "type": "string" },
+        "projectId": { "type": "string" },
+        "description": { "type": "string" },
+        "colorAccent": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "schemaVersion": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["name", "scope"]
+    },
+    "ResourceCategory": {
+      "title": "ResourceCategory",
+      "description": "Categoria configurável para arquivos, scripts comerciais e biblioteca de modelos",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "kind": { "type": "string" },
+        "slug": { "type": "string" },
+        "description": { "type": "string" },
+        "active": { "type": "boolean" },
+        "isDefault": { "type": "boolean" },
+        "sortOrder": { "type": "number" },
+        "createdAt": { "type": "string" },
+        "schemaVersion": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["name", "kind", "slug", "active"]
+    },
+    "CommercialScript": {
+      "title": "CommercialScript",
+      "description": "Script comercial reutilizável com variáveis dinâmicas e histórico preservado",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "categoryId": { "type": "string" },
+        "channel": { "type": "string" },
+        "description": { "type": "string" },
+        "content": { "type": "string" },
+        "tags": { "type": "array" },
+        "favorite": { "type": "boolean" },
+        "status": { "type": "string" },
+        "usageCount": { "type": "number" },
+        "referencedInHistory": { "type": "boolean" },
+        "createdBy": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "archivedAt": { "type": "string" },
+        "schemaVersion": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["title", "categoryId", "channel", "content", "status", "createdBy"]
+    },
+    "ModelTemplate": {
+      "title": "ModelTemplate",
+      "description": "Modelo reutilizável da Biblioteca de Modelos (Comercial, Operacional, Marketing, Gestão)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "domain": { "type": "string" },
+        "kind": { "type": "string" },
+        "categoryId": { "type": "string" },
+        "description": { "type": "string" },
+        "content": { "type": "string" },
+        "tags": { "type": "array" },
+        "favorite": { "type": "boolean" },
+        "status": { "type": "string" },
+        "linkedProjectTemplateId": { "type": "string" },
+        "proposalDraft": { "type": "object" },
+        "taskDrafts": { "type": "array" },
+        "usageCount": { "type": "number" },
+        "createdBy": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "archivedAt": { "type": "string" },
+        "schemaVersion": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["title", "domain", "kind", "categoryId", "content", "status", "createdBy"]
     }
   },
   "firestore": {
@@ -94,6 +570,78 @@
     "/workspaces/{workspaceId}/importedSheets/{sheetId}": {
       "schema": "ImportedSheet",
       "description": "Planilhas importadas salvas no workspace privado"
+    },
+    "/workspaces/{workspaceId}/clients/{clientId}": {
+      "schema": "Client",
+      "description": "Clientes cadastrados ou convertidos no workspace privado"
+    },
+    "/workspaces/{workspaceId}/proposals/{proposalId}": {
+      "schema": "ProposalContract",
+      "description": "Propostas comerciais e contratos no workspace privado"
+    },
+    "/workspaces/{workspaceId}/projects/{projectId}": {
+      "schema": "Project",
+      "description": "Projetos operacionais da agência no workspace privado"
+    },
+    "/workspaces/{workspaceId}/tasks/{taskId}": {
+      "schema": "Task",
+      "description": "Tarefas operacionais (fonte única para Projetos, Minhas Tarefas e Agenda)"
+    },
+    "/workspaces/{workspaceId}/agendaEvents/{eventId}": {
+      "schema": "AgendaEvent",
+      "description": "Compromissos, reuniões e lembretes da Agenda Integrada"
+    },
+    "/workspaces/{workspaceId}/socialChannels/{channelId}": {
+      "schema": "SocialChannel",
+      "description": "Canais sociais da Kaizen e de clientes contratantes"
+    },
+    "/workspaces/{workspaceId}/socialPosts/{postId}": {
+      "schema": "SocialPost",
+      "description": "Publicações e calendário editorial de Redes Sociais"
+    },
+    "/workspaces/{workspaceId}/financialEntries/{entryId}": {
+      "schema": "FinancialEntry",
+      "description": "Lançamentos financeiros (receitas e despesas) com fonte única para Contas a Receber/Pagar e Fluxo Projetado"
+    },
+    "/workspaces/{workspaceId}/financialTransactions/{txId}": {
+      "schema": "FinancialTransaction",
+      "description": "Movimentações efetivas de recebimento, pagamento, ajuste e estorno"
+    },
+    "/workspaces/{workspaceId}/financialCategories/{categoryId}": {
+      "schema": "FinancialCategory",
+      "description": "Categorias financeiras de receitas e despesas"
+    },
+    "/workspaces/{workspaceId}/financialRecurrences/{recurrenceId}": {
+      "schema": "FinancialRecurrence",
+      "description": "Recorrências financeiras automáticas e configuráveis"
+    },
+    "/workspaces/{workspaceId}/financialSettings/{settingId}": {
+      "schema": "FinancialSettings",
+      "description": "Configurações financeiras, formas de pagamento e saldo inicial auditado"
+    },
+    "/workspaces/{workspaceId}/financialAuditLogs/{logId}": {
+      "schema": "FinancialAuditLog",
+      "description": "Registro imutável de auditoria das operações financeiras"
+    },
+    "/workspaces/{workspaceId}/resourceFiles/{fileId}": {
+      "schema": "ResourceFile",
+      "description": "Metadados e vínculos de arquivos e materiais da agência e clientes"
+    },
+    "/workspaces/{workspaceId}/resourceFolders/{folderId}": {
+      "schema": "ResourceFolder",
+      "description": "Estrutura hierárquica de pastas da Central de Materiais"
+    },
+    "/workspaces/{workspaceId}/resourceCategories/{categoryId}": {
+      "schema": "ResourceCategory",
+      "description": "Categorias de arquivos, scripts comerciais e biblioteca de modelos"
+    },
+    "/workspaces/{workspaceId}/commercialScripts/{scriptId}": {
+      "schema": "CommercialScript",
+      "description": "Central de Scripts Comerciais nas 14 categorias de atendimento"
+    },
+    "/workspaces/{workspaceId}/modelTemplates/{templateId}": {
+      "schema": "ModelTemplate",
+      "description": "Biblioteca de Modelos reutilizáveis (Comercial, Operacional, Marketing e Gestão)"
     }
   }
 }

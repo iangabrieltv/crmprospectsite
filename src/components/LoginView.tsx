@@ -1,14 +1,12 @@
 import React, { useState } from 'react';
+import { Lock, Mail, ShieldCheck, ArrowRight, Copy, Check } from 'lucide-react';
 import {
-  Lock,
-  Mail,
-  ShieldCheck,
-  AlertCircle,
-  ArrowRight,
-  Database,
-  RefreshCw,
-} from 'lucide-react';
-import { loginWithEmailAndPassword, mapFirebaseAuthError } from '../services/authService';
+  loginWithEmailAndPassword,
+  loginWithGoogle,
+  inspectGoogleAccountUid,
+  mapFirebaseAuthError,
+} from '../services/authService';
+import { Card, Input, Button, Alert } from './ui';
 
 interface LoginViewProps {
   sessionNotice?: string | null;
@@ -25,7 +23,13 @@ export const LoginView: React.FC<LoginViewProps> = ({
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [discoveredAccount, setDiscoveredAccount] = useState<{
+    uid: string;
+    email: string | null;
+  } | null>(null);
+  const [copiedUid, setCopiedUid] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,7 +37,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
 
     if (!authConfigValid) {
       setError(
-        'Configuração de segurança ausente: defina VITE_AUTHORIZED_ADMIN_UID com o UID do administrador único antes de acessar o CRM.'
+        'Login bloqueado por segurança: a variável VITE_AUTHORIZED_ADMIN_UID ainda não foi configurada neste ambiente. Você pode clicar em "Entrar com Google" abaixo para validar sua conta e obter seu UID automaticamente.'
       );
       return;
     }
@@ -55,122 +59,190 @@ export const LoginView: React.FC<LoginViewProps> = ({
     }
   };
 
+  const handleGoogleLogin = async () => {
+    setError(null);
+    setDiscoveredAccount(null);
+    setIsGoogleLoading(true);
+    try {
+      if (!authConfigValid) {
+        const info = await inspectGoogleAccountUid();
+        setDiscoveredAccount(info);
+        return;
+      }
+      await loginWithGoogle(rememberMe);
+      onSuccessLogin?.();
+    } catch (err) {
+      setError(mapFirebaseAuthError(err));
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
+
+  const handleCopyUid = () => {
+    if (!discoveredAccount) return;
+    navigator.clipboard.writeText(discoveredAccount.uid);
+    setCopiedUid(true);
+    setTimeout(() => setCopiedUid(false), 2000);
+  };
+
   const activeError =
     error ||
     (!authConfigValid
       ? sessionNotice ||
-        'Configuração de segurança ausente: defina VITE_AUTHORIZED_ADMIN_UID no ambiente para habilitar o acesso.'
+        'Login bloqueado por segurança: a variável VITE_AUTHORIZED_ADMIN_UID não está configurada neste ambiente.'
       : sessionNotice);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-950 to-blue-950 flex items-center justify-center p-4 sm:p-6 text-slate-100">
+    <div className="min-h-screen bg-[var(--kz-bg-canvas)] bg-[radial-gradient(ellipse_at_top,rgba(198,161,91,0.08),transparent_60%)] flex items-center justify-center p-4 sm:p-6">
       <div className="max-w-md w-full space-y-6">
-        {/* Brand / Logo */}
-        <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 shadow-xl shadow-blue-500/20 ring-4 ring-white/10 mb-2">
-            <Database className="w-7 h-7 text-white" />
+        {/* Brand Header */}
+        <div className="text-center space-y-2.5">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-[#19191F] border border-[#C6A15B]/45 text-[#C6A15B] font-extrabold text-xl tracking-tight shadow-[var(--kz-shadow-md)]">
+            K
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
-            ProspectFlow CRM
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-400">
-            Painel Privado da Agência Kaizen
-          </p>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[var(--kz-text-primary)]">
+              Kaizen — Gestão Integrada
+            </h1>
+            <p className="text-xs sm:text-sm text-[var(--kz-text-muted)] mt-1">
+              Sistema privado de operação comercial e gestão da agência
+            </p>
+          </div>
         </div>
 
-        {/* Card Form */}
-        <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl space-y-5">
-          <div className="border-b border-slate-800 pb-3 flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-blue-400 flex items-center gap-1.5">
-              <ShieldCheck className="w-4 h-4 text-blue-400" />
-              Acesso Restrito (Firebase Auth)
+        {/* Auth Card */}
+        <Card padding="lg" className="space-y-5 shadow-[var(--kz-shadow-md)]">
+          <div className="border-b border-[var(--kz-border-subtle)] pb-3 flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--kz-accent-text)] flex items-center gap-1.5">
+              <ShieldCheck className="w-4 h-4 text-[var(--kz-accent)]" />
+              Acesso Restrito ao Proprietário
+            </span>
+            <span className="text-[10px] font-mono text-[var(--kz-text-muted)]">
+              Firebase Auth
             </span>
           </div>
 
-          {activeError && (
-            <div className="p-3.5 bg-rose-500/10 border border-rose-500/30 rounded-xl text-xs text-rose-300 flex items-start gap-2.5 animate-in fade-in duration-150">
-              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-              <div className="flex-1 font-medium">{activeError}</div>
-            </div>
+          {activeError && <Alert variant="danger">{activeError}</Alert>}
+
+          {discoveredAccount && (
+            <Alert variant="info" title="Conta Google verificada — falta configurar o UID">
+              <div className="space-y-2 mt-1">
+                <p>
+                  Conta autenticada: <strong>{discoveredAccount.email || 'Sem e-mail'}</strong>. Para liberar o acesso no sistema e no Firestore, copie seu UID abaixo:
+                </p>
+                <div className="flex items-center gap-2 bg-[var(--kz-bg-canvas)] border border-[var(--kz-border-default)] rounded-lg px-2.5 py-1.5">
+                  <code className="text-[11px] font-mono text-[var(--kz-text-primary)] break-all flex-1">
+                    {discoveredAccount.uid}
+                  </code>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="xs"
+                    onClick={handleCopyUid}
+                    leftIcon={copiedUid ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                  >
+                    {copiedUid ? 'Copiado' : 'Copiar UID'}
+                  </Button>
+                </div>
+              </div>
+            </Alert>
           )}
 
+          {/* Google Sign-In */}
+          <Button
+            type="button"
+            variant="secondary"
+            size="lg"
+            loading={isGoogleLoading}
+            disabled={isLoading}
+            onClick={handleGoogleLogin}
+            className="w-full"
+          >
+            <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                fill="#4285F4"
+                d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17Z"
+              />
+              <path
+                fill="#34A853"
+                d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.11-6.72-4.96H1.29v3.14C3.26 21.3 7.31 24 12 24Z"
+              />
+              <path
+                fill="#FBBC05"
+                d="M5.28 14.24c-.24-.72-.38-1.49-.38-2.24s.14-1.52.38-2.24V6.62H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.38l3.99-3.14Z"
+              />
+              <path
+                fill="#EA4335"
+                d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.99 3.14c.95-2.85 3.6-4.96 6.72-4.96Z"
+              />
+            </svg>
+            <span>
+              {isGoogleLoading
+                ? 'Conectando ao Google...'
+                : authConfigValid
+                ? 'Entrar com Google'
+                : 'Entrar com Google (ou obter UID)'}
+            </span>
+          </Button>
+
+          <div className="relative flex items-center py-0.5">
+            <div className="flex-grow border-t border-[var(--kz-border-subtle)]" />
+            <span className="shrink mx-3 text-[11px] font-medium uppercase tracking-wider text-[var(--kz-text-muted)]">
+              ou com e-mail e senha
+            </span>
+            <div className="flex-grow border-t border-[var(--kz-border-subtle)]" />
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Email Input */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                E-mail autorizado
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
-                  <Mail className="w-4 h-4" />
-                </div>
-                <input
-                  type="email"
-                  required
-                  autoComplete="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="seu-email@dominio.com"
-                  className="w-full pl-9 pr-3 py-2.5 text-xs bg-slate-950/70 border border-slate-700 rounded-xl text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  autoFocus
-                />
-              </div>
-            </div>
+            <Input
+              label="E-mail autorizado"
+              type="email"
+              required
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="seu-email@dominio.com"
+              leftIcon={<Mail className="w-3.5 h-3.5" />}
+              autoFocus
+            />
 
-            {/* Password Input */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                Senha
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
-                  <Lock className="w-4 h-4" />
-                </div>
-                <input
-                  type="password"
-                  required
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••"
-                  className="w-full pl-9 pr-3 py-2.5 text-xs bg-slate-950/70 border border-slate-700 rounded-xl text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all font-mono"
-                />
-              </div>
-            </div>
+            <Input
+              label="Senha"
+              type="password"
+              required
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••"
+              leftIcon={<Lock className="w-3.5 h-3.5" />}
+              className="font-mono"
+            />
 
-            {/* Remember Me */}
-            <div className="flex items-center justify-between text-xs pt-1">
-              <label className="flex items-center gap-2 cursor-pointer select-none text-slate-400 hover:text-slate-200">
+            <div className="flex items-center justify-between text-xs pt-0.5">
+              <label className="flex items-center gap-2 cursor-pointer select-none text-[var(--kz-text-secondary)] hover:text-[var(--kz-text-primary)]">
                 <input
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
-                  className="rounded border-slate-700 bg-slate-950 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5 cursor-pointer"
+                  className="rounded border-[var(--kz-border-default)] bg-[var(--kz-bg-subtle)] text-[var(--kz-accent)] accent-[#C6A15B] focus:ring-[var(--kz-accent)] w-3.5 h-3.5 cursor-pointer"
                 />
                 <span>Manter sessão neste dispositivo</span>
               </label>
             </div>
 
-            {/* Submit Button */}
-            <button
+            <Button
               type="submit"
-              disabled={isLoading || !authConfigValid}
-              className="w-full py-2.5 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-blue-600/30 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              variant="primary"
+              size="lg"
+              loading={isLoading}
+              disabled={isGoogleLoading}
+              rightIcon={<ArrowRight className="w-4 h-4" />}
+              className="w-full"
             >
-              {isLoading ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin text-white" />
-                  <span>Autenticando...</span>
-                </>
-              ) : (
-                <>
-                  <span>Entrar</span>
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
+              {isLoading ? 'Autenticando...' : 'Entrar no Kaizen'}
+            </Button>
           </form>
-        </div>
+        </Card>
       </div>
     </div>
   );

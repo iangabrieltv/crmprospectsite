@@ -3,6 +3,7 @@ import * as XLSX from 'xlsx';
 import { NicheCampaign, Lead, ImportedSheet } from '../types/crm';
 import { cleanPhoneForWhatsApp, formatDisplayPhone } from '../utils/phone';
 import { SAMPLE_IMPORT_LEADS } from '../utils/initialData';
+import { ConfirmDialog } from './ui';
 import {
   UploadCloud,
   Sparkles,
@@ -118,6 +119,7 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
   const [newNicheSegment, setNewNicheSegment] = useState('');
   const [newNicheCity, setNewNicheCity] = useState(activeNiche.city);
   const [newNicheEmoji, setNewNicheEmoji] = useState('üíÜ‚Äç‚ôÄÔ∏è');
+  const [sheetToDelete, setSheetToDelete] = useState<ImportedSheet | null>(null);
 
   // Candidate leads: raw from spreadsheet, unique (kept), and duplicates (excluded)
   const [rawParsedCandidates, setRawParsedCandidates] = useState<ParsedLeadCandidate[]>([]);
@@ -1624,12 +1626,10 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
       {/* Header */}
-      <div className="border-b border-slate-200/80 pb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="border-b border-[var(--kz-border-subtle)] pb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-            <span>üì• Importador de Planilhas & Google Meu Neg√≥cio</span>
-          </h1>
-          <p className="text-xs text-slate-500 mt-1">
+          <h2 className="kz-page-title">Importador de Planilhas & Google Meu Neg√≥cio</h2>
+          <p className="kz-subtitle mt-1">
             Reconhecimento inteligente de nome, telefone WhatsApp, links do Google Meu Neg√≥cio/Maps e site. A pr√©via j√° identifica tudo automaticamente.
           </p>
         </div>
@@ -1637,18 +1637,18 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
         <button
           type="button"
           onClick={handleLoadSampleLeads}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors cursor-pointer self-start sm:self-auto"
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[var(--kz-accent-text)] bg-[var(--kz-accent-soft)] hover:bg-[var(--kz-bg-hover)] border border-[var(--kz-accent-border)] rounded-lg transition-colors cursor-pointer self-start sm:self-auto"
         >
-          <Play className="w-3.5 h-3.5 fill-blue-600" />
+          <Play className="w-3.5 h-3.5 fill-current text-[var(--kz-accent)]" />
           <span>Carregar Exemplo com Links do Maps</span>
         </button>
       </div>
 
       {/* Success Notification */}
       {successCount !== null && (
-        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-900 flex items-center justify-between animate-in fade-in duration-200">
+        <div className="p-4 bg-[var(--kz-success-bg)] border border-[var(--kz-success-border)] rounded-xl text-xs text-[var(--kz-text-primary)] flex items-center justify-between gap-3 animate-in fade-in duration-200">
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            <CheckCircle2 className="w-5 h-5 text-[var(--kz-success-text)] shrink-0" />
             <span>
               <strong>{successCount} leads importados com sucesso!</strong> Os contatos com telefones e links do Google Meu Neg√≥cio foram organizados na coluna <em>1. Leads sem Contato</em>.
             </span>
@@ -1658,7 +1658,7 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
               setSuccessCount(null);
               onSwitchToKanban();
             }}
-            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold transition-colors cursor-pointer shadow-xs"
+            className="px-3 py-1.5 bg-[var(--kz-success-solid)] hover:brightness-110 text-white rounded-lg font-semibold transition-all cursor-pointer shadow-[var(--kz-shadow-xs)] shrink-0"
           >
             Ver no Kanban
           </button>
@@ -1667,17 +1667,17 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
 
       {/* Error alert with strict format reminder */}
       {errorMessage && (
-        <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-start gap-2.5 animate-in fade-in duration-150">
-          <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+        <div className="p-3.5 bg-[var(--kz-danger-bg)] border border-[var(--kz-danger-border)] rounded-xl text-xs text-[var(--kz-text-primary)] flex items-start gap-2.5 animate-in fade-in duration-150">
+          <AlertCircle className="w-4 h-4 text-[var(--kz-danger-text)] shrink-0 mt-0.5" />
           <div className="flex-1">
-            <p className="font-medium">{errorMessage}</p>
-            <p className="text-[11px] text-rose-600 mt-1">
+            <p className="font-medium text-[var(--kz-danger-text)]">{errorMessage}</p>
+            <p className="text-[11px] text-[var(--kz-text-secondary)] mt-1">
               Formatos aceitos: <strong>.xlsx, .xls, .csv, .tsv</strong>. N√£o √© permitido: Word (.doc/.docx), apresenta√ß√µes (.ppt/.pptx) ou PDFs.
             </p>
           </div>
           <button
             onClick={() => setErrorMessage(null)}
-            className="text-rose-400 hover:text-rose-700 p-1 cursor-pointer"
+            className="text-[var(--kz-danger-text)] hover:text-[var(--kz-text-primary)] p-1 cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -1687,17 +1687,17 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
       {/* Step 1: Input Area (File or Text) & Destination Option */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column: File Upload or Raw Data */}
-        <div className="lg:col-span-8 bg-white rounded-xl border border-slate-200 p-5 shadow-2xs space-y-4">
+        <div className="lg:col-span-8 bg-[var(--kz-bg-surface)] rounded-xl border border-[var(--kz-border-subtle)] p-5 shadow-[var(--kz-shadow-xs)] space-y-4">
           {/* Method Selector Tabs */}
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3 flex-wrap gap-2">
-            <div className="flex items-center bg-slate-100 p-1 rounded-lg">
+          <div className="flex items-center justify-between border-b border-[var(--kz-border-subtle)] pb-3 flex-wrap gap-2">
+            <div className="flex items-center bg-[var(--kz-bg-subtle)] border border-[var(--kz-border-subtle)] p-1 rounded-lg">
               <button
                 type="button"
                 onClick={() => setInputMethod('file')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer ${
                   inputMethod === 'file'
-                    ? 'bg-white text-blue-700 shadow-2xs'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-[var(--kz-bg-surface)] text-[var(--kz-accent-text)] border border-[var(--kz-accent-border)] shadow-[var(--kz-shadow-xs)]'
+                    : 'text-[var(--kz-text-muted)] hover:text-[var(--kz-text-primary)]'
                 }`}
               >
                 <FolderUp className="w-3.5 h-3.5" />
@@ -1709,8 +1709,8 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
                 onClick={() => setInputMethod('text')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer ${
                   inputMethod === 'text'
-                    ? 'bg-white text-blue-700 shadow-2xs'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-[var(--kz-bg-surface)] text-[var(--kz-accent-text)] border border-[var(--kz-accent-border)] shadow-[var(--kz-shadow-xs)]'
+                    : 'text-[var(--kz-text-muted)] hover:text-[var(--kz-text-primary)]'
                 }`}
               >
                 <FileText className="w-3.5 h-3.5" />
@@ -1720,10 +1720,10 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
 
             {/* Badges */}
             <div className="flex items-center gap-1.5 text-[10px]">
-              <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200/60 font-medium">
+              <span className="px-2 py-0.5 rounded bg-[var(--kz-success-bg)] text-[var(--kz-success-text)] border border-[var(--kz-success-border)] font-medium">
                 Aceita: Excel (.xlsx, .xls) e CSV
               </span>
-              <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-500 font-medium hidden sm:inline">
+              <span className="px-2 py-0.5 rounded bg-[var(--kz-bg-subtle)] text-[var(--kz-text-muted)] border border-[var(--kz-border-subtle)] font-medium hidden sm:inline">
                 Bloqueia Word e Slides
               </span>
             </div>
@@ -1749,69 +1749,69 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
                   onClick={() => fileInputRef.current?.click()}
                   className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-150 ${
                     isDragging
-                      ? 'border-blue-500 bg-blue-50/80 scale-[1.005]'
-                      : 'border-slate-300 hover:border-blue-400 hover:bg-slate-50/70 bg-slate-50/30'
+                      ? 'border-[var(--kz-accent)] bg-[var(--kz-accent-soft)] scale-[1.005]'
+                      : 'border-[var(--kz-border-default)] hover:border-[var(--kz-accent)] hover:bg-[var(--kz-bg-hover)] bg-[var(--kz-bg-subtle)]'
                   }`}
                 >
                   <div className="max-w-md mx-auto space-y-3">
-                    <div className="w-12 h-12 mx-auto rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shadow-2xs">
+                    <div className="w-12 h-12 mx-auto rounded-full bg-[var(--kz-accent-soft)] border border-[var(--kz-accent-border)] text-[var(--kz-accent)] flex items-center justify-center shadow-[var(--kz-shadow-xs)]">
                       {isReadingFile ? (
-                        <RotateCcw className="w-6 h-6 animate-spin text-blue-600" />
+                        <RotateCcw className="w-6 h-6 animate-spin text-[var(--kz-accent)]" />
                       ) : (
                         <UploadCloud className="w-6 h-6" />
                       )}
                     </div>
 
                     <div>
-                      <p className="text-sm font-semibold text-slate-800">
+                      <p className="text-sm font-semibold text-[var(--kz-text-primary)]">
                         {isReadingFile
                           ? 'Identificando dados e contatos da planilha...'
                           : 'Clique para escolher a planilha ou arraste o arquivo aqui'}
                       </p>
-                      <p className="text-xs text-slate-500 mt-1">
-                        Formatos aceitos: <strong>Excel (.xlsx, .xls)</strong> e <strong>CSV (.csv, .tsv)</strong>
+                      <p className="text-xs text-[var(--kz-text-muted)] mt-1">
+                        Formatos aceitos: <strong className="text-[var(--kz-text-secondary)]">Excel (.xlsx, .xls)</strong> e <strong className="text-[var(--kz-text-secondary)]">CSV (.csv, .tsv)</strong>
                       </p>
                     </div>
 
                     <div className="pt-1">
-                      <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-2xs transition-colors">
+                      <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-[var(--kz-accent-fg)] bg-[var(--kz-accent)] hover:bg-[var(--kz-accent-hover)] rounded-lg shadow-[var(--kz-shadow-xs)] transition-colors">
                         <FileUp className="w-3.5 h-3.5" />
                         <span>Selecionar Arquivo do Computador</span>
                       </span>
                     </div>
 
-                    <div className="pt-2 flex items-center justify-center gap-2 text-[11px] text-slate-400">
-                      <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                    <div className="pt-2 flex items-center justify-center gap-2 text-[11px] text-[var(--kz-text-subtle)]">
+                      <AlertTriangle className="w-3.5 h-3.5 text-[var(--kz-warning-text)]" />
                       <span>Documentos do Word (.doc/.docx) ou slides (.ppt) n√£o s√£o aceitos</span>
                     </div>
                   </div>
                 </div>
               ) : (
                 /* Card for Already Uploaded File */
-                <div className="border border-emerald-200 bg-emerald-50/40 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="border border-[var(--kz-success-border)] bg-[var(--kz-success-bg)] rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+                    <div className="w-10 h-10 rounded-lg bg-[var(--kz-success-solid)] text-white flex items-center justify-center shrink-0 shadow-[var(--kz-shadow-xs)]">
                       <FileSpreadsheet className="w-5 h-5" />
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-slate-900 truncate max-w-[260px]">
+                        <span className="text-xs font-bold text-[var(--kz-text-primary)] truncate max-w-[260px]">
                           {uploadedFile.name}
                         </span>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 font-medium">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--kz-bg-surface)] text-[var(--kz-success-text)] border border-[var(--kz-success-border)] font-medium">
                           {uploadedFile.format}
                         </span>
                       </div>
-                      <div className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-2">
+                      <div className="text-[11px] text-[var(--kz-text-muted)] mt-0.5 flex items-center gap-2">
                         <span>{formatFileSize(uploadedFile.size)}</span>
                         <span>‚Ä¢</span>
                         <span>
-                          <strong>{uploadedFile.rowCount}</strong> linhas de contatos analisadas
+                          <strong className="text-[var(--kz-text-primary)]">{uploadedFile.rowCount}</strong> linhas de contatos analisadas
                         </span>
                         {uploadedFile.sheetName && (
                           <>
                             <span>‚Ä¢</span>
-                            <span className="text-slate-600">Aba: {uploadedFile.sheetName}</span>
+                            <span className="text-[var(--kz-text-secondary)]">Aba: {uploadedFile.sheetName}</span>
                           </>
                         )}
                       </div>
@@ -1822,7 +1822,7 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
                     <button
                       type="button"
                       onClick={() => setShowRawTextPreview(!showRawTextPreview)}
-                      className="text-xs text-slate-600 hover:text-slate-900 flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition-colors cursor-pointer"
+                      className="text-xs text-[var(--kz-text-secondary)] hover:text-[var(--kz-text-primary)] flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[var(--kz-border-default)] bg-[var(--kz-bg-surface)] hover:bg-[var(--kz-bg-hover)] transition-colors cursor-pointer"
                     >
                       <span>{showRawTextPreview ? 'Ocultar Linhas' : 'Ver Linhas'}</span>
                       {showRawTextPreview ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
@@ -1831,7 +1831,7 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="text-xs text-blue-700 hover:text-blue-800 font-semibold px-2.5 py-1.5 rounded-lg border border-blue-200 bg-blue-50/70 hover:bg-blue-100 transition-colors cursor-pointer"
+                      className="text-xs text-[var(--kz-accent-text)] hover:text-[var(--kz-text-primary)] font-semibold px-2.5 py-1.5 rounded-lg border border-[var(--kz-accent-border)] bg-[var(--kz-accent-soft)] hover:bg-[var(--kz-bg-hover)] transition-colors cursor-pointer"
                     >
                       Trocar Arquivo
                     </button>
@@ -1839,7 +1839,7 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
                     <button
                       type="button"
                       onClick={handleClearFile}
-                      className="text-xs text-rose-600 hover:text-rose-700 font-semibold p-1.5 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer"
+                      className="text-xs text-[var(--kz-danger-text)] hover:text-[var(--kz-text-primary)] font-semibold p-1.5 rounded-lg hover:bg-[var(--kz-danger-bg)] transition-colors cursor-pointer"
                       title="Remover arquivo"
                     >
                       <X className="w-4 h-4" />
@@ -1850,12 +1850,12 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
 
               {/* Collapsible raw text preview */}
               {showRawTextPreview && uploadedFile && rawText && (
-                <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg animate-in fade-in duration-150">
-                  <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1.5">
+                <div className="p-3 bg-[var(--kz-bg-subtle)] border border-[var(--kz-border-subtle)] rounded-lg animate-in fade-in duration-150">
+                  <div className="flex items-center justify-between text-[11px] text-[var(--kz-text-muted)] mb-1.5">
                     <span>Linhas brutas da planilha:</span>
                     <span>Mostrando in√≠cio</span>
                   </div>
-                  <pre className="text-[11px] font-mono text-slate-700 max-h-36 overflow-y-auto whitespace-pre-wrap bg-white p-2.5 rounded border border-slate-200">
+                  <pre className="text-[11px] font-mono text-[var(--kz-text-secondary)] max-h-36 overflow-y-auto whitespace-pre-wrap bg-[var(--kz-bg-canvas)] p-2.5 rounded border border-[var(--kz-border-subtle)]">
                     {rawText.slice(0, 1500)}
                     {rawText.length > 1500 && '\n... [dados adicionais carregados]'}
                   </pre>
@@ -1868,10 +1868,10 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
           {inputMethod === 'text' && (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-700">
+                <span className="text-xs font-semibold text-[var(--kz-text-secondary)]">
                   Cole os dados copiados do Excel, Google Sheets, Maps ou Bloco de Notas:
                 </span>
-                <span className="text-[11px] text-slate-400">Aceita links, telefones e nomes</span>
+                <span className="text-[11px] text-[var(--kz-text-subtle)]">Aceita links, telefones e nomes</span>
               </div>
 
               <textarea
@@ -1891,26 +1891,26 @@ export const ImporterView: React.FC<ImporterViewProps> = ({
                 placeholder="Exemplo de dados colados:
 Cl√≠nica Odonto Prime	Dra. Camila	11988887777	https://maps.google.com/?q=Odonto+Prime	4.9 ‚≠ê	S√£o Paulo - SP
 Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚≠ê	S√£o Paulo - SP"
-                className="w-full text-xs p-3 rounded-lg border border-slate-300 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 bg-slate-50"
+                className="w-full text-xs p-3 rounded-lg border border-[var(--kz-border-default)] font-mono focus:outline-none focus:ring-2 focus:ring-[var(--kz-accent-border)] focus:border-[var(--kz-accent)] text-[var(--kz-text-primary)] placeholder:text-[var(--kz-text-subtle)] bg-[var(--kz-bg-subtle)]"
               />
             </div>
           )}
 
           {/* Action Buttons: Atualizar Pr√©via dos Dados */}
-          <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100">
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-[var(--kz-border-subtle)]">
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={handleRunHeuristicParse}
-                className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-800 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 rounded-lg transition-colors cursor-pointer"
+                className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-[var(--kz-text-primary)] bg-[var(--kz-bg-subtle)] hover:bg-[var(--kz-bg-hover)] border border-[var(--kz-border-default)] rounded-lg transition-colors cursor-pointer"
               >
-                <FileSpreadsheet className="w-3.5 h-3.5 text-slate-600" />
+                <FileSpreadsheet className="w-3.5 h-3.5 text-[var(--kz-accent)]" />
                 <span>Atualizar Pr√©via dos Dados</span>
               </button>
             </div>
 
             {parsedCandidates.length > 0 && (
-              <span className="text-xs text-emerald-700 font-medium bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200/60 flex items-center gap-1.5">
+              <span className="text-xs text-[var(--kz-success-text)] font-medium bg-[var(--kz-success-bg)] px-2.5 py-1 rounded-md border border-[var(--kz-success-border)] flex items-center gap-1.5">
                 <CheckCircle2 className="w-3.5 h-3.5" />
                 <span>{parsedCandidates.length} contatos prontos com informa√ß√µes extra√≠das</span>
               </span>
@@ -1919,35 +1919,35 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
         </div>
 
         {/* Right Column: Destination Config (Nicho da Planilha) */}
-        <div className="lg:col-span-4 bg-white rounded-xl border border-slate-200 p-5 shadow-2xs space-y-3">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
-              <Building2 className="w-4 h-4 text-blue-600" />
+        <div className="lg:col-span-4 bg-[var(--kz-bg-surface)] rounded-xl border border-[var(--kz-border-subtle)] p-5 shadow-[var(--kz-shadow-xs)] space-y-3">
+          <div className="flex items-center justify-between border-b border-[var(--kz-border-subtle)] pb-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-[var(--kz-text-primary)] flex items-center gap-1.5">
+              <Building2 className="w-4 h-4 text-[var(--kz-accent)]" />
               Destino dos Leads
             </span>
-            <span className="text-[10px] bg-blue-100 text-blue-700 font-bold px-2 py-0.5 rounded-full">
+            <span className="text-[10px] bg-[var(--kz-accent-soft)] text-[var(--kz-accent-text)] border border-[var(--kz-accent-border)] font-bold px-2 py-0.5 rounded-full">
               Nicho da Planilha
             </span>
           </div>
 
-          <p className="text-[11px] text-slate-600">
+          <p className="text-[11px] text-[var(--kz-text-muted)]">
             Defina o nome da campanha onde os contatos desta planilha ser√£o importados:
           </p>
 
           <div className="space-y-3 pt-1">
             <div className="grid grid-cols-4 gap-2">
               <div className="col-span-1">
-                <label className="block text-[11px] font-semibold text-slate-700 mb-1">√çcone</label>
+                <label className="block text-[11px] font-semibold text-[var(--kz-text-secondary)] mb-1">√çcone</label>
                 <input
                   type="text"
                   value={newNicheEmoji}
                   onChange={(e) => setNewNicheEmoji(e.target.value)}
                   maxLength={2}
-                  className="w-full text-center text-sm px-2 py-1.5 border border-slate-300 rounded-lg text-slate-900 font-bold focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full text-center text-sm px-2 py-1.5 bg-[var(--kz-bg-subtle)] border border-[var(--kz-border-default)] rounded-lg text-[var(--kz-text-primary)] font-bold focus:ring-2 focus:ring-[var(--kz-accent-border)] focus:border-[var(--kz-accent)] focus:outline-none"
                 />
               </div>
               <div className="col-span-3">
-                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                <label className="block text-[11px] font-semibold text-[var(--kz-text-secondary)] mb-1">
                   Nome do Nicho / Campanha *
                 </label>
                 <input
@@ -1974,13 +1974,13 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
                     }
                   }}
                   placeholder="Ex: Cl√≠nicas de Est√©tica em Arapiraca"
-                  className="w-full text-xs px-2.5 py-1.5 border border-slate-300 rounded-lg text-slate-900 font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full text-xs px-2.5 py-1.5 bg-[var(--kz-bg-subtle)] border border-[var(--kz-border-default)] rounded-lg text-[var(--kz-text-primary)] placeholder:text-[var(--kz-text-subtle)] font-medium focus:ring-2 focus:ring-[var(--kz-accent-border)] focus:border-[var(--kz-accent)] focus:outline-none"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+              <label className="block text-[11px] font-semibold text-[var(--kz-text-secondary)] mb-1">
                 Segmento / Especialidade
               </label>
               <input
@@ -2000,12 +2000,12 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
                   }
                 }}
                 placeholder="Ex: Cl√≠nicas de Est√©tica"
-                className="w-full text-xs px-2.5 py-1.5 border border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                className="w-full text-xs px-2.5 py-1.5 bg-[var(--kz-bg-subtle)] border border-[var(--kz-border-default)] rounded-lg text-[var(--kz-text-primary)] placeholder:text-[var(--kz-text-subtle)] focus:ring-2 focus:ring-[var(--kz-accent-border)] focus:border-[var(--kz-accent)] focus:outline-none"
               />
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+              <label className="block text-[11px] font-semibold text-[var(--kz-text-secondary)] mb-1">
                 Cidade Principal
               </label>
               <input
@@ -2013,12 +2013,12 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
                 value={newNicheCity}
                 onChange={(e) => setNewNicheCity(e.target.value)}
                 placeholder="Ex: Arapiraca - AL"
-                className="w-full text-xs px-2.5 py-1.5 border border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                className="w-full text-xs px-2.5 py-1.5 bg-[var(--kz-bg-subtle)] border border-[var(--kz-border-default)] rounded-lg text-[var(--kz-text-primary)] placeholder:text-[var(--kz-text-subtle)] focus:ring-2 focus:ring-[var(--kz-accent-border)] focus:border-[var(--kz-accent)] focus:outline-none"
               />
             </div>
 
-            <div className="text-[11px] text-blue-900 bg-blue-50/80 p-2.5 rounded-lg border border-blue-200/70">
-              üí° Os contatos aprovados ser√£o salvos diretamente na campanha <strong>"{newNicheName.trim() || 'Nova Campanha'}"</strong>.
+            <div className="text-[11px] text-[var(--kz-text-secondary)] bg-[var(--kz-accent-soft)] p-2.5 rounded-lg border border-[var(--kz-accent-border)]">
+              üí° Os contatos aprovados ser√£o salvos diretamente na campanha <strong className="text-[var(--kz-accent-text)]">"{newNicheName.trim() || 'Nova Campanha'}"</strong>.
             </div>
           </div>
         </div>
@@ -2026,53 +2026,53 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
 
       {/* Step 2: Live Candidates Preview Table with Antiduplication Panel */}
       {(parsedCandidates.length > 0 || duplicateCandidates.length > 0) && (
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-2xs space-y-4 animate-in fade-in duration-200">
+        <div className="bg-[var(--kz-bg-surface)] rounded-xl border border-[var(--kz-border-subtle)] p-5 shadow-[var(--kz-shadow-xs)] space-y-4 animate-in fade-in duration-200">
           {/* Antiduplication & Niche Category Control Panel & Status */}
-          <div className="bg-gradient-to-r from-blue-50/70 via-indigo-50/40 to-emerald-50/70 border border-blue-200/80 rounded-xl p-4 shadow-2xs space-y-3">
+          <div className="bg-[var(--kz-bg-subtle)] border border-[var(--kz-border-default)] rounded-xl p-4 shadow-[var(--kz-shadow-xs)] space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+                <div className="w-10 h-10 rounded-xl bg-[var(--kz-accent-soft)] border border-[var(--kz-accent-border)] text-[var(--kz-accent)] flex items-center justify-center shrink-0">
                   <ShieldCheck className="w-5 h-5" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs font-bold text-slate-900">
+                    <span className="text-xs font-bold text-[var(--kz-text-primary)]">
                       Filtro Antiduplicidade & Nicho Ativo
                     </span>
-                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[var(--kz-success-bg)] text-[var(--kz-success-text)] border border-[var(--kz-success-border)] flex items-center gap-1">
                       <Check className="w-3 h-3" />
                       {parsedCandidates.length} No Nicho Mantidos
                     </span>
                     {duplicatesOnly.length > 0 && (
-                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-200 flex items-center gap-1">
-                        <Trash2 className="w-3 h-3 text-amber-700" />
+                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[var(--kz-warning-bg)] text-[var(--kz-warning-text)] border border-[var(--kz-warning-border)] flex items-center gap-1">
+                        <Trash2 className="w-3 h-3 text-[var(--kz-warning-text)]" />
                         {duplicatesOnly.length} Repetidos Exclu√≠dos
                       </span>
                     )}
                     {categoryExclusions.length > 0 && (
-                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800 border border-rose-200 flex items-center gap-1">
-                        <Ban className="w-3 h-3 text-rose-700" />
+                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[var(--kz-danger-bg)] text-[var(--kz-danger-text)] border border-[var(--kz-danger-border)] flex items-center gap-1">
+                        <Ban className="w-3 h-3 text-[var(--kz-danger-text)]" />
                         {categoryExclusions.length} Fora do Nicho Exclu√≠dos
                       </span>
                     )}
                   </div>
-                  <p className="text-[11px] text-slate-600 mt-1">
+                  <p className="text-[11px] text-[var(--kz-text-muted)] mt-1">
                     {categoryExclusions.length > 0 || duplicatesOnly.length > 0 || categoryExcludedLeads.length > 0 ? (
                       <span>
                         Analisamos {rawParsedCandidates.length} registros para a campanha{' '}
-                        <strong>{newNicheName.trim() || activeNiche.name}</strong>.
+                        <strong className="text-[var(--kz-text-primary)]">{newNicheName.trim() || activeNiche.name}</strong>.
                         {categoryExcludedLeads.length > 0 && (
-                          <span className="text-rose-700 font-medium">
+                          <span className="text-[var(--kz-danger-text)] font-medium">
                             {' '}{categoryExcludedLeads.length} contatos de nichos/categorias exclu√≠das foram removidos.{' '}
                           </span>
                         )}
                         {categoryExclusions.length > 0 && (
-                          <span className="text-rose-700 font-medium">
+                          <span className="text-[var(--kz-danger-text)] font-medium">
                             {' '}{categoryExclusions.length} contatos fora do nicho exclu√≠dos.{' '}
                           </span>
                         )}
                         {duplicatesOnly.length > 0 && (
-                          <span className="text-amber-800">
+                          <span className="text-[var(--kz-warning-text)]">
                             {duplicatesOnly.length} contatos repetidos foram exclu√≠dos.{' '}
                           </span>
                         )}
@@ -2092,10 +2092,10 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
                     <button
                       type="button"
                       onClick={() => setActiveCandidatesTab(activeCandidatesTab === 'category_excluded' ? 'unique' : 'category_excluded')}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border transition-all cursor-pointer shadow-2xs ${
+                      className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border transition-all cursor-pointer ${
                         activeCandidatesTab === 'category_excluded'
-                          ? 'bg-rose-600 text-white border-rose-700 hover:bg-rose-700'
-                          : 'bg-white text-rose-800 border-rose-300 hover:bg-rose-50'
+                          ? 'bg-[var(--kz-danger-solid)] text-white border-[var(--kz-danger-border)] hover:brightness-110'
+                          : 'bg-[var(--kz-bg-surface)] text-[var(--kz-danger-text)] border-[var(--kz-danger-border)] hover:bg-[var(--kz-danger-bg)]'
                       }`}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -2111,10 +2111,10 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
                     <button
                       type="button"
                       onClick={() => setActiveCandidatesTab(activeCandidatesTab === 'duplicates' ? 'unique' : 'duplicates')}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border transition-all cursor-pointer shadow-2xs ${
+                      className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border transition-all cursor-pointer ${
                         activeCandidatesTab === 'duplicates'
-                          ? 'bg-amber-600 text-white border-amber-700 hover:bg-amber-700'
-                          : 'bg-white text-amber-800 border-amber-300 hover:bg-amber-50'
+                          ? 'bg-[var(--kz-warning-solid)] text-[#0B0B0D] border-[var(--kz-warning-border)] hover:brightness-110'
+                          : 'bg-[var(--kz-bg-surface)] text-[var(--kz-warning-text)] border-[var(--kz-warning-border)] hover:bg-[var(--kz-warning-bg)]'
                       }`}
                     >
                       <CopyX className="w-3.5 h-3.5" />
@@ -2130,54 +2130,54 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
             </div>
 
             {/* Criteria check filters */}
-            <div className="pt-2 border-t border-blue-200/50 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="pt-2 border-t border-[var(--kz-border-subtle)] flex flex-wrap items-center justify-between gap-3 text-xs">
               <div className="flex flex-wrap items-center gap-4">
-                <span className="text-[11px] font-semibold text-slate-500 flex items-center gap-1">
-                  <Filter className="w-3 h-3 text-blue-600" />
+                <span className="text-[11px] font-semibold text-[var(--kz-text-muted)] flex items-center gap-1">
+                  <Filter className="w-3 h-3 text-[var(--kz-accent)]" />
                   Crit√©rios de An√°lise:
                 </span>
 
-                <label className="inline-flex items-center gap-1.5 cursor-pointer text-slate-700 hover:text-slate-900 select-none">
+                <label className="inline-flex items-center gap-1.5 cursor-pointer text-[var(--kz-text-secondary)] hover:text-[var(--kz-text-primary)] select-none">
                   <input
                     type="checkbox"
                     checked={dedupCheckPhone}
                     onChange={(e) => handleToggleDedupPhone(e.target.checked)}
-                    className="rounded text-blue-600 focus:ring-blue-500 w-3.5 h-3.5 cursor-pointer"
+                    className="rounded accent-[var(--kz-accent)] w-3.5 h-3.5 cursor-pointer"
                   />
                   <span className="text-[11px] font-medium">Por Telefone / WhatsApp</span>
                 </label>
 
-                <label className="inline-flex items-center gap-1.5 cursor-pointer text-slate-700 hover:text-slate-900 select-none">
+                <label className="inline-flex items-center gap-1.5 cursor-pointer text-[var(--kz-text-secondary)] hover:text-[var(--kz-text-primary)] select-none">
                   <input
                     type="checkbox"
                     checked={dedupCheckName}
                     onChange={(e) => handleToggleDedupName(e.target.checked)}
-                    className="rounded text-blue-600 focus:ring-blue-500 w-3.5 h-3.5 cursor-pointer"
+                    className="rounded accent-[var(--kz-accent)] w-3.5 h-3.5 cursor-pointer"
                   />
                   <span className="text-[11px] font-medium">Por Nome (Empresa ou Contato)</span>
                 </label>
 
-                <label className="inline-flex items-center gap-1.5 cursor-pointer text-slate-700 hover:text-slate-900 select-none">
+                <label className="inline-flex items-center gap-1.5 cursor-pointer text-[var(--kz-text-secondary)] hover:text-[var(--kz-text-primary)] select-none">
                   <input
                     type="checkbox"
                     checked={dedupCheckCategory}
                     onChange={(e) => handleToggleDedupCategory(e.target.checked)}
-                    className="rounded text-rose-600 focus:ring-rose-500 w-3.5 h-3.5 cursor-pointer"
+                    className="rounded accent-rose-500 w-3.5 h-3.5 cursor-pointer"
                   />
-                  <span className="text-[11px] font-bold text-rose-900 flex items-center gap-1">
-                    <Ban className="w-3 h-3 text-rose-600" />
+                  <span className="text-[11px] font-bold text-[var(--kz-danger-text)] flex items-center gap-1">
+                    <Ban className="w-3 h-3 text-[var(--kz-danger-text)]" />
                     Excluir Categorias Fora do Nicho ({newNicheName.trim() || activeNiche.name})
                   </span>
                 </label>
 
-                <label className="inline-flex items-center gap-1.5 cursor-pointer text-slate-700 hover:text-slate-900 select-none">
+                <label className="inline-flex items-center gap-1.5 cursor-pointer text-[var(--kz-text-secondary)] hover:text-[var(--kz-text-primary)] select-none">
                   <input
                     type="checkbox"
                     checked={dedupAutoExclude}
                     onChange={(e) => handleToggleAutoExclude(e.target.checked)}
-                    className="rounded text-blue-600 focus:ring-blue-500 w-3.5 h-3.5 cursor-pointer"
+                    className="rounded accent-[var(--kz-accent)] w-3.5 h-3.5 cursor-pointer"
                   />
-                  <span className="text-[11px] font-semibold text-blue-900">Excluir Automaticamente</span>
+                  <span className="text-[11px] font-semibold text-[var(--kz-accent-text)]">Excluir Automaticamente</span>
                 </label>
               </div>
 
@@ -2185,7 +2185,7 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
                 <button
                   type="button"
                   onClick={handleRestoreAllDuplicates}
-                  className="text-[11px] font-semibold text-blue-700 hover:text-blue-900 hover:underline cursor-pointer flex items-center gap-1"
+                  className="text-[11px] font-semibold text-[var(--kz-accent-text)] hover:text-[var(--kz-text-primary)] hover:underline cursor-pointer flex items-center gap-1"
                   title="Restaurar todos os contatos exclu√≠dos para a lista de importa√ß√£o"
                 >
                   <Undo2 className="w-3 h-3" />
@@ -2196,20 +2196,20 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
           </div>
 
           {/* Gerenciador de Filtro & Exclus√£o de Categorias da Planilha (100% Direto e Visual) */}
-          <div className="bg-gradient-to-r from-slate-50 via-blue-50/40 to-indigo-50/50 border border-slate-200 rounded-xl p-4 sm:p-5 shadow-2xs space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/80 pb-3">
+          <div className="bg-[var(--kz-bg-subtle)] border border-[var(--kz-border-default)] rounded-xl p-4 sm:p-5 shadow-[var(--kz-shadow-xs)] space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--kz-border-subtle)] pb-3">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs shrink-0 font-bold">
-                  <Filter className="w-5 h-5 text-white" />
+                <div className="w-9 h-9 rounded-xl bg-[var(--kz-accent-soft)] border border-[var(--kz-accent-border)] text-[var(--kz-accent)] flex items-center justify-center shrink-0 font-bold">
+                  <Filter className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-xs font-bold text-slate-900 flex items-center gap-2">
+                  <h3 className="text-xs font-bold text-[var(--kz-text-primary)] flex items-center gap-2">
                     <span>Filtro de Categorias & Nichos da Planilha</span>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-200">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[var(--kz-accent-soft)] text-[var(--kz-accent-text)] border border-[var(--kz-accent-border)]">
                       Filtro Ativo
                     </span>
                   </h3>
-                  <p className="text-[11px] text-slate-600 mt-0.5">
+                  <p className="text-[11px] text-[var(--kz-text-muted)] mt-0.5">
                     Selecione ou digite categorias indesejadas para remover da importa√ß√£o com 1 clique (ex: excluir <em>"Dentistas"</em> ou <em>"Consult√≥rio Odontol√≥gico"</em> e manter apenas <em>"{newNicheName.trim() || 'o nicho alvo'}"</em>).
                   </p>
                 </div>
@@ -2220,9 +2220,9 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
                   <button
                     type="button"
                     onClick={handleUndoLastExclusion}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg shadow-2xs transition-colors cursor-pointer"
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[var(--kz-text-secondary)] bg-[var(--kz-bg-surface)] hover:bg-[var(--kz-bg-hover)] hover:text-[var(--kz-text-primary)] border border-[var(--kz-border-default)] rounded-lg transition-colors cursor-pointer"
                   >
-                    <Undo2 className="w-3.5 h-3.5 text-slate-600" />
+                    <Undo2 className="w-3.5 h-3.5 text-[var(--kz-text-muted)]" />
                     <span>Desfazer √öltima Exclus√£o</span>
                   </button>
                 )}
@@ -2230,7 +2230,7 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
                 <button
                   type="button"
                   onClick={handleExcludeAllOutOfNiche}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg shadow-2xs transition-colors cursor-pointer"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-[var(--kz-danger-text)] bg-[var(--kz-danger-bg)] hover:bg-[var(--kz-danger-solid)] hover:text-white border border-[var(--kz-danger-border)] rounded-lg transition-colors cursor-pointer"
                   title="Exclui automaticamente tudo que n√£o combina com o nicho definido"
                 >
                   <Ban className="w-3.5 h-3.5" />
@@ -2250,7 +2250,7 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
                     setCategorySearchOrSelect(val);
                     if (val) handleExcludeCategory(val);
                   }}
-                  className="w-full text-xs px-3 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium shadow-2xs cursor-pointer"
+                  className="w-full text-xs px-3 py-2.5 bg-[var(--kz-bg-surface)] border border-[var(--kz-border-default)] rounded-xl text-[var(--kz-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--kz-accent-border)] focus:border-[var(--kz-accent)] font-medium cursor-pointer"
                 >
                   <option value="">‚ñº Selecionar nicho para excluir...</option>
                   {detectedCategories.map((c) => (
@@ -2263,7 +2263,7 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
 
               {/* Free-text input */}
               <div className="relative flex-1">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <Search className="w-4 h-4 text-[var(--kz-text-subtle)] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="text"
                   value={categorySearchOrSelect}
@@ -2275,7 +2275,7 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
                     }
                   }}
                   placeholder="Ou digite o nome do nicho/categoria que quer excluir... Ex: Dentistas, Odontologia, Oficina"
-                  className="w-full text-xs pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs font-medium"
+                  className="w-full text-xs pl-9 pr-3 py-2.5 bg-[var(--kz-bg-surface)] border border-[var(--kz-border-default)] rounded-xl text-[var(--kz-text-primary)] placeholder:text-[var(--kz-text-subtle)] focus:outline-none focus:ring-2 focus:ring-[var(--kz-accent-border)] focus:border-[var(--kz-accent)] font-medium"
                 />
               </div>
 
@@ -2283,7 +2283,7 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
                 type="button"
                 onClick={() => handleExcludeCategory(categorySearchOrSelect)}
                 disabled={!categorySearchOrSelect.trim()}
-                className="flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 active:bg-rose-800 disabled:opacity-50 rounded-xl shadow-2xs transition-all cursor-pointer shrink-0"
+                className="flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-bold text-white bg-[var(--kz-danger-solid)] hover:brightness-110 disabled:opacity-50 rounded-xl transition-all cursor-pointer shrink-0"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>Excluir da Planilha</span>
@@ -2293,9 +2293,9 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
             {/* Visual Category Badges Found in Spreadsheet */}
             {detectedCategories.length > 0 && (
               <div className="space-y-2 pt-1">
-                <div className="flex items-center justify-between text-[11px] font-semibold text-slate-600">
+                <div className="flex items-center justify-between text-[11px] font-semibold text-[var(--kz-text-secondary)]">
                   <span>Nichos e Categorias Detectados na Planilha ({detectedCategories.length}):</span>
-                  <span className="text-[10px] text-slate-400">Clique no bot√£o [Excluir] para retirar todos os contatos do nicho</span>
+                  <span className="text-[10px] text-[var(--kz-text-subtle)]">Clique no bot√£o [Excluir] para retirar todos os contatos do nicho</span>
                 </div>
 
                 <div className="flex flex-wrap gap-2">
@@ -2307,19 +2307,19 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
                     return (
                       <div
                         key={c.name}
-                        className={`inline-flex items-center gap-2 pl-3 pr-1.5 py-1.5 rounded-xl border text-xs transition-all shadow-2xs ${
+                        className={`inline-flex items-center gap-2 pl-3 pr-1.5 py-1.5 rounded-xl border text-xs transition-all ${
                           isTargetMatch
-                            ? 'bg-emerald-50/80 border-emerald-300 text-emerald-950 font-bold'
-                            : 'bg-white border-slate-200 text-slate-800'
+                            ? 'bg-[var(--kz-success-bg)] border-[var(--kz-success-border)] text-[var(--kz-text-primary)] font-bold'
+                            : 'bg-[var(--kz-bg-surface)] border-[var(--kz-border-default)] text-[var(--kz-text-secondary)]'
                         }`}
                       >
-                        <Tag className={`w-3.5 h-3.5 ${isTargetMatch ? 'text-emerald-600' : 'text-slate-400'}`} />
+                        <Tag className={`w-3.5 h-3.5 ${isTargetMatch ? 'text-[var(--kz-success-text)]' : 'text-[var(--kz-text-subtle)]'}`} />
                         <span>
-                          <strong>{c.name}</strong> ({c.count})
+                          <strong className="text-[var(--kz-text-primary)]">{c.name}</strong> ({c.count})
                         </span>
 
                         {isTargetMatch && (
-                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 font-bold">
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--kz-bg-surface)] text-[var(--kz-success-text)] border border-[var(--kz-success-border)] font-bold">
                             Nicho Alvo
                           </span>
                         )}
@@ -2327,7 +2327,7 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
                         <button
                           type="button"
                           onClick={() => handleExcludeCategory(c.name)}
-                          className="px-2 py-0.5 text-[11px] font-bold text-rose-700 hover:text-white hover:bg-rose-600 rounded-lg transition-colors cursor-pointer ml-1 flex items-center gap-1 border border-rose-200"
+                          className="px-2 py-0.5 text-[11px] font-bold text-[var(--kz-danger-text)] hover:text-white hover:bg-[var(--kz-danger-solid)] rounded-lg transition-colors cursor-pointer ml-1 flex items-center gap-1 border border-[var(--kz-danger-border)]"
                           title={`Excluir todos os ${c.count} contatos de "${c.name}"`}
                         >
                           <Trash2 className="w-3 h-3" />
@@ -2342,16 +2342,16 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
 
             {/* Excluded Categories Summary */}
             {categoryExcludedLeads.length > 0 && (
-              <div className="p-3 bg-rose-50/80 border border-rose-200/90 rounded-xl space-y-2 animate-in fade-in duration-150">
+              <div className="p-3 bg-[var(--kz-danger-bg)] border border-[var(--kz-danger-border)] rounded-xl space-y-2 animate-in fade-in duration-150">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <span className="text-xs font-bold text-rose-950 flex items-center gap-1.5">
-                    <Ban className="w-3.5 h-3.5 text-rose-600" />
+                  <span className="text-xs font-bold text-[var(--kz-danger-text)] flex items-center gap-1.5">
+                    <Ban className="w-3.5 h-3.5 text-[var(--kz-danger-text)]" />
                     Categorias Exclu√≠das da Importa√ß√£o ({categoryExcludedLeads.length} contatos retirados):
                   </span>
                   <button
                     type="button"
                     onClick={handleRestoreAllExcludedCategories}
-                    className="text-xs font-bold text-rose-800 hover:text-rose-950 hover:underline cursor-pointer flex items-center gap-1"
+                    className="text-xs font-bold text-[var(--kz-danger-text)] hover:text-[var(--kz-text-primary)] hover:underline cursor-pointer flex items-center gap-1"
                   >
                     <Undo2 className="w-3 h-3" />
                     Restaurar Todos os {categoryExcludedLeads.length} Contatos
@@ -2362,13 +2362,13 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
                   {excludedCategoriesSummary.map((item) => (
                     <div
                       key={item.name}
-                      className="inline-flex items-center gap-2 px-2.5 py-1 bg-white border border-rose-300 rounded-lg text-xs font-semibold text-rose-900 shadow-2xs"
+                      className="inline-flex items-center gap-2 px-2.5 py-1 bg-[var(--kz-bg-surface)] border border-[var(--kz-danger-border)] rounded-lg text-xs font-semibold text-[var(--kz-text-primary)]"
                     >
                       <span>‚úï {item.name} ({item.count})</span>
                       <button
                         type="button"
                         onClick={() => handleRestoreCategory(item.name)}
-                        className="text-[11px] text-blue-600 hover:text-blue-800 hover:underline font-bold cursor-pointer"
+                        className="text-[11px] text-[var(--kz-accent-text)] hover:text-[var(--kz-text-primary)] hover:underline font-bold cursor-pointer"
                       >
                         Restaurar
                       </button>
@@ -2380,12 +2380,12 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
 
             {/* Notification / Feedback Banner */}
             {categoryFeedbackMessage && (
-              <div className="text-xs font-medium text-slate-800 bg-white/90 border border-slate-200 p-2.5 rounded-lg flex items-center justify-between gap-2 animate-in fade-in">
+              <div className="text-xs font-medium text-[var(--kz-text-primary)] bg-[var(--kz-bg-surface)] border border-[var(--kz-border-default)] p-2.5 rounded-lg flex items-center justify-between gap-2 animate-in fade-in">
                 <span>{categoryFeedbackMessage}</span>
                 <button
                   type="button"
                   onClick={() => setCategoryFeedbackMessage(null)}
-                  className="text-slate-400 hover:text-slate-600 cursor-pointer"
+                  className="text-[var(--kz-text-subtle)] hover:text-[var(--kz-text-primary)] cursor-pointer"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -2394,20 +2394,22 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
           </div>
 
           {/* Navigation Tabs (Contatos no Nicho vs Exclu√≠dos por Categoria vs Repetidos vs Fora do Nicho) */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--kz-border-subtle)] pb-3">
             <div className="flex items-center gap-2 flex-wrap">
               <button
                 type="button"
                 onClick={() => setActiveCandidatesTab('unique')}
                 className={`flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                   activeCandidatesTab === 'unique'
-                    ? 'bg-blue-600 text-white shadow-2xs'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                    ? 'bg-[var(--kz-accent)] text-[var(--kz-accent-fg)] shadow-[var(--kz-shadow-xs)]'
+                    : 'bg-[var(--kz-bg-subtle)] text-[var(--kz-text-secondary)] hover:bg-[var(--kz-bg-hover)] hover:text-[var(--kz-text-primary)] border border-[var(--kz-border-subtle)]'
                 }`}
               >
                 <span>‚ú® Contatos Mantidos ({parsedCandidates.length})</span>
                 <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${
-                  activeCandidatesTab === 'unique' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+                  activeCandidatesTab === 'unique'
+                    ? 'bg-black/20 text-[var(--kz-accent-fg)]'
+                    : 'bg-[var(--kz-bg-surface)] text-[var(--kz-text-muted)]'
                 }`}>
                   {parsedCandidates.filter((c) => c.selected).length} selecionados
                 </span>
@@ -2419,8 +2421,8 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
                   onClick={() => setActiveCandidatesTab('category_excluded')}
                   className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                     activeCandidatesTab === 'category_excluded'
-                      ? 'bg-rose-600 text-white shadow-2xs'
-                      : 'bg-rose-50 text-rose-800 border border-rose-200 hover:bg-rose-100'
+                      ? 'bg-[var(--kz-danger-solid)] text-white shadow-[var(--kz-shadow-xs)]'
+                      : 'bg-[var(--kz-danger-bg)] text-[var(--kz-danger-text)] border border-[var(--kz-danger-border)] hover:brightness-110'
                   }`}
                 >
                   <Trash2 className="w-3.5 h-3.5" />
@@ -2434,8 +2436,8 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
                   onClick={() => setActiveCandidatesTab('duplicates')}
                   className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                     activeCandidatesTab === 'duplicates'
-                      ? 'bg-amber-600 text-white shadow-2xs'
-                      : 'bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100'
+                      ? 'bg-[var(--kz-warning-solid)] text-[#0B0B0D] shadow-[var(--kz-shadow-xs)]'
+                      : 'bg-[var(--kz-warning-bg)] text-[var(--kz-warning-text)] border border-[var(--kz-warning-border)] hover:brightness-110'
                   }`}
                 >
                   <CopyX className="w-3.5 h-3.5" />
@@ -2449,8 +2451,8 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
                   onClick={() => setActiveCandidatesTab('incompatible_category')}
                   className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                     activeCandidatesTab === 'incompatible_category'
-                      ? 'bg-rose-600 text-white shadow-2xs'
-                      : 'bg-rose-50 text-rose-800 border border-rose-200 hover:bg-rose-100'
+                      ? 'bg-[var(--kz-danger-solid)] text-white shadow-[var(--kz-shadow-xs)]'
+                      : 'bg-[var(--kz-danger-bg)] text-[var(--kz-danger-text)] border border-[var(--kz-danger-border)] hover:brightness-110'
                   }`}
                 >
                   <Ban className="w-3.5 h-3.5" />
@@ -2465,15 +2467,15 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
                 <button
                   type="button"
                   onClick={() => handleToggleAll(true)}
-                  className="text-xs text-blue-600 hover:underline cursor-pointer"
+                  className="text-xs text-[var(--kz-accent-text)] hover:underline cursor-pointer font-semibold"
                 >
                   Marcar Todos
                 </button>
-                <span className="text-slate-300">¬∑</span>
+                <span className="text-[var(--kz-text-subtle)]">¬∑</span>
                 <button
                   type="button"
                   onClick={() => handleToggleAll(false)}
-                  className="text-xs text-slate-500 hover:underline cursor-pointer"
+                  className="text-xs text-[var(--kz-text-muted)] hover:text-[var(--kz-text-primary)] hover:underline cursor-pointer"
                 >
                   Desmarcar Todos
                 </button>
@@ -2485,7 +2487,7 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
                   value={duplicateSearch}
                   onChange={(e) => setDuplicateSearch(e.target.value)}
                   placeholder={activeCandidatesTab === 'incompatible_category' ? 'Filtrar fora do nicho...' : 'Filtrar repetidos...'}
-                  className="text-xs px-2.5 py-1 border border-slate-300 rounded-lg text-slate-800 bg-white"
+                  className="text-xs px-2.5 py-1 border border-[var(--kz-border-default)] rounded-lg text-[var(--kz-text-primary)] placeholder:text-[var(--kz-text-subtle)] bg-[var(--kz-bg-subtle)] focus:outline-none focus:border-[var(--kz-accent)]"
                 />
               </div>
             )}
@@ -2495,7 +2497,7 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
           <div className="overflow-x-auto max-h-[500px]">
             {activeCandidatesTab === 'unique' ? (
               <table className="w-full text-left text-xs border-collapse">
-                <thead className="sticky top-0 bg-slate-50 text-slate-600 border-b border-slate-200 z-10">
+                <thead className="sticky top-0 bg-[var(--kz-bg-subtle)] text-[var(--kz-text-secondary)] border-b border-[var(--kz-border-default)] z-10">
                   <tr>
                     <th className="py-2.5 px-3 w-8"></th>
                     <th className="py-2.5 px-3 min-w-[200px]">Empresa / Contato</th>
@@ -2508,12 +2510,12 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
                     <th className="py-2.5 px-3 w-16 text-center">Editar</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-[var(--kz-border-subtle)]">
                   {parsedCandidates.map((candidate, idx) => (
                     <tr
                       key={idx}
-                      className={`hover:bg-slate-50/80 transition-colors ${
-                        candidate.selected ? 'bg-blue-50/15' : 'opacity-60'
+                      className={`hover:bg-[var(--kz-bg-hover)] transition-colors ${
+                        candidate.selected ? 'bg-[var(--kz-accent-soft)]/30' : 'opacity-50'
                       }`}
                     >
                       {/* Checkbox */}
@@ -2522,7 +2524,7 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
                           type="checkbox"
                           checked={candidate.selected}
                           onChange={() => handleToggleCandidate(idx)}
-                          className="rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
+                          className="rounded accent-[var(--kz-accent)] cursor-pointer"
                         />
                       </td>
 
@@ -2535,28 +2537,28 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
                               value={candidate.companyName}
                               onChange={(e) => handleUpdateCandidateField(idx, 'companyName', e.target.value)}
                               placeholder="Nome da Empresa"
-                              className="w-full text-xs px-2 py-1 border border-slate-300 rounded font-medium text-slate-900"
+                              className="w-full text-xs px-2 py-1 bg-[var(--kz-bg-subtle)] border border-[var(--kz-border-default)] rounded font-medium text-[var(--kz-text-primary)]"
                             />
                             <input
                               type="text"
                               value={candidate.contactName || ''}
                               onChange={(e) => handleUpdateCandidateField(idx, 'contactName', e.target.value)}
                               placeholder="Nome do Contato (ex: Dr. Carlos)"
-                              className="w-full text-[11px] px-2 py-0.5 border border-slate-300 rounded text-slate-600"
+                              className="w-full text-[11px] px-2 py-0.5 bg-[var(--kz-bg-subtle)] border border-[var(--kz-border-default)] rounded text-[var(--kz-text-secondary)]"
                             />
                           </div>
                         ) : (
                           <div>
-                            <div className="font-semibold text-slate-900 flex items-center gap-1.5 flex-wrap">
-                              <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                            <div className="font-semibold text-[var(--kz-text-primary)] flex items-center gap-1.5 flex-wrap">
+                              <Building2 className="w-3.5 h-3.5 text-[var(--kz-text-subtle)] shrink-0" />
                               <span>{candidate.companyName}</span>
-                              <span className="px-1.5 py-0.2 rounded text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-[var(--kz-success-bg)] text-[var(--kz-success-text)] border border-[var(--kz-success-border)]">
                                 No Nicho
                               </span>
                             </div>
                             {candidate.contactName && (
-                              <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
-                                <User className="w-3 h-3 text-blue-500" />
+                              <div className="text-[11px] text-[var(--kz-text-muted)] flex items-center gap-1 mt-0.5">
+                                <User className="w-3 h-3 text-[var(--kz-accent)]" />
                                 <span>{candidate.contactName}</span>
                               </div>
                             )}
@@ -2572,19 +2574,19 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
                             value={candidate.category || ''}
                             onChange={(e) => handleUpdateCandidateField(idx, 'category', e.target.value)}
                             placeholder="Categoria"
-                            className="w-full text-xs px-2 py-1 border border-slate-300 rounded text-slate-800"
+                            className="w-full text-xs px-2 py-1 bg-[var(--kz-bg-subtle)] border border-[var(--kz-border-default)] rounded text-[var(--kz-text-primary)]"
                           />
                         ) : (
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-50 text-blue-800 border border-blue-200/60">
-                              <Tag className="w-2.5 h-2.5 text-blue-600 shrink-0" />
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-[var(--kz-accent-soft)] text-[var(--kz-accent-text)] border border-[var(--kz-accent-border)]">
+                              <Tag className="w-2.5 h-2.5 text-[var(--kz-accent)] shrink-0" />
                               <span className="truncate max-w-[130px]">{candidate.category || newNicheSegment || 'Geral'}</span>
                             </span>
                             {candidate.category && (
                               <button
                                 type="button"
                                 onClick={() => handleExcludeCategory(candidate.category!)}
-                                className="text-[10px] text-rose-600 hover:text-rose-800 hover:bg-rose-50 px-1.5 py-0.5 rounded transition-colors cursor-pointer border border-rose-200 font-medium shrink-0"
+                                className="text-[10px] text-[var(--kz-danger-text)] hover:text-white hover:bg-[var(--kz-danger-solid)] px-1.5 py-0.5 rounded transition-colors cursor-pointer border border-[var(--kz-danger-border)] font-medium shrink-0"
                                 title={`Excluir todos os contatos da categoria "${candidate.category}"`}
                               >
                                 ‚úï Excluir
@@ -2602,7 +2604,7 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
                             value={candidate.phone}
                             onChange={(e) => handleUpdateCandidateField(idx, 'phone', cleanPhoneForWhatsApp(e.target.value))}
                             placeholder="DDD + N√∫mero"
-                            className="w-full text-xs px-2 py-1 border border-slate-300 rounded font-mono text-emerald-700"
+                            className="w-full text-xs px-2 py-1 bg-[var(--kz-bg-subtle)] border border-[var(--kz-border-default)] rounded font-mono text-[var(--kz-success-text)]"
                           />
                         ) : (
                           <div className="flex items-center gap-1.5">
@@ -2610,13 +2612,13 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
                               href={`https://wa.me/${candidate.phone}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-emerald-600 hover:text-emerald-700 p-1 hover:bg-emerald-50 rounded transition-colors"
+                              className="text-[var(--kz-success-text)] hover:text-[var(--kz-text-primary)] p-1 hover:bg-[var(--kz-success-bg)] rounded transition-colors"
                               title="Testar conversa no WhatsApp"
                               onClick={(e) => e.stopPropagation()}
                             >
                               <MessageCircle className="w-3.5 h-3.5" />
                             </a>
-                            <span className="font-mono tabular-nums text-emerald-800 font-semibold">
+                            <span className="font-mono tabular-nums text-[var(--kz-success-text)] font-semibold">
                               {formatDisplayPhone(candidate.phone)}
                             </span>
                           </div>
@@ -2632,14 +2634,14 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
                               value={candidate.googleMapsUrl || ''}
                               onChange={(e) => handleUpdateCandidateField(idx, 'googleMapsUrl', e.target.value)}
                               placeholder="Link do Google Meu Neg√≥cio / Maps"
-                              className="w-full text-[11px] px-2 py-0.5 border border-slate-300 rounded font-mono text-blue-600"
+                              className="w-full text-[11px] px-2 py-0.5 bg-[var(--kz-bg-subtle)] border border-[var(--kz-border-default)] rounded font-mono text-[var(--kz-info-text)]"
                             />
                             <input
                               type="url"
                               value={candidate.websiteUrl || ''}
                               onChange={(e) => handleUpdateCandidateField(idx, 'websiteUrl', e.target.value)}
                               placeholder="Site atual ou rede social"
-                              className="w-full text-[11px] px-2 py-0.5 border border-slate-300 rounded font-mono text-slate-600"
+                              className="w-full text-[11px] px-2 py-0.5 bg-[var(--kz-bg-subtle)] border border-[var(--kz-border-default)] rounded font-mono text-[var(--kz-text-secondary)]"
                             />
                           </div>
                         ) : (
@@ -2651,10 +2653,10 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 onClick={(e) => e.stopPropagation()}
-                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-900 border border-blue-200/60 transition-colors"
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-[var(--kz-info-bg)] text-[var(--kz-info-text)] hover:brightness-110 border border-[var(--kz-info-border)] transition-all"
                                 title="Abrir perfil no Google Meu Neg√≥cio / Maps"
                               >
-                                <MapPin className="w-3 h-3 text-blue-600 shrink-0" />
+                                <MapPin className="w-3 h-3 text-[var(--kz-info-text)] shrink-0" />
                                 <span className="truncate max-w-[130px]">Google Meu Neg√≥cio</span>
                                 <ExternalLink className="w-2.5 h-2.5 ml-0.5 shrink-0" />
                               </a>
@@ -2667,10 +2669,10 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 onClick={(e) => e.stopPropagation()}
-                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors"
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-[var(--kz-bg-subtle)] text-[var(--kz-text-secondary)] hover:bg-[var(--kz-bg-hover)] hover:text-[var(--kz-text-primary)] border border-[var(--kz-border-subtle)] transition-colors"
                                 title={candidate.websiteUrl}
                               >
-                                <Globe className="w-2.5 h-2.5 text-slate-500 shrink-0" />
+                                <Globe className="w-2.5 h-2.5 text-[var(--kz-text-muted)] shrink-0" />
                                 <span className="truncate max-w-[120px]">
                                   {candidate.websiteUrl.replace(/^https?:\/\/(www\.)?/, '')}
                                 </span>
@@ -2679,7 +2681,7 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
                             )}
 
                             {!candidate.googleMapsUrl && !candidate.websiteUrl && (
-                              <span className="text-[11px] text-slate-400 italic">Nenhum link detectado</span>
+                              <span className="text-[11px] text-[var(--kz-text-subtle)] italic">Nenhum link detectado</span>
                             )}
                           </div>
                         )}
@@ -2693,15 +2695,15 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
                             value={candidate.address || candidate.city || ''}
                             onChange={(e) => handleUpdateCandidateField(idx, 'address', e.target.value)}
                             placeholder="Endere√ßo / Cidade"
-                            className="w-full text-xs px-2 py-1 border border-slate-300 rounded text-slate-700"
+                            className="w-full text-xs px-2 py-1 bg-[var(--kz-bg-subtle)] border border-[var(--kz-border-default)] rounded text-[var(--kz-text-primary)]"
                           />
                         ) : (
-                          <div className="text-slate-600 text-[11px]">
-                            <div className="font-medium text-slate-800 truncate max-w-[130px]">
+                          <div className="text-[var(--kz-text-muted)] text-[11px]">
+                            <div className="font-medium text-[var(--kz-text-primary)] truncate max-w-[130px]">
                               {candidate.city || activeNiche.city}
                             </div>
                             {candidate.address && (
-                              <div className="text-slate-500 truncate max-w-[130px] mt-0.5">
+                              <div className="text-[var(--kz-text-muted)] truncate max-w-[130px] mt-0.5">
                                 {candidate.address}
                               </div>
                             )}
@@ -2722,29 +2724,29 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
                               handleUpdateCandidateField(idx, 'googleRating', e.target.value ? parseFloat(e.target.value) : undefined)
                             }
                             placeholder="4.8"
-                            className="w-14 text-xs px-1.5 py-1 border border-slate-300 rounded font-mono"
+                            className="w-14 text-xs px-1.5 py-1 bg-[var(--kz-bg-subtle)] border border-[var(--kz-border-default)] rounded font-mono text-[var(--kz-text-primary)]"
                           />
                         ) : candidate.googleRating ? (
-                          <span className="flex items-center gap-0.5 text-amber-600 font-semibold text-xs">
+                          <span className="flex items-center gap-0.5 text-amber-400 font-semibold text-xs">
                             <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
                             <span>{candidate.googleRating}</span>
                           </span>
                         ) : (
-                          <span className="text-slate-400 text-[11px]">-</span>
+                          <span className="text-[var(--kz-text-subtle)] text-[11px]">-</span>
                         )}
                       </td>
 
                       {/* Opportunity / Script */}
                       <td className="py-2.5 px-3">
                         <div className="space-y-1">
-                          <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-700">
+                          <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium bg-[var(--kz-bg-subtle)] text-[var(--kz-text-secondary)] border border-[var(--kz-border-subtle)]">
                             {candidate.recommendedScript === 'script1'
                               ? 'Script 1 ¬∑ Mockup'
                               : candidate.recommendedScript === 'script2'
                               ? 'Script 2 ¬∑ Google'
                               : 'Script 3 ¬∑ Cold Call'}
                           </span>
-                          <div className="text-slate-500 text-[11px] truncate max-w-[180px]">
+                          <div className="text-[var(--kz-text-muted)] text-[11px] truncate max-w-[180px]">
                             {candidate.opportunityAngle || 'Oportunidade de site moderno'}
                           </div>
                         </div>
@@ -2757,8 +2759,8 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
                           onClick={() => handleToggleEditCandidate(idx)}
                           className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
                             candidate.isEditing
-                              ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                              : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'
+                              ? 'bg-[var(--kz-success-solid)] text-white hover:brightness-110'
+                              : 'text-[var(--kz-text-subtle)] hover:text-[var(--kz-text-primary)] hover:bg-[var(--kz-bg-hover)]'
                           }`}
                           title={candidate.isEditing ? 'Salvar edi√ß√£o' : 'Editar dados'}
                         >
@@ -2773,18 +2775,18 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
               /* Repetidos Exclu√≠dos Table */
               <div>
                 {filteredDuplicates.length === 0 ? (
-                  <div className="p-8 text-center bg-slate-50 rounded-lg border border-dashed border-slate-200 space-y-2">
-                    <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto" />
-                    <p className="text-xs font-semibold text-slate-800">
+                  <div className="p-8 text-center bg-[var(--kz-bg-subtle)] rounded-lg border border-dashed border-[var(--kz-border-default)] space-y-2">
+                    <CheckCircle2 className="w-8 h-8 text-[var(--kz-success-text)] mx-auto" />
+                    <p className="text-xs font-semibold text-[var(--kz-text-primary)]">
                       {duplicateSearch ? 'Nenhum contato repetido corresponde √† sua busca.' : 'Nenhum contato repetido pendente!'}
                     </p>
-                    <p className="text-[11px] text-slate-500 max-w-sm mx-auto">
+                    <p className="text-[11px] text-[var(--kz-text-muted)] max-w-sm mx-auto">
                       Todos os contatos da sua planilha est√£o na lista de contatos √∫nicos mantidos para importa√ß√£o.
                     </p>
                   </div>
                 ) : (
                   <table className="w-full text-left text-xs border-collapse">
-                    <thead className="sticky top-0 bg-amber-50/80 text-amber-900 border-b border-amber-200 z-10">
+                    <thead className="sticky top-0 bg-[var(--kz-bg-subtle)] text-[var(--kz-warning-text)] border-b border-[var(--kz-warning-border)] z-10">
                       <tr>
                         <th className="py-2.5 px-3 w-16">Linha</th>
                         <th className="py-2.5 px-3 min-w-[200px]">Empresa / Contato</th>
@@ -2794,24 +2796,24 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
                         <th className="py-2.5 px-3 min-w-[140px] text-right">A√ß√£o</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-amber-100/70 bg-amber-50/20">
+                    <tbody className="divide-y divide-[var(--kz-border-subtle)] bg-[var(--kz-warning-bg)]/30">
                       {filteredDuplicates.map((dup) => (
-                        <tr key={dup.id} className="hover:bg-amber-50/50 transition-colors">
+                        <tr key={dup.id} className="hover:bg-[var(--kz-warning-bg)] transition-colors">
                           {/* Original line */}
                           <td className="py-2.5 px-3">
-                            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-[var(--kz-warning-bg)] text-[var(--kz-warning-text)] border border-[var(--kz-warning-border)]">
                               Linha {dup.originalIndex}
                             </span>
                           </td>
 
                           {/* Company / Contact */}
                           <td className="py-2.5 px-3">
-                            <div className="font-semibold text-slate-900">
+                            <div className="font-semibold text-[var(--kz-text-primary)]">
                               {dup.candidate.companyName}
                             </div>
                             {dup.candidate.contactName && (
-                              <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
-                                <User className="w-3 h-3 text-blue-500" />
+                              <div className="text-[11px] text-[var(--kz-text-muted)] flex items-center gap-1 mt-0.5">
+                                <User className="w-3 h-3 text-[var(--kz-accent)]" />
                                 <span>{dup.candidate.contactName}</span>
                               </div>
                             )}
@@ -2819,7 +2821,7 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
 
                           {/* Phone */}
                           <td className="py-2.5 px-3">
-                            <span className="font-mono tabular-nums text-slate-800 font-medium">
+                            <span className="font-mono tabular-nums text-[var(--kz-text-secondary)] font-medium">
                               {formatDisplayPhone(dup.candidate.phone)}
                             </span>
                           </td>
@@ -2829,23 +2831,23 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
                             <div className="space-y-1">
                               <div className="flex items-center gap-1.5">
                                 {dup.matchType === 'phone' ? (
-                                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200 flex items-center gap-1">
-                                    <Phone className="w-3 h-3 text-rose-700" />
+                                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[var(--kz-danger-bg)] text-[var(--kz-danger-text)] border border-[var(--kz-danger-border)] flex items-center gap-1">
+                                    <Phone className="w-3 h-3 text-[var(--kz-danger-text)]" />
                                     Telefone Duplicado
                                   </span>
                                 ) : dup.matchType === 'name' ? (
-                                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 flex items-center gap-1">
-                                    <Building2 className="w-3 h-3 text-amber-700" />
+                                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[var(--kz-warning-bg)] text-[var(--kz-warning-text)] border border-[var(--kz-warning-border)] flex items-center gap-1">
+                                    <Building2 className="w-3 h-3 text-[var(--kz-warning-text)]" />
                                     Nome Duplicado
                                   </span>
                                 ) : (
-                                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-200 flex items-center gap-1">
-                                    <Check className="w-3 h-3 text-blue-700" />
+                                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[var(--kz-info-bg)] text-[var(--kz-info-text)] border border-[var(--kz-info-border)] flex items-center gap-1">
+                                    <Check className="w-3 h-3 text-[var(--kz-info-text)]" />
                                     J√° Existe no CRM
                                   </span>
                                 )}
                               </div>
-                              <p className="text-[11px] text-slate-700 leading-tight">
+                              <p className="text-[11px] text-[var(--kz-text-secondary)] leading-tight">
                                 {dup.reason}
                               </p>
                             </div>
@@ -2853,7 +2855,7 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
 
                           {/* Status */}
                           <td className="py-2.5 px-3">
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-800 border border-amber-300">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--kz-warning-bg)] text-[var(--kz-warning-text)] border border-[var(--kz-warning-border)]">
                               <X className="w-3 h-3" />
                               Repetido Exclu√≠do
                             </span>
@@ -2864,7 +2866,7 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
                             <button
                               type="button"
                               onClick={() => handleRestoreDuplicate(dup)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-blue-700 bg-white hover:bg-blue-50 border border-blue-300 rounded-lg shadow-2xs transition-colors cursor-pointer"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-[var(--kz-accent-text)] bg-[var(--kz-bg-surface)] hover:bg-[var(--kz-accent-soft)] border border-[var(--kz-accent-border)] rounded-lg transition-colors cursor-pointer"
                               title="Restaurar este contato para importar junto com os √∫nicos"
                             >
                               <Undo2 className="w-3 h-3" />
@@ -2881,18 +2883,18 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
               /* Fora do Nicho Exclu√≠dos Table */
               <div>
                 {filteredDuplicates.length === 0 ? (
-                  <div className="p-8 text-center bg-slate-50 rounded-lg border border-dashed border-slate-200 space-y-2">
-                    <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto" />
-                    <p className="text-xs font-semibold text-slate-800">
+                  <div className="p-8 text-center bg-[var(--kz-bg-subtle)] rounded-lg border border-dashed border-[var(--kz-border-default)] space-y-2">
+                    <CheckCircle2 className="w-8 h-8 text-[var(--kz-success-text)] mx-auto" />
+                    <p className="text-xs font-semibold text-[var(--kz-text-primary)]">
                       {duplicateSearch ? 'Nenhum estabelecimento corresponde √† sua busca.' : 'Nenhum contato fora do nicho pendente!'}
                     </p>
-                    <p className="text-[11px] text-slate-500 max-w-sm mx-auto">
+                    <p className="text-[11px] text-[var(--kz-text-muted)] max-w-sm mx-auto">
                       Todos os contatos da planilha correspondem perfeitamente ao nicho de {activeNiche.name}.
                     </p>
                   </div>
                 ) : (
                   <table className="w-full text-left text-xs border-collapse">
-                    <thead className="sticky top-0 bg-rose-50/90 text-rose-900 border-b border-rose-200 z-10">
+                    <thead className="sticky top-0 bg-[var(--kz-bg-subtle)] text-[var(--kz-danger-text)] border-b border-[var(--kz-danger-border)] z-10">
                       <tr>
                         <th className="py-2.5 px-3 w-16">Linha</th>
                         <th className="py-2.5 px-3 min-w-[200px]">Empresa / Contato</th>
@@ -2903,24 +2905,24 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
                         <th className="py-2.5 px-3 min-w-[140px] text-right">A√ß√£o</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-rose-100/70 bg-rose-50/15">
+                    <tbody className="divide-y divide-[var(--kz-border-subtle)] bg-[var(--kz-danger-bg)]/30">
                       {filteredDuplicates.map((dup) => (
-                        <tr key={dup.id} className="hover:bg-rose-50/40 transition-colors">
+                        <tr key={dup.id} className="hover:bg-[var(--kz-danger-bg)] transition-colors">
                           {/* Original line */}
                           <td className="py-2.5 px-3">
-                            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-rose-100 text-rose-800 border border-rose-200">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-[var(--kz-danger-bg)] text-[var(--kz-danger-text)] border border-[var(--kz-danger-border)]">
                               Linha {dup.originalIndex}
                             </span>
                           </td>
 
                           {/* Company / Contact */}
                           <td className="py-2.5 px-3">
-                            <div className="font-semibold text-slate-900">
+                            <div className="font-semibold text-[var(--kz-text-primary)]">
                               {dup.candidate.companyName}
                             </div>
                             {dup.candidate.contactName && (
-                              <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
-                                <User className="w-3 h-3 text-blue-500" />
+                              <div className="text-[11px] text-[var(--kz-text-muted)] flex items-center gap-1 mt-0.5">
+                                <User className="w-3 h-3 text-[var(--kz-accent)]" />
                                 <span>{dup.candidate.contactName}</span>
                               </div>
                             )}
@@ -2928,15 +2930,15 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
 
                           {/* Category */}
                           <td className="py-2.5 px-3">
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-rose-100 text-rose-800 border border-rose-300">
-                              <Ban className="w-3 h-3 text-rose-600" />
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-[var(--kz-danger-bg)] text-[var(--kz-danger-text)] border border-[var(--kz-danger-border)]">
+                              <Ban className="w-3 h-3 text-[var(--kz-danger-text)]" />
                               <span>{dup.candidate.category || dup.matchedWith || 'Fora do nicho'}</span>
                             </span>
                           </td>
 
                           {/* Phone */}
                           <td className="py-2.5 px-3">
-                            <span className="font-mono tabular-nums text-slate-800 font-medium">
+                            <span className="font-mono tabular-nums text-[var(--kz-text-secondary)] font-medium">
                               {formatDisplayPhone(dup.candidate.phone)}
                             </span>
                           </td>
@@ -2944,10 +2946,10 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
                           {/* Incompatible Reason */}
                           <td className="py-2.5 px-3">
                             <div className="space-y-1">
-                              <p className="text-[11px] text-rose-950 font-medium leading-tight">
+                              <p className="text-[11px] text-[var(--kz-danger-text)] font-medium leading-tight">
                                 {dup.reason}
                               </p>
-                              <span className="text-[10px] text-slate-500">
+                              <span className="text-[10px] text-[var(--kz-text-muted)]">
                                 N√£o corresponde ao perfil de {activeNiche.name.split('&')[0].trim()}
                               </span>
                             </div>
@@ -2955,7 +2957,7 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
 
                           {/* Status */}
                           <td className="py-2.5 px-3">
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-[var(--kz-danger-bg)] text-[var(--kz-danger-text)] border border-[var(--kz-danger-border)]">
                               <Ban className="w-3 h-3" />
                               Fora do Nicho
                             </span>
@@ -2966,7 +2968,7 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
                             <button
                               type="button"
                               onClick={() => handleRestoreDuplicate(dup)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-rose-700 bg-white hover:bg-rose-50 border border-rose-300 rounded-lg shadow-2xs transition-colors cursor-pointer"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-[var(--kz-danger-text)] bg-[var(--kz-bg-surface)] hover:bg-[var(--kz-danger-bg)] border border-[var(--kz-danger-border)] rounded-lg transition-colors cursor-pointer"
                               title="Restaurar este contato caso deseje inclu√≠-lo na importa√ß√£o"
                             >
                               <Undo2 className="w-3 h-3" />
@@ -2983,18 +2985,18 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
               /* Exclu√≠dos por Categoria / Nicho Table */
               <div>
                 {filteredCategoryExcluded.length === 0 ? (
-                  <div className="p-8 text-center bg-rose-50/40 rounded-lg border border-dashed border-rose-200 space-y-2">
-                    <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto" />
-                    <p className="text-xs font-semibold text-slate-800">
+                  <div className="p-8 text-center bg-[var(--kz-danger-bg)]/40 rounded-lg border border-dashed border-[var(--kz-danger-border)] space-y-2">
+                    <CheckCircle2 className="w-8 h-8 text-[var(--kz-success-text)] mx-auto" />
+                    <p className="text-xs font-semibold text-[var(--kz-text-primary)]">
                       {duplicateSearch ? 'Nenhum estabelecimento corresponde √† sua busca.' : 'Nenhum contato exclu√≠do por categoria!'}
                     </p>
-                    <p className="text-[11px] text-slate-500 max-w-sm mx-auto">
+                    <p className="text-[11px] text-[var(--kz-text-muted)] max-w-sm mx-auto">
                       Todos os contatos da planilha pertencem ao nicho mantido.
                     </p>
                   </div>
                 ) : (
                   <table className="w-full text-left text-xs border-collapse">
-                    <thead className="sticky top-0 bg-rose-100/80 text-rose-950 border-b border-rose-200 z-10">
+                    <thead className="sticky top-0 bg-[var(--kz-bg-subtle)] text-[var(--kz-danger-text)] border-b border-[var(--kz-danger-border)] z-10">
                       <tr>
                         <th className="py-2.5 px-3 w-16">Linha</th>
                         <th className="py-2.5 px-3 min-w-[200px]">Empresa / Contato</th>
@@ -3005,50 +3007,50 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
                         <th className="py-2.5 px-3 min-w-[140px] text-right">A√ß√£o</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-rose-100/70 bg-rose-50/15">
+                    <tbody className="divide-y divide-[var(--kz-border-subtle)] bg-[var(--kz-danger-bg)]/30">
                       {filteredCategoryExcluded.map((exc) => (
-                        <tr key={exc.id} className="hover:bg-rose-50/40 transition-colors">
+                        <tr key={exc.id} className="hover:bg-[var(--kz-danger-bg)] transition-colors">
                           <td className="py-2.5 px-3">
-                            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-rose-100 text-rose-800 border border-rose-200">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-[var(--kz-danger-bg)] text-[var(--kz-danger-text)] border border-[var(--kz-danger-border)]">
                               Linha {exc.originalIndex}
                             </span>
                           </td>
                           <td className="py-2.5 px-3">
-                            <div className="font-semibold text-slate-900">
+                            <div className="font-semibold text-[var(--kz-text-primary)]">
                               {exc.candidate.companyName}
                             </div>
                             {exc.candidate.contactName && (
-                              <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
-                                <User className="w-3 h-3 text-rose-600" />
+                              <div className="text-[11px] text-[var(--kz-text-muted)] flex items-center gap-1 mt-0.5">
+                                <User className="w-3 h-3 text-[var(--kz-danger-text)]" />
                                 <span>{exc.candidate.contactName}</span>
                               </div>
                             )}
                           </td>
                           <td className="py-2.5 px-3">
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-rose-100 text-rose-800 border border-rose-300">
-                              <Tag className="w-3 h-3 text-rose-600" />
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-[var(--kz-danger-bg)] text-[var(--kz-danger-text)] border border-[var(--kz-danger-border)]">
+                              <Tag className="w-3 h-3 text-[var(--kz-danger-text)]" />
                               <span>{exc.candidate.category || exc.matchedCategory}</span>
                             </span>
                           </td>
                           <td className="py-2.5 px-3">
-                            <span className="font-mono tabular-nums text-slate-800 font-medium">
+                            <span className="font-mono tabular-nums text-[var(--kz-text-secondary)] font-medium">
                               {formatDisplayPhone(exc.candidate.phone)}
                             </span>
                           </td>
                           <td className="py-2.5 px-3">
                             <div className="space-y-1">
-                              <p className="text-[11px] text-rose-950 font-medium leading-tight">
+                              <p className="text-[11px] text-[var(--kz-danger-text)] font-medium leading-tight">
                                 {exc.reason}
                               </p>
                               {exc.query && (
-                                <span className="text-[10px] text-rose-600">
+                                <span className="text-[10px] text-[var(--kz-text-muted)]">
                                   Filtro aplicado: "{exc.query}"
                                 </span>
                               )}
                             </div>
                           </td>
                           <td className="py-2.5 px-3">
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-[var(--kz-danger-bg)] text-[var(--kz-danger-text)] border border-[var(--kz-danger-border)]">
                               <Ban className="w-3 h-3" />
                               Exclu√≠do do Nicho
                             </span>
@@ -3057,7 +3059,7 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
                             <button
                               type="button"
                               onClick={() => handleRestoreSingleCategoryExcludedLead(exc)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-rose-700 bg-white hover:bg-rose-50 border border-rose-300 rounded-lg shadow-2xs transition-colors cursor-pointer"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-[var(--kz-danger-text)] bg-[var(--kz-bg-surface)] hover:bg-[var(--kz-danger-bg)] border border-[var(--kz-danger-border)] rounded-lg transition-colors cursor-pointer"
                               title="Restaurar este contato de volta para a lista de contatos mantidos"
                             >
                               <Undo2 className="w-3 h-3" />
@@ -3074,16 +3076,16 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
           </div>
 
           {/* Action Footer */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-100">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-[var(--kz-border-subtle)]">
             {activeCandidatesTab === 'unique' ? (
               <>
-                <div className="text-xs text-slate-600">
+                <div className="text-xs text-[var(--kz-text-secondary)]">
                   Total a importar:{' '}
-                  <strong className="text-slate-900 font-bold">
+                  <strong className="text-[var(--kz-text-primary)] font-bold">
                     {parsedCandidates.filter((c) => c.selected).length} leads mantidos no nicho
                   </strong>{' '}
                   {(duplicatesOnly.length > 0 || categoryExclusions.length > 0 || categoryExcludedLeads.length > 0) && (
-                    <span className="text-slate-500 font-medium">
+                    <span className="text-[var(--kz-text-muted)] font-medium">
                       (
                       {categoryExcludedLeads.length > 0 ? `${categoryExcludedLeads.length} exclu√≠dos por categoria` : ''}
                       {categoryExcludedLeads.length > 0 && (duplicatesOnly.length > 0 || categoryExclusions.length > 0) ? ', ' : ''}
@@ -3098,7 +3100,7 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
                 <button
                   type="button"
                   onClick={handleCommitImport}
-                  className="flex items-center gap-2 px-5 py-2.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-lg shadow-sm transition-colors cursor-pointer"
+                  className="flex items-center gap-2 px-5 py-2.5 text-xs font-bold text-[var(--kz-accent-fg)] bg-[var(--kz-accent)] hover:bg-[var(--kz-accent-hover)] active:bg-[var(--kz-accent-active)] rounded-lg shadow-[var(--kz-shadow-sm)] transition-colors cursor-pointer"
                 >
                   <Check className="w-4 h-4" />
                   <span>
@@ -3108,7 +3110,7 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
               </>
             ) : activeCandidatesTab === 'category_excluded' ? (
               <>
-                <div className="text-xs text-rose-900 font-medium">
+                <div className="text-xs text-[var(--kz-danger-text)] font-medium">
                   {categoryExcludedLeads.length} contatos foram exclu√≠dos pelo filtro de categoria/nicho da planilha.
                 </div>
 
@@ -3116,7 +3118,7 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
                   <button
                     type="button"
                     onClick={handleRestoreAllExcludedCategories}
-                    className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-rose-900 bg-rose-100 hover:bg-rose-200 border border-rose-300 rounded-lg transition-colors cursor-pointer"
+                    className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-[var(--kz-danger-text)] bg-[var(--kz-danger-bg)] hover:brightness-110 border border-[var(--kz-danger-border)] rounded-lg transition-all cursor-pointer"
                   >
                     <Undo2 className="w-3.5 h-3.5" />
                     <span>Restaurar Todos os {categoryExcludedLeads.length} Exclu√≠dos por Categoria</span>
@@ -3125,7 +3127,7 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
                   <button
                     type="button"
                     onClick={() => setActiveCandidatesTab('unique')}
-                    className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-2xs transition-colors cursor-pointer"
+                    className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-[var(--kz-accent-fg)] bg-[var(--kz-accent)] hover:bg-[var(--kz-accent-hover)] rounded-lg shadow-[var(--kz-shadow-xs)] transition-colors cursor-pointer"
                   >
                     <span>Voltar aos Contatos Mantidos ({parsedCandidates.length})</span>
                   </button>
@@ -3133,7 +3135,7 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
               </>
             ) : activeCandidatesTab === 'duplicates' ? (
               <>
-                <div className="text-xs text-amber-900 font-medium">
+                <div className="text-xs text-[var(--kz-warning-text)] font-medium">
                   {duplicatesOnly.length} contatos repetidos por telefone ou nome foram exclu√≠dos automaticamente da lista de importa√ß√£o.
                 </div>
 
@@ -3141,7 +3143,7 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
                   <button
                     type="button"
                     onClick={handleRestoreOnlyDuplicates}
-                    className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 rounded-lg transition-colors cursor-pointer"
+                    className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-[var(--kz-warning-text)] bg-[var(--kz-warning-bg)] hover:brightness-110 border border-[var(--kz-warning-border)] rounded-lg transition-all cursor-pointer"
                   >
                     <Undo2 className="w-3.5 h-3.5" />
                     <span>Restaurar Todos os {duplicatesOnly.length} Repetidos</span>
@@ -3150,7 +3152,7 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
                   <button
                     type="button"
                     onClick={() => setActiveCandidatesTab('unique')}
-                    className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-2xs transition-colors cursor-pointer"
+                    className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-[var(--kz-accent-fg)] bg-[var(--kz-accent)] hover:bg-[var(--kz-accent-hover)] rounded-lg shadow-[var(--kz-shadow-xs)] transition-colors cursor-pointer"
                   >
                     <span>Voltar aos Contatos Mantidos ({parsedCandidates.length})</span>
                   </button>
@@ -3158,7 +3160,7 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
               </>
             ) : (
               <>
-                <div className="text-xs text-rose-900 font-medium">
+                <div className="text-xs text-[var(--kz-danger-text)] font-medium">
                   {categoryExclusions.length} estabelecimentos com categorias fora do nicho ({newNicheName.trim() || activeNiche.name}) foram exclu√≠dos da planilha.
                 </div>
 
@@ -3166,7 +3168,7 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
                   <button
                     type="button"
                     onClick={handleRestoreOnlyCategoryExclusions}
-                    className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-rose-900 bg-rose-100 hover:bg-rose-200 border border-rose-300 rounded-lg transition-colors cursor-pointer"
+                    className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-[var(--kz-danger-text)] bg-[var(--kz-danger-bg)] hover:brightness-110 border border-[var(--kz-danger-border)] rounded-lg transition-all cursor-pointer"
                   >
                     <Undo2 className="w-3.5 h-3.5" />
                     <span>Restaurar Todos os {categoryExclusions.length} Fora do Nicho</span>
@@ -3175,7 +3177,7 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
                   <button
                     type="button"
                     onClick={() => setActiveCandidatesTab('unique')}
-                    className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-2xs transition-colors cursor-pointer"
+                    className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-[var(--kz-accent-fg)] bg-[var(--kz-accent)] hover:bg-[var(--kz-accent-hover)] rounded-lg shadow-[var(--kz-shadow-xs)] transition-colors cursor-pointer"
                   >
                     <span>Voltar aos Contatos Mantidos ({parsedCandidates.length})</span>
                   </button>
@@ -3188,17 +3190,17 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
 
       {/* HIST√ìRICO DE PLANILHAS IMPORTADAS NA NUVEM */}
       {importedSheets && importedSheets.length > 0 && (
-        <div className="bg-white rounded-xl border border-slate-200/90 shadow-2xs overflow-hidden mt-6">
-          <div className="p-4 sm:p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50">
+        <div className="bg-[var(--kz-bg-surface)] rounded-xl border border-[var(--kz-border-subtle)] shadow-[var(--kz-shadow-xs)] overflow-hidden mt-6">
+          <div className="p-4 sm:p-5 border-b border-[var(--kz-border-subtle)] flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[var(--kz-bg-subtle)]">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+              <div className="w-8 h-8 rounded-lg bg-[var(--kz-success-bg)] border border-[var(--kz-success-border)] text-[var(--kz-success-text)] flex items-center justify-center shrink-0">
                 <FileSpreadsheet className="w-4 h-4" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-900">
+                <h3 className="text-sm font-bold text-[var(--kz-text-primary)]">
                   Planilhas Importadas Salvas na Nuvem ({importedSheets.length})
                 </h3>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-[var(--kz-text-muted)]">
                   Estas planilhas e seus contatos ficam salvos permanentemente no seu banco de dados mesmo se voc√™ sair da conta.
                 </p>
               </div>
@@ -3207,34 +3209,34 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
             <button
               type="button"
               onClick={onSwitchToKanban}
-              className="px-3.5 py-1.5 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200/60 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 self-start sm:self-auto"
+              className="px-3.5 py-1.5 text-xs font-semibold text-[var(--kz-accent-text)] bg-[var(--kz-accent-soft)] hover:bg-[var(--kz-bg-hover)] border border-[var(--kz-accent-border)] rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 self-start sm:self-auto"
             >
               <span>Ver no Pipeline</span>
               <ExternalLink className="w-3.5 h-3.5" />
             </button>
           </div>
 
-          <div className="divide-y divide-slate-100">
+          <div className="divide-y divide-[var(--kz-border-subtle)]">
             {importedSheets.map((sheet) => (
               <div
                 key={sheet.id}
-                className="p-4 hover:bg-slate-50/80 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                className="p-4 hover:bg-[var(--kz-bg-hover)] transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3"
               >
                 <div className="flex items-start gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200/60 flex items-center justify-center shrink-0 mt-0.5">
+                  <div className="w-9 h-9 rounded-lg bg-[var(--kz-success-bg)] text-[var(--kz-success-text)] border border-[var(--kz-success-border)] flex items-center justify-center shrink-0 mt-0.5">
                     <FileSpreadsheet className="w-4 h-4" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-bold text-slate-900">{sheet.name}</span>
-                      <span className="text-[11px] px-2 py-0.5 rounded-full font-medium bg-blue-50 text-blue-700 border border-blue-200/60">
+                      <span className="text-xs font-bold text-[var(--kz-text-primary)]">{sheet.name}</span>
+                      <span className="text-[11px] px-2 py-0.5 rounded-full font-medium bg-[var(--kz-accent-soft)] text-[var(--kz-accent-text)] border border-[var(--kz-accent-border)]">
                         {sheet.nicheName}
                       </span>
-                      <span className="text-[11px] px-2 py-0.5 rounded-full font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                      <span className="text-[11px] px-2 py-0.5 rounded-full font-bold bg-[var(--kz-success-bg)] text-[var(--kz-success-text)] border border-[var(--kz-success-border)]">
                         {sheet.totalLeads} contatos na pipeline
                       </span>
                     </div>
-                    <div className="text-[11px] text-slate-400 mt-1 flex items-center gap-2">
+                    <div className="text-[11px] text-[var(--kz-text-muted)] mt-1 flex items-center gap-2">
                       <span>Importada em {new Date(sheet.importedAt).toLocaleDateString('pt-BR')} √†s {new Date(sheet.importedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
                       {sheet.format && <span>‚Ä¢ {sheet.format}</span>}
                     </div>
@@ -3245,19 +3247,15 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
                   <button
                     type="button"
                     onClick={onSwitchToKanban}
-                    className="px-3 py-1.5 text-xs font-semibold text-slate-700 hover:text-blue-700 bg-slate-100 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5"
+                    className="px-3 py-1.5 text-xs font-semibold text-[var(--kz-text-secondary)] hover:text-[var(--kz-accent-text)] bg-[var(--kz-bg-subtle)] hover:bg-[var(--kz-accent-soft)] border border-[var(--kz-border-default)] rounded-lg transition-colors cursor-pointer flex items-center gap-1.5"
                   >
                     <span>Ir para Pipeline</span>
                   </button>
                   {onDeleteImportedSheet && (
                     <button
                       type="button"
-                      onClick={() => {
-                        if (confirm(`Remover do hist√≥rico a planilha "${sheet.name}"? (Os leads continuar√£o no funil)`)) {
-                          onDeleteImportedSheet(sheet.id);
-                        }
-                      }}
-                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                      onClick={() => setSheetToDelete(sheet)}
+                      className="p-1.5 text-[var(--kz-text-subtle)] hover:text-[var(--kz-danger-text)] hover:bg-[var(--kz-danger-bg)] rounded-lg transition-colors cursor-pointer"
                       title="Excluir do hist√≥rico"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -3269,6 +3267,30 @@ Sorriso & Arte Odonto	Dr. Fernando	11977776666	https://goo.gl/maps/sorriso	4.8 ‚
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        isOpen={Boolean(sheetToDelete)}
+        onClose={() => setSheetToDelete(null)}
+        onConfirm={() => {
+          if (sheetToDelete && onDeleteImportedSheet) {
+            onDeleteImportedSheet(sheetToDelete.id);
+          }
+          setSheetToDelete(null);
+        }}
+        title="Remover Planilha do Hist√≥rico"
+        description={
+          sheetToDelete ? (
+            <span>
+              Remover do hist√≥rico a planilha <strong className="text-[var(--kz-text-primary)]">{sheetToDelete.name}</strong>? Os leads j√°
+              importados continuar√£o normalmente no funil.
+            </span>
+          ) : (
+            ''
+          )
+        }
+        confirmLabel="Remover do Hist√≥rico"
+        variant="danger"
+      />
     </div>
   );
 };

@@ -1,259 +1,431 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { Lead, NicheCampaign, FunnelStageId } from '../types/crm';
-import { formatDisplayPhone, buildWhatsAppLink } from '../utils/phone';
+import React, { useEffect, useMemo, useState } from 'react';
+import { AppTab, FunnelStageId, Lead, NicheCampaign } from '../types/crm';
 import {
+  AGENDA_EVENT_TYPE_OPTIONS,
+  AgendaEvent,
+  AgendaEventType,
+  Client,
+  Project,
+  Task,
+  getAgendaEventTypeMeta,
+} from '../types/kaizen';
+import {
+  GOOGLE_CALENDAR_OAUTH_ARCHITECTURE,
+  IntegratedAgendaItem,
+  IntegratedAgendaSourceKind,
+  buildGoogleCalendarTemplateUrl,
+  buildIntegratedAgendaItems,
+  getWeekDatesForDate,
+} from '../services/agendaService';
+import { getTodayIsoDate } from '../services/projectService';
+import { buildWhatsAppLink, formatDisplayPhone } from '../utils/phone';
+import { AgendaEventModal } from './AgendaEventModal';
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Input,
+  Modal,
+  Select,
+  Tabs,
+} from './ui';
+import {
+  AlertCircle,
+  ArrowRight,
+  BellRing,
+  Bookmark,
   Calendar as CalendarIcon,
-  Clock,
-  MapPin,
-  MessageCircle,
-  ExternalLink,
+  CalendarCheck,
+  CalendarDays,
+  Check,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  CheckCircle2,
-  CalendarCheck,
-  AlertCircle,
-  Plus,
-  Edit3,
-  Trash2,
-  Sparkles,
+  Clock,
   DollarSign,
+  Edit3,
+  ExternalLink,
   FileText,
-  User,
-  ArrowRight,
-  Video,
-  Share2,
-  Check,
-  RotateCcw,
-  Building2,
+  FolderKanban,
   ListOrdered,
-  Search,
-  Filter,
-  Phone,
-  Bookmark,
-  CalendarDays,
+  MessageCircle,
   PhoneCall,
-  Bell,
-  BellRing
+  Plus,
+  RotateCcw,
+  Search,
+  Sparkles,
+  Users,
+  Video,
 } from 'lucide-react';
 
 interface AgendaViewProps {
   niche: NicheCampaign;
   leads: Lead[];
   allLeads?: Lead[];
+  clients?: Client[];
+  projects?: Project[];
+  tasks?: Task[];
+  agendaEvents?: AgendaEvent[];
   userName: string;
+  cloudPermissionBlocked?: boolean;
   initialLeadIdToEdit?: string | null;
   onClearInitialLeadToEdit?: () => void;
+  initialNewEventClientId?: string | null;
+  onClearInitialNewEventClientId?: () => void;
   onUpdateLead: (updatedLead: Lead) => void;
   onMoveStage: (leadId: string, targetStage: FunnelStageId) => void;
   onOpenLeadModal: (lead: Lead) => void;
+  onSaveAgendaEvent?: (
+    event: AgendaEvent,
+    mode: 'create' | 'edit'
+  ) => Promise<void> | void;
+  onDeleteAgendaEvent?: (eventId: string) => Promise<void> | void;
+  onOpenProject?: (projectId: string) => void;
+  onOpenClient?: (clientId: string) => void;
+  onNavigate?: (tab: AppTab) => void;
   onSwitchToKanban: () => void;
+}
+
+const WEEKDAY_NAMES_SHORT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+const MONTH_NAMES = [
+  'Janeiro',
+  'Fevereiro',
+  'Março',
+  'Abril',
+  'Maio',
+  'Junho',
+  'Julho',
+  'Agosto',
+  'Setembro',
+  'Outubro',
+  'Novembro',
+  'Dezembro',
+];
+
+function getSourceBadgeLabel(kind: IntegratedAgendaSourceKind): string {
+  switch (kind) {
+    case 'agenda_event':
+      return 'Agenda';
+    case 'project_deadline':
+      return 'Projeto';
+    case 'task_deadline':
+      return 'Tarefa';
+    case 'lead_meeting':
+      return 'Reunião CRM';
+    case 'lead_callback':
+      return 'Retorno CRM';
+  }
 }
 
 export const AgendaView: React.FC<AgendaViewProps> = ({
   niche,
   leads,
   allLeads,
+  clients = [],
+  projects = [],
+  tasks = [],
+  agendaEvents = [],
   userName,
+  cloudPermissionBlocked = false,
   initialLeadIdToEdit,
   onClearInitialLeadToEdit,
+  initialNewEventClientId,
+  onClearInitialNewEventClientId,
   onUpdateLead,
   onMoveStage,
   onOpenLeadModal,
+  onSaveAgendaEvent,
+  onDeleteAgendaEvent,
+  onOpenProject,
+  onOpenClient,
+  onNavigate,
   onSwitchToKanban,
 }) => {
-  // Filter scope: active niche or all niches
-  const [scopeMode, setScopeMode] = useState<'niche' | 'all'>('niche');
-  const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar');
-  const [activeTabSubFilter, setActiveTabSubFilter] = useState<'all' | 'pending' | 'scheduled'>('all');
+  const todayDateString = getTodayIsoDate();
 
-  // Candidate pool
-  const sourcePool = scopeMode === 'niche' ? leads : (allLeads || leads);
-  
-  // Leads strictly in "reuniao_marcada" stage
-  const meetingLeads = useMemo(() => {
-    return sourcePool.filter((l) => l.stage === 'reuniao_marcada');
-  }, [sourcePool]);
+  // Integrated Agenda view & filter state
+  const [viewMode, setViewMode] = useState<'month' | 'week' | 'day' | 'list'>('month');
+  const [scopeMode, setScopeMode] = useState<'all' | 'niche'>('all');
+  const [typeFilter, setTypeFilter] = useState<AgendaEventType | 'all'>('all');
+  const [sourceFilter, setSourceFilter] = useState<IntegratedAgendaSourceKind | 'all'>(
+    'all'
+  );
+  const [searchTerm, setSearchTerm] = useState('');
+  const [hideCompleted, setHideCompleted] = useState(false);
 
-  // Current calendar navigation month & year
+  // Calendar cursor & selected day
   const [currentDate, setCurrentDate] = useState(() => new Date());
-  const [selectedDayString, setSelectedDayString] = useState<string>(() => {
-    const today = new Date();
-    return today.toISOString().split('T')[0];
-  });
+  const [selectedDayString, setSelectedDayString] = useState<string>(todayDateString);
 
-  // Selected lead for editing/scheduling meeting details
+  // Standalone AgendaEvent modal
+  const [isEventModalOpen, setIsEventModalOpen] = useState(false);
+  const [editingAgendaEvent, setEditingAgendaEvent] = useState<AgendaEvent | null>(null);
+  const [defaultEventClientId, setDefaultEventClientId] = useState<string | undefined>(
+    undefined
+  );
+
+  // CRM Meeting Editor modal
   const [editingMeetingLead, setEditingMeetingLead] = useState<Lead | null>(null);
   const [editMeetingDate, setEditMeetingDate] = useState('');
   const [editMeetingTime, setEditMeetingTime] = useState('');
   const [editMeetingNotes, setEditMeetingNotes] = useState('');
   const [editMeetingLink, setEditMeetingLink] = useState('');
-  const [editMeetingStatus, setEditMeetingStatus] = useState<'agendada' | 'realizada' | 'remarcada' | 'cancelada'>('agendada');
-
-  // Search filter for pipeline contacts in Agenda
-  const [searchTerm, setSearchTerm] = useState('');
-
-  // Quick picker to move another lead into "reuniao_marcada"
+  const [editMeetingStatus, setEditMeetingStatus] = useState<
+    'agendada' | 'realizada' | 'remarcada' | 'cancelada'
+  >('agendada');
   const [isQuickPickerOpen, setIsQuickPickerOpen] = useState(false);
   const [quickSearchTerm, setQuickSearchTerm] = useState('');
 
-  // Section toggle: 'all' | 'callbacks' | 'meetings'
-  const [agendaSection, setAgendaSection] = useState<'all' | 'callbacks' | 'meetings'>('all');
-
-  // Callback modal & quick picker state (Ligar Mais Tarde / Entrar em Contato Outra Hora)
+  // CRM Callback Editor modal
   const [editingCallbackLead, setEditingCallbackLead] = useState<Lead | null>(null);
   const [editCallbackDate, setEditCallbackDate] = useState('');
   const [editCallbackTime, setEditCallbackTime] = useState('15:30');
   const [editCallbackNotes, setEditCallbackNotes] = useState('');
-  const [editCallbackStatus, setEditCallbackStatus] = useState<'pendente' | 'realizado' | 'cancelado'>('pendente');
+  const [editCallbackStatus, setEditCallbackStatus] = useState<
+    'pendente' | 'realizado' | 'cancelado'
+  >('pendente');
   const [isCallbackPickerOpen, setIsCallbackPickerOpen] = useState(false);
   const [callbackPickerSearch, setCallbackPickerSearch] = useState('');
-  const [callbackFilterTab, setCallbackFilterTab] = useState<'all' | 'today' | 'overdue' | 'done'>('all');
 
-  const todayDateString = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const sourceLeadsPool = scopeMode === 'niche' ? leads : allLeads || leads;
 
-  // Leads that requested a callback (pediram para entrar em contato outra hora)
-  const callbackLeads = useMemo(() => {
-    return sourcePool.filter((l) => Boolean(l.callbackDate));
-  }, [sourcePool]);
-
-  // Callbacks due today
-  const todayPendingCallbacks = useMemo(() => {
-    return callbackLeads.filter(
-      (l) => l.callbackDate === todayDateString && l.callbackStatus !== 'realizado' && l.callbackStatus !== 'cancelado'
-    );
-  }, [callbackLeads, todayDateString]);
-
-  // Overdue callbacks
-  const overduePendingCallbacks = useMemo(() => {
-    return callbackLeads.filter(
-      (l) => (l.callbackDate || '') < todayDateString && l.callbackStatus !== 'realizado' && l.callbackStatus !== 'cancelado'
-    );
-  }, [callbackLeads, todayDateString]);
-
-  // Completed callbacks
-  const completedCallbacks = useMemo(() => {
-    return callbackLeads.filter((l) => l.callbackStatus === 'realizado');
-  }, [callbackLeads]);
-
-  // Group callbacks by date
-  const callbacksByDate = useMemo(() => {
-    const map = new Map<string, Lead[]>();
-    callbackLeads.forEach((lead) => {
-      if (lead.callbackDate) {
-        const existing = map.get(lead.callbackDate) || [];
-        existing.push(lead);
-        map.set(lead.callbackDate, existing);
+  // Triggered when opening Agenda to edit a specific CRM lead meeting
+  useEffect(() => {
+    if (initialLeadIdToEdit) {
+      const pool = allLeads || leads;
+      const found = pool.find((l) => l.id === initialLeadIdToEdit);
+      if (found) {
+        setEditingMeetingLead(found);
+        setEditMeetingDate(found.meetingDate || selectedDayString || todayDateString);
+        setEditMeetingTime(found.meetingTime || '10:00');
+        setEditMeetingNotes(found.meetingNotes || '');
+        setEditMeetingLink(found.meetingLink || '');
+        setEditMeetingStatus(found.meetingStatus || 'agendada');
       }
+      onClearInitialLeadToEdit?.();
+    }
+  }, [initialLeadIdToEdit, allLeads, leads, selectedDayString, todayDateString, onClearInitialLeadToEdit]);
+
+  // Triggered from Client Detail ("+ Agendar Reunião")
+  useEffect(() => {
+    if (initialNewEventClientId) {
+      setEditingAgendaEvent(null);
+      setDefaultEventClientId(initialNewEventClientId);
+      setIsEventModalOpen(true);
+      onClearInitialNewEventClientId?.();
+    }
+  }, [initialNewEventClientId, onClearInitialNewEventClientId]);
+
+  // Unified non-duplicated integrated items
+  const allIntegratedItems = useMemo(
+    () =>
+      buildIntegratedAgendaItems({
+        events: agendaEvents,
+        projects,
+        tasks,
+        leads: sourceLeadsPool,
+        clients,
+        todayStr: todayDateString,
+      }),
+    [agendaEvents, projects, tasks, sourceLeadsPool, clients, todayDateString]
+  );
+
+  const filteredItems = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    return allIntegratedItems.filter((item) => {
+      if (hideCompleted && (item.isCompleted || item.isCancelled)) return false;
+      if (typeFilter !== 'all' && item.type !== typeFilter) return false;
+      if (sourceFilter !== 'all' && item.sourceKind !== sourceFilter) return false;
+      if (q) {
+        const haystack = [
+          item.title,
+          item.description || '',
+          item.clientName || '',
+          item.leadName || '',
+          item.projectName || '',
+          item.notes || '',
+        ]
+          .join(' ')
+          .toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+      return true;
     });
+  }, [allIntegratedItems, hideCompleted, typeFilter, sourceFilter, searchTerm]);
+
+  const itemsByDate = useMemo(() => {
+    const map = new Map<string, IntegratedAgendaItem[]>();
+    for (const item of filteredItems) {
+      const existing = map.get(item.date) || [];
+      existing.push(item);
+      map.set(item.date, existing);
+    }
     return map;
-  }, [callbackLeads]);
+  }, [filteredItems]);
 
-  const handleOpenCallbackEditor = (lead: Lead) => {
-    setEditingCallbackLead(lead);
-    setEditCallbackDate(lead.callbackDate || selectedDayString || todayDateString);
-    setEditCallbackTime(lead.callbackTime || '15:30');
-    setEditCallbackNotes(lead.callbackNotes || '');
-    setEditCallbackStatus(lead.callbackStatus || 'pendente');
-  };
+  const selectedDayItems = useMemo(
+    () => itemsByDate.get(selectedDayString) || [],
+    [itemsByDate, selectedDayString]
+  );
 
-  const handleSaveCallback = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingCallbackLead) return;
+  const summaryStats = useMemo(() => {
+    const todayItems = allIntegratedItems.filter(
+      (i) => i.date === todayDateString && !i.isCompleted && !i.isCancelled
+    ).length;
+    const overdueItems = allIntegratedItems.filter((i) => i.isOverdue).length;
+    const weekDates = new Set(getWeekDatesForDate(todayDateString));
+    const thisWeekItems = allIntegratedItems.filter(
+      (i) => weekDates.has(i.date) && !i.isCompleted && !i.isCancelled
+    ).length;
+    const meetingsCount = allIntegratedItems.filter(
+      (i) =>
+        (i.type === 'reuniao_cliente' || i.type === 'reuniao_comercial') &&
+        !i.isCompleted &&
+        !i.isCancelled
+    ).length;
 
-    const formattedDate = editCallbackDate
-      ? new Date(editCallbackDate + 'T00:00:00').toLocaleDateString('pt-BR')
-      : 'Hoje';
+    return { todayItems, overdueItems, thisWeekItems, meetingsCount };
+  }, [allIntegratedItems, todayDateString]);
 
-    const updated: Lead = {
-      ...editingCallbackLead,
-      callbackDate: editCallbackDate || undefined,
-      callbackTime: editCallbackTime || undefined,
-      callbackNotes: editCallbackNotes.trim() || undefined,
-      callbackStatus: editCallbackStatus,
-      lastContactDate: new Date().toISOString(),
-      notes: [
-        {
-          id: 'note-cb-' + Date.now(),
-          date: `${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`,
-          text: `Agendado retorno (pediu para ligar mais tarde): ${formattedDate} às ${editCallbackTime || 'horário comercial'}.${editCallbackNotes ? ` Motivo: "${editCallbackNotes}"` : ''}`,
-          author: userName,
-        },
-        ...editingCallbackLead.notes,
-      ],
-    };
+  // Pending CRM callbacks for today/overdue urgent strip
+  const urgentCallbacks = useMemo(() => {
+    return sourceLeadsPool.filter(
+      (l) =>
+        Boolean(l.callbackDate) &&
+        (l.callbackDate as string) <= todayDateString &&
+        l.callbackStatus !== 'realizado' &&
+        l.callbackStatus !== 'cancelado'
+    );
+  }, [sourceLeadsPool, todayDateString]);
 
-    onUpdateLead(updated);
-    if (editCallbackDate) {
-      setSelectedDayString(editCallbackDate);
+  const unscheduledMeetingLeads = useMemo(
+    () => sourceLeadsPool.filter((l) => l.stage === 'reuniao_marcada' && !l.meetingDate),
+    [sourceLeadsPool]
+  );
+
+  // Calendar Grid (Month)
+  const monthGridCells = useMemo(() => {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const startOffset = firstDay.getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    const cells: { dateStr: string; dayNumber: number; inMonth: boolean }[] = [];
+    for (let i = startOffset - 1; i >= 0; i--) {
+      const d = new Date(year, month, -i);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      cells.push({ dateStr: `${y}-${m}-${day}`, dayNumber: d.getDate(), inMonth: false });
     }
-    setEditingCallbackLead(null);
+    for (let d = 1; d <= daysInMonth; d++) {
+      const m = String(month + 1).padStart(2, '0');
+      const day = String(d).padStart(2, '0');
+      cells.push({ dateStr: `${year}-${m}-${day}`, dayNumber: d, inMonth: true });
+    }
+    while (cells.length % 7 !== 0) {
+      const nextIndex = cells.length - (startOffset + daysInMonth) + 1;
+      const d = new Date(year, month + 1, nextIndex);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      cells.push({ dateStr: `${y}-${m}-${day}`, dayNumber: d.getDate(), inMonth: false });
+    }
+    return cells;
+  }, [currentDate]);
+
+  // Week dates anchored on selectedDayString
+  const weekDates = useMemo(
+    () => getWeekDatesForDate(selectedDayString),
+    [selectedDayString]
+  );
+
+  // List of upcoming + overdue items chronologically
+  const upcomingAndPendingList = useMemo(() => {
+    return filteredItems.filter(
+      (i) => i.date >= todayDateString || i.isOverdue
+    );
+  }, [filteredItems, todayDateString]);
+
+  // Navigation helpers
+  const shiftSelectedDate = (daysDelta: number) => {
+    const anchor = new Date(`${selectedDayString}T12:00:00`);
+    anchor.setDate(anchor.getDate() + daysDelta);
+    const y = anchor.getFullYear();
+    const m = String(anchor.getMonth() + 1).padStart(2, '0');
+    const d = String(anchor.getDate()).padStart(2, '0');
+    const nextStr = `${y}-${m}-${d}`;
+    setSelectedDayString(nextStr);
+    setCurrentDate(new Date(anchor.getFullYear(), anchor.getMonth(), 1));
   };
 
-  const handleMarkCallbackDone = (lead: Lead) => {
-    const updated: Lead = {
-      ...lead,
-      callbackStatus: 'realizado',
-      lastContactDate: new Date().toISOString(),
-      notes: [
-        {
-          id: 'note-cb-done-' + Date.now(),
-          date: `${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`,
-          text: `✅ Retorno realizado com sucesso: ligação/contato concluído com o cliente.`,
-          author: userName,
-        },
-        ...lead.notes,
-      ],
-    };
-    onUpdateLead(updated);
+  const handleGoToday = () => {
+    const now = new Date();
+    setCurrentDate(now);
+    setSelectedDayString(todayDateString);
   };
 
-  const handleRemoveCallback = (lead: Lead) => {
-    const updated: Lead = {
-      ...lead,
-      callbackDate: undefined,
-      callbackTime: undefined,
-      callbackNotes: undefined,
-      callbackStatus: undefined,
-    };
-    onUpdateLead(updated);
-    if (editingCallbackLead?.id === lead.id) {
-      setEditingCallbackLead(null);
+  // Item click dispatcher (navigates or opens original source record without duplicating)
+  const handleItemAction = (item: IntegratedAgendaItem) => {
+    if (item.sourceKind === 'agenda_event' && item.rawEvent) {
+      setEditingAgendaEvent(item.rawEvent);
+      setDefaultEventClientId(undefined);
+      setIsEventModalOpen(true);
+      return;
+    }
+    if (item.sourceKind === 'project_deadline' && item.projectId) {
+      if (onOpenProject) {
+        onOpenProject(item.projectId);
+      } else {
+        onNavigate?.('projects');
+      }
+      return;
+    }
+    if (item.sourceKind === 'task_deadline') {
+      onNavigate?.('tasks');
+      return;
+    }
+    if (item.sourceKind === 'lead_meeting' && item.rawLead) {
+      handleOpenMeetingEditor(item.rawLead);
+      return;
+    }
+    if (item.sourceKind === 'lead_callback' && item.rawLead) {
+      handleOpenCallbackEditor(item.rawLead);
     }
   };
 
-  const handleSelectLeadForCallback = (lead: Lead) => {
-    setIsCallbackPickerOpen(false);
-    handleOpenCallbackEditor(lead);
+  const handleToggleEventCompleted = async (event: AgendaEvent) => {
+    if (!onSaveAgendaEvent) return;
+    const nextStatus = event.status === 'concluido' ? 'agendado' : 'concluido';
+    await onSaveAgendaEvent(
+      {
+        ...event,
+        status: nextStatus,
+        updatedAt: new Date().toISOString(),
+      },
+      'edit'
+    );
   };
 
-  // Open meeting editor helper
+  // CRM Meeting handlers
   const handleOpenMeetingEditor = (lead: Lead) => {
     setEditingMeetingLead(lead);
-    setEditMeetingDate(lead.meetingDate || selectedDayString || new Date().toISOString().split('T')[0]);
+    setEditMeetingDate(lead.meetingDate || selectedDayString || todayDateString);
     setEditMeetingTime(lead.meetingTime || '10:00');
     setEditMeetingNotes(lead.meetingNotes || '');
     setEditMeetingLink(lead.meetingLink || '');
     setEditMeetingStatus(lead.meetingStatus || 'agendada');
   };
 
-  // If initialLeadIdToEdit is passed from outside, open it immediately
-  useEffect(() => {
-    if (initialLeadIdToEdit) {
-      const found = sourcePool.find((l) => l.id === initialLeadIdToEdit);
-      if (found) {
-        handleOpenMeetingEditor(found);
-      }
-      onClearInitialLeadToEdit?.();
-    }
-  }, [initialLeadIdToEdit, sourcePool]);
-
-  // Save meeting details
   const handleSaveMeeting = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingMeetingLead) return;
 
     const formattedDate = editMeetingDate
-      ? new Date(editMeetingDate + 'T00:00:00').toLocaleDateString('pt-BR')
+      ? new Date(`${editMeetingDate}T00:00:00`).toLocaleDateString('pt-BR')
       : 'data a definir';
 
     const updated: Lead = {
@@ -267,1855 +439,1287 @@ export const AgendaView: React.FC<AgendaViewProps> = ({
       lastContactDate: new Date().toISOString(),
       notes: [
         {
-          id: 'note-agenda-' + Date.now(),
-          date: `${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`,
-          text: `Agenda de Reunião Marcada: ${formattedDate}${editMeetingTime ? ` às ${editMeetingTime}` : ''}.${editMeetingNotes ? ` Pauta/Estudo de Caso: "${editMeetingNotes.slice(0, 120)}..."` : ''}`,
+          id: `note-agenda-${Date.now()}`,
+          date: `${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString(
+            'pt-BR',
+            { hour: '2-digit', minute: '2-digit' }
+          )}`,
+          text: `Reunião agendada: ${formattedDate}${
+            editMeetingTime ? ` às ${editMeetingTime}` : ''
+          }.${
+            editMeetingNotes
+              ? ` Pauta: "${editMeetingNotes.slice(0, 120)}${
+                  editMeetingNotes.length > 120 ? '...' : ''
+                }"`
+              : ''
+          }`,
           author: userName,
         },
-        ...editingMeetingLead.notes,
+        ...(editingMeetingLead.notes || []),
       ],
     };
 
     onUpdateLead(updated);
-    if (editMeetingDate) {
-      setSelectedDayString(editMeetingDate);
-    }
+    if (editMeetingDate) setSelectedDayString(editMeetingDate);
     setEditingMeetingLead(null);
   };
 
-  // Move a lead to "reuniao_marcada" from the quick picker
   const handleSelectLeadForMeeting = (lead: Lead) => {
-    const updatedLead: Lead = {
-      ...lead,
-      stage: 'reuniao_marcada',
-    };
     onMoveStage(lead.id, 'reuniao_marcada');
     setIsQuickPickerOpen(false);
-    handleOpenMeetingEditor(updatedLead);
+    handleOpenMeetingEditor({ ...lead, stage: 'reuniao_marcada' });
   };
 
-  // Insert template text into meeting notes for case study and client profile
-  const handleInsertTemplateNote = (snippet: string) => {
-    setEditMeetingNotes((prev) => {
-      const cleanPrev = prev.trim();
-      return cleanPrev ? `${cleanPrev}\n\n${snippet}` : snippet;
+  // CRM Callback handlers
+  const handleOpenCallbackEditor = (lead: Lead) => {
+    setEditingCallbackLead(lead);
+    setEditCallbackDate(lead.callbackDate || selectedDayString || todayDateString);
+    setEditCallbackTime(lead.callbackTime || '15:30');
+    setEditCallbackNotes(lead.callbackNotes || '');
+    setEditCallbackStatus(lead.callbackStatus || 'pendente');
+  };
+
+  const handleSaveCallback = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCallbackLead) return;
+
+    const formattedDate = editCallbackDate
+      ? new Date(`${editCallbackDate}T00:00:00`).toLocaleDateString('pt-BR')
+      : 'Hoje';
+
+    const updated: Lead = {
+      ...editingCallbackLead,
+      callbackDate: editCallbackDate || undefined,
+      callbackTime: editCallbackTime || undefined,
+      callbackNotes: editCallbackNotes.trim() || undefined,
+      callbackStatus: editCallbackStatus,
+      lastContactDate: new Date().toISOString(),
+      notes: [
+        {
+          id: `note-cb-${Date.now()}`,
+          date: `${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString(
+            'pt-BR',
+            { hour: '2-digit', minute: '2-digit' }
+          )}`,
+          text: `Retorno agendado: ${formattedDate} às ${
+            editCallbackTime || 'horário comercial'
+          }.${editCallbackNotes ? ` Motivo: "${editCallbackNotes}"` : ''}`,
+          author: userName,
+        },
+        ...(editingCallbackLead.notes || []),
+      ],
+    };
+
+    onUpdateLead(updated);
+    if (editCallbackDate) setSelectedDayString(editCallbackDate);
+    setEditingCallbackLead(null);
+  };
+
+  const handleMarkCallbackDone = (lead: Lead) => {
+    onUpdateLead({
+      ...lead,
+      callbackStatus: 'realizado',
+      lastContactDate: new Date().toISOString(),
+      notes: [
+        {
+          id: `note-cb-done-${Date.now()}`,
+          date: `${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString(
+            'pt-BR',
+            { hour: '2-digit', minute: '2-digit' }
+          )}`,
+          text: 'Retorno realizado com sucesso.',
+          author: userName,
+        },
+        ...(lead.notes || []),
+      ],
     });
   };
 
-  // Complete case study and client profile template
-  const applyCompleteCaseStudyTemplate = () => {
-    const comp = editingMeetingLead?.companyName || 'Empresa';
-    const cont = editingMeetingLead?.contactName || 'Responsável';
-    const cid = editingMeetingLead?.city || niche.city;
-    const cat = editingMeetingLead?.category || niche.segment;
-
-    const template = `• PERFIL DO CLIENTE & NEGÓCIO:
-- Responsável / Contato: ${cont}
-- Empresa: ${comp} (${cat}) - ${cid}
-- Situação atual: Não possui site próprio ativo / depende do Google Maps ou Instagram.
-- Dúvidas e objeções da ligação: Perguntou se o site funciona bem no celular e se o cliente consegue chamar direto no WhatsApp.
-
-• ESTUDO DE CASO & OPORTUNIDADE:
-- Oportunidade: Clientes buscam por "${cat}" no Google em ${cid}, encontram a empresa com boa avaliação, mas perdem a chance de agendamento rápido por falta de site moderno.
-- O que vou demonstrar no protótipo: Demonstração responsiva no celular, cardápio/serviços detalhados, botão de agendamento imediato no WhatsApp e avaliações 5 estrelas em destaque.
-
-• PAUTA DA REUNIÃO (10 A 15 MIN):
-1. Apresentar a demonstração exclusiva no celular (impacto visual imediato).
-2. Explicar como o site transforma buscas no Google em conversas reais no WhatsApp.
-3. Apresentar proposta comercial ancorada: de R$ 997 por R$ 697 (condição da rodada).
-4. Condição facilitada: Pix 50% para início e 50% na entrega em até 72 horas.`;
-
-    setEditMeetingNotes(template);
+  const handleRemoveCallback = (lead: Lead) => {
+    onUpdateLead({
+      ...lead,
+      callbackDate: undefined,
+      callbackTime: undefined,
+      callbackNotes: undefined,
+      callbackStatus: undefined,
+    });
+    setEditingCallbackLead(null);
   };
 
-  // Generate WhatsApp confirmation message link
   const buildWhatsAppMeetingLink = (lead: Lead) => {
     const dataFmt = lead.meetingDate
-      ? new Date(lead.meetingDate + 'T00:00:00').toLocaleDateString('pt-BR', {
+      ? new Date(`${lead.meetingDate}T00:00:00`).toLocaleDateString('pt-BR', {
           weekday: 'long',
           day: '2-digit',
           month: '2-digit',
         })
       : 'em breve';
     const horaFmt = lead.meetingTime ? `às ${lead.meetingTime}` : '';
-
-    const text = `Olá, ${lead.contactName || 'tudo bem'}! Aqui é ${userName}.\n\nPassando para confirmar nossa reunião sobre o projeto da *${lead.companyName}* marcada para *${dataFmt}* ${horaFmt}.\n\n${lead.meetingLink ? `🔗 Link da nossa sala: ${lead.meetingLink}\n\n` : ''}Qualquer dúvida estou à disposição por aqui. Nos falamos em instantes!`;
+    const text = `Olá, ${lead.contactName || 'tudo bem'}! Aqui é ${userName}.\n\nConfirmando nossa reunião sobre a *${lead.companyName}* para *${dataFmt}* ${horaFmt}.\n\n${
+      lead.meetingLink ? `Link da sala: ${lead.meetingLink}\n\n` : ''
+    }Qualquer dúvida estou à disposição!`;
     return buildWhatsAppLink(lead.phone, text);
   };
 
-  // Generate Google Calendar Link
-  const buildGoogleCalendarUrl = (lead: Lead) => {
-    if (!lead.meetingDate) return '';
-    const dateFormatted = lead.meetingDate.replace(/-/g, '');
-    const timeFormatted = (lead.meetingTime || '10:00').replace(/:/g, '') + '00';
-    const startIso = `${dateFormatted}T${timeFormatted}`;
-    
-    // 45 min duration
-    const endHour = Number((lead.meetingTime || '10:00').split(':')[0]);
-    const endMin = Number((lead.meetingTime || '10:00').split(':')[1]) + 45;
-    const finalHour = endHour + Math.floor(endMin / 60);
-    const finalMin = endMin % 60;
-    const endIso = `${dateFormatted}T${String(finalHour).padStart(2, '0')}${String(finalMin).padStart(2, '0')}00`;
-
-    const title = encodeURIComponent(`Reunião de Demonstração: ${lead.companyName} | ${userName}`);
-    const details = encodeURIComponent(
-      `Reunião comercial e apresentação do projeto com ${lead.companyName}.\nContato: ${lead.contactName || 'Responsável'}\nTelefone: ${formatDisplayPhone(lead.phone)}\n\nObservações / Estudo de Caso:\n${lead.meetingNotes || 'Apresentação da demonstração do site e proposta de implementação.'}\n\nLink da reunião: ${lead.meetingLink || 'Via WhatsApp / Meet'}`
-    );
-    const location = encodeURIComponent(lead.meetingLink || `WhatsApp: ${formatDisplayPhone(lead.phone)}`);
-
-    return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${startIso}/${endIso}&details=${details}&location=${location}`;
-  };
-
-  // Calendar calculations
-  const year = currentDate.getFullYear();
-  const month = currentDate.getMonth(); // 0 - 11
-
-  const monthNames = [
-    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
-  ];
-
-  const firstDayOfMonth = new Date(year, month, 1);
-  const lastDayOfMonth = new Date(year, month + 1, 0);
-
-  // Monday = 0, Sunday = 6
-  let startingDayOfWeek = firstDayOfMonth.getDay() - 1;
-  if (startingDayOfWeek === -1) startingDayOfWeek = 6;
-
-  const totalDaysInMonth = lastDayOfMonth.getDate();
-
-  // Navigation handlers
-  const handlePrevMonth = () => {
-    setCurrentDate(new Date(year, month - 1, 1));
-  };
-
-  const handleNextMonth = () => {
-    setCurrentDate(new Date(year, month + 1, 1));
-  };
-
-  const handleToday = () => {
-    const today = new Date();
-    setCurrentDate(today);
-    setSelectedDayString(today.toISOString().split('T')[0]);
-  };
-
-  // Group leads with meetings by date: "YYYY-MM-DD" -> Lead[]
-  const leadsByDate = useMemo(() => {
-    const map = new Map<string, Lead[]>();
-    meetingLeads.forEach((lead) => {
-      if (lead.meetingDate) {
-        const existing = map.get(lead.meetingDate) || [];
-        existing.push(lead);
-        map.set(lead.meetingDate, existing);
-      }
-    });
-    return map;
-  }, [meetingLeads]);
-
-  // Unscheduled leads (in reuniao_marcada but without meetingDate)
-  const unscheduledLeads = useMemo(() => {
-    return meetingLeads.filter((l) => !l.meetingDate);
-  }, [meetingLeads]);
-
-  // Scheduled leads (in reuniao_marcada with meetingDate)
-  const scheduledLeads = useMemo(() => {
-    return meetingLeads.filter((l) => Boolean(l.meetingDate));
-  }, [meetingLeads]);
-
-  // Leads for the selected day
-  const selectedDayLeads = useMemo(() => {
-    if (!selectedDayString) return [];
-    return leadsByDate.get(selectedDayString) || [];
-  }, [selectedDayString, leadsByDate]);
-
-  // Callbacks for the selected day
-  const selectedDayCallbacks = useMemo(() => {
-    if (!selectedDayString) return [];
-    return callbacksByDate.get(selectedDayString) || [];
-  }, [selectedDayString, callbacksByDate]);
-
-  // Filtered callbacks list for dedicated callbacks view
-  const filteredCallbackList = useMemo(() => {
-    return callbackLeads.filter((l) => {
-      if (callbackFilterTab === 'today') {
-        if (l.callbackDate !== todayDateString || l.callbackStatus === 'realizado') return false;
-      } else if (callbackFilterTab === 'overdue') {
-        if ((l.callbackDate || '') >= todayDateString || l.callbackStatus === 'realizado') return false;
-      } else if (callbackFilterTab === 'done') {
-        if (l.callbackStatus !== 'realizado') return false;
-      }
-      if (!searchTerm.trim()) return true;
-      const q = searchTerm.toLowerCase();
-      return (
-        l.companyName.toLowerCase().includes(q) ||
-        (l.contactName && l.contactName.toLowerCase().includes(q)) ||
-        l.phone.includes(q) ||
-        (l.callbackNotes && l.callbackNotes.toLowerCase().includes(q))
+  const filteredQuickPickers = useMemo(() => {
+    const q = quickSearchTerm.trim().toLowerCase();
+    return sourceLeadsPool
+      .filter((l) => l.stage !== 'reuniao_marcada')
+      .filter(
+        (l) =>
+          !q ||
+          l.companyName.toLowerCase().includes(q) ||
+          (l.contactName || '').toLowerCase().includes(q) ||
+          l.phone.includes(q)
       );
-    });
-  }, [callbackLeads, callbackFilterTab, todayDateString, searchTerm]);
+  }, [sourceLeadsPool, quickSearchTerm]);
 
-  // Available leads in source pool to schedule callback
   const filteredCallbackPickers = useMemo(() => {
-    return sourcePool.filter((l) => {
-      if (!callbackPickerSearch.trim()) return true;
-      const q = callbackPickerSearch.toLowerCase();
-      return (
+    const q = callbackPickerSearch.trim().toLowerCase();
+    return sourceLeadsPool.filter(
+      (l) =>
+        !q ||
         l.companyName.toLowerCase().includes(q) ||
-        (l.contactName && l.contactName.toLowerCase().includes(q)) ||
-        l.phone.includes(q) ||
-        (l.city && l.city.toLowerCase().includes(q))
-      );
-    });
-  }, [sourcePool, callbackPickerSearch]);
-
-  // Filtered contacts list in the pipeline drawer
-  const filteredMeetingDrawerLeads = useMemo(() => {
-    return meetingLeads.filter((l) => {
-      if (activeTabSubFilter === 'pending' && l.meetingDate) return false;
-      if (activeTabSubFilter === 'scheduled' && !l.meetingDate) return false;
-      if (!searchTerm.trim()) return true;
-      const q = searchTerm.toLowerCase();
-      return (
-        l.companyName.toLowerCase().includes(q) ||
-        (l.contactName && l.contactName.toLowerCase().includes(q)) ||
-        l.phone.includes(q) ||
-        (l.city && l.city.toLowerCase().includes(q))
-      );
-    });
-  }, [meetingLeads, activeTabSubFilter, searchTerm]);
-
-  // Available leads in pipeline to pick
-  const availableLeadsToSchedule = sourcePool.filter((l) => l.stage !== 'reuniao_marcada');
-  const filteredQuickPickers = availableLeadsToSchedule.filter((l) => {
-    if (!quickSearchTerm.trim()) return true;
-    const q = quickSearchTerm.toLowerCase();
-    return (
-      l.companyName.toLowerCase().includes(q) ||
-      (l.contactName && l.contactName.toLowerCase().includes(q)) ||
-      l.phone.includes(q) ||
-      (l.city && l.city.toLowerCase().includes(q))
+        (l.contactName || '').toLowerCase().includes(q) ||
+        l.phone.includes(q)
     );
-  });
+  }, [sourceLeadsPool, callbackPickerSearch]);
 
-  return (
-    <div className="flex-1 flex flex-col bg-slate-50 min-w-0 w-full p-3 sm:p-6 overflow-y-auto">
-      {/* Top Banner explaining the meeting workflow */}
-      <div className="max-w-7xl mx-auto w-full mb-5 bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 rounded-2xl p-4 sm:p-6 text-white shadow-md relative overflow-hidden">
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-1.5 max-w-2xl">
-            <div className="flex items-center gap-2">
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                Pipeline & Ligações → Agenda
-              </span>
-              <span className="text-xs text-slate-300">• Multi-nicho sincronizado</span>
-            </div>
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
-              Agenda de Reuniões & Retornos
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-              Acompanhe suas <strong>Reuniões Marcadas</strong> e receba alertas automáticos para <strong>ligar mais tarde</strong> para os contatos que pediram retorno em outro horário.
-            </p>
-          </div>
+  const renderAgendaItemCard = (item: IntegratedAgendaItem, compact = false) => {
+    const typeMeta = getAgendaEventTypeMeta(item.type);
+    const googleUrl = buildGoogleCalendarTemplateUrl({
+      title: item.title,
+      date: item.date,
+      startTime: item.startTime,
+      endTime: item.endTime,
+      description: [item.description, item.notes].filter(Boolean).join('\n'),
+      meetingLink: item.meetingLink,
+    });
 
-          {/* Quick Action Buttons */}
-          <div className="flex items-center gap-2 flex-wrap shrink-0">
-            <button
-              type="button"
-              onClick={() => setIsCallbackPickerOpen(true)}
-              className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold shadow-sm transition-all flex items-center gap-2 cursor-pointer"
-            >
-              <PhoneCall className="w-4 h-4" />
-              <span>+ Ligar Mais Tarde (Retorno)</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setIsQuickPickerOpen(true)}
-              className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-sm transition-all flex items-center gap-2 cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Marcar Reunião</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={onSwitchToKanban}
-              className="px-3.5 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-semibold backdrop-blur-xs transition-colors flex items-center gap-1.5 cursor-pointer"
-            >
-              <span>Ver Pipeline</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-
-        {/* Decorative background glow */}
-        <div className="absolute right-0 top-0 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
-      </div>
-
-      {/* PROMINENT INFORMATIVE ALERT BANNER: Ligar mais tarde hoje */}
-      {(todayPendingCallbacks.length > 0 || overduePendingCallbacks.length > 0) && (
-        <div className="max-w-7xl mx-auto w-full mb-5 bg-gradient-to-r from-amber-50 via-orange-50 to-amber-100/90 border-2 border-amber-300 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3 animate-in fade-in duration-200">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-amber-200/80 pb-3">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs animate-bounce">
-                <BellRing className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="text-sm font-bold text-amber-950">
-                    {todayPendingCallbacks.length > 0
-                      ? `🔔 AVISO DA AGENDA: Você tem ${todayPendingCallbacks.length} contato(s) para entrar em contato mais tarde hoje!`
-                      : '🔔 AVISO DA AGENDA: Contatos pendentes de retorno!'}
-                  </h3>
-                  {todayPendingCallbacks.length > 0 && (
-                    <span className="text-[10px] font-bold bg-amber-500 text-white px-2 py-0.5 rounded-full animate-pulse">
-                      Hoje ({todayPendingCallbacks.length})
-                    </span>
-                  )}
-                  {overduePendingCallbacks.length > 0 && (
-                    <span className="text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300 px-2 py-0.5 rounded-full">
-                      {overduePendingCallbacks.length} atrasado(s)
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs text-amber-900 mt-0.5">
-                  Estes clientes pediram para falar outra hora. Clique em <strong>Ligar / WhatsApp</strong> para dar sequência no fechamento:
-                </p>
-              </div>
+    return (
+      <div
+        key={item.id}
+        className={`p-3 rounded-xl border transition-colors space-y-2 ${
+          item.isOverdue
+            ? 'bg-[var(--kz-danger-bg)]/20 border-[var(--kz-danger-border)]'
+            : item.isCompleted
+            ? 'bg-[var(--kz-bg-subtle)]/40 border-[var(--kz-border-subtle)] opacity-75'
+            : 'bg-[var(--kz-bg-subtle)]/70 border-[var(--kz-border-subtle)] hover:border-[var(--kz-border-default)]'
+        }`}
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 space-y-1">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Badge variant={typeMeta.variant} size="sm">
+                {typeMeta.label}
+              </Badge>
+              <Badge variant="neutral" size="sm">
+                {getSourceBadgeLabel(item.sourceKind)}
+              </Badge>
+              {item.isOverdue && (
+                <Badge variant="danger" size="sm">
+                  Atrasado
+                </Badge>
+              )}
+              {item.isCompleted && (
+                <Badge variant="success" size="sm">
+                  Concluído
+                </Badge>
+              )}
             </div>
 
             <button
               type="button"
-              onClick={() => setIsCallbackPickerOpen(true)}
-              className="self-start sm:self-auto px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition-colors shadow-2xs flex items-center gap-1.5 cursor-pointer"
+              onClick={() => handleItemAction(item)}
+              className={`text-left text-xs font-bold hover:text-[var(--kz-accent-text)] transition-colors cursor-pointer block ${
+                item.isCompleted
+                  ? 'line-through text-[var(--kz-text-muted)]'
+                  : 'text-[var(--kz-text-primary)]'
+              }`}
             >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Agendar Novo Retorno</span>
+              {item.title}
             </button>
-          </div>
 
-          {/* Cards dos retornos de hoje */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {[...todayPendingCallbacks, ...overduePendingCallbacks].map((lead) => {
-              const isToday = lead.callbackDate === todayDateString;
-              return (
-                <div
-                  key={lead.id}
-                  className={`bg-white rounded-xl p-3.5 border shadow-2xs space-y-2.5 transition-all hover:shadow-md ${
-                    isToday ? 'border-amber-300 ring-1 ring-amber-200' : 'border-rose-200 bg-rose-50/20'
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="truncate">
-                      <h4 className="text-xs font-bold text-slate-900 truncate">{lead.companyName}</h4>
-                      <p className="text-[11px] text-slate-500 truncate mt-0.5">
-                        {lead.contactName || 'Responsável'} • {formatDisplayPhone(lead.phone)}
-                      </p>
-                    </div>
-
-                    <span
-                      className={`text-[11px] font-mono font-bold px-2 py-0.5 rounded-md shrink-0 flex items-center gap-1 ${
-                        isToday
-                          ? 'bg-amber-100 text-amber-900 border border-amber-300'
-                          : 'bg-rose-100 text-rose-800 border border-rose-300'
-                      }`}
-                    >
-                      <Clock className="w-3 h-3" />
-                      <span>{lead.callbackTime || 'Horário'}</span>
-                    </span>
-                  </div>
-
-                  {lead.callbackNotes ? (
-                    <div className="text-[11px] text-amber-950 bg-amber-50/80 p-2 rounded-lg border border-amber-200/60 font-medium line-clamp-2">
-                      💬 "{lead.callbackNotes}"
-                    </div>
-                  ) : (
-                    <div className="text-[11px] text-slate-400 italic">
-                      Cliente pediu para ligar mais tarde.
-                    </div>
-                  )}
-
-                  <div className="flex items-center gap-1.5 pt-1.5 border-t border-slate-100">
-                    <a
-                      href={buildWhatsAppLink(
-                        lead.phone,
-                        `Olá ${lead.contactName || ''}! Conforme combinamos, estou retornando o contato agora com relação ao projeto da ${lead.companyName}. Podemos conversar um instante?`
-                      )}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex-1 py-1.5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
-                    >
-                      <PhoneCall className="w-3.5 h-3.5" />
-                      <span>Ligar / WhatsApp</span>
-                    </a>
-
-                    <button
-                      type="button"
-                      onClick={() => handleMarkCallbackDone(lead)}
-                      className="p-1.5 bg-slate-100 hover:bg-emerald-100 text-slate-700 hover:text-emerald-800 rounded-lg text-xs font-semibold cursor-pointer transition-colors"
-                      title="Marcar como Falado (Concluído)"
-                    >
-                      <Check className="w-4 h-4 text-emerald-600" />
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleOpenCallbackEditor(lead)}
-                      className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs cursor-pointer transition-colors"
-                      title="Remarcar horário"
-                    >
-                      <Edit3 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Metrics & Scope Control Bar */}
-      <div className="max-w-7xl mx-auto w-full mb-5 flex flex-col md:flex-row md:items-center justify-between gap-3">
-        {/* Quick Metrics */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200/90 rounded-xl shadow-2xs text-xs">
-            <span className="w-2 h-2 rounded-full bg-emerald-500" />
-            <span className="text-slate-600 font-medium">Reuniões Marcadas:</span>
-            <span className="font-bold font-mono text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
-              {meetingLeads.length}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200/90 rounded-xl shadow-2xs text-xs">
-            <PhoneCall className="w-3.5 h-3.5 text-amber-600" />
-            <span className="text-slate-600 font-medium">Ligar Mais Tarde:</span>
-            <span className="font-bold font-mono text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md">
-              {callbackLeads.length}
-            </span>
-            {todayPendingCallbacks.length > 0 && (
-              <span className="font-bold text-[10px] text-amber-900 bg-amber-200 px-1.5 py-0.2 rounded-full animate-pulse">
-                {todayPendingCallbacks.length} hoje!
-              </span>
+            {!compact && item.description && (
+              <p className="text-[11px] text-[var(--kz-text-muted)] line-clamp-2">
+                {item.description}
+              </p>
             )}
           </div>
 
-          {unscheduledLeads.length > 0 && (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-xl shadow-2xs text-xs text-amber-900">
-              <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
-              <span className="font-medium">Reuniões sem Horário:</span>
-              <span className="font-bold font-mono text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md">
-                {unscheduledLeads.length}
-              </span>
+          <div className="text-right shrink-0 space-y-1">
+            <div className="text-[11px] font-mono font-semibold text-[var(--kz-text-primary)]">
+              {item.date.split('-').reverse().join('/')}
             </div>
-          )}
+            {item.startTime && (
+              <div className="text-[10px] font-mono text-[var(--kz-accent-text)]">
+                {item.startTime}
+                {item.endTime ? `–${item.endTime}` : ''}
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Scope Selector, Section Switcher & Mode switch */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Section Switcher Tabs: Tudo / Reuniões / Ligar mais tarde */}
-          <div className="flex items-center bg-white p-0.5 rounded-xl border border-slate-200 text-xs shadow-2xs">
-            <button
-              type="button"
-              onClick={() => setAgendaSection('all')}
-              className={`px-3 py-1.5 rounded-lg font-semibold transition-colors cursor-pointer ${
-                agendaSection === 'all' ? 'bg-slate-900 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Visão Completa
-            </button>
-            <button
-              type="button"
-              onClick={() => setAgendaSection('meetings')}
-              className={`flex items-center gap-1 px-3 py-1.5 rounded-lg font-semibold transition-colors cursor-pointer ${
-                agendaSection === 'meetings' ? 'bg-slate-900 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <CalendarCheck className="w-3 h-3 text-emerald-400" />
-              <span>Reuniões ({meetingLeads.length})</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setAgendaSection('callbacks')}
-              className={`flex items-center gap-1 px-3 py-1.5 rounded-lg font-semibold transition-colors cursor-pointer ${
-                agendaSection === 'callbacks' ? 'bg-slate-900 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <PhoneCall className="w-3 h-3 text-amber-400" />
-              <span>Ligar Mais Tarde ({callbackLeads.length})</span>
-            </button>
+        {(item.clientName || item.projectName || item.leadName) && (
+          <div className="flex flex-wrap items-center gap-2 text-[11px] text-[var(--kz-text-muted)]">
+            {item.clientId && item.clientName && (
+              <button
+                type="button"
+                onClick={() =>
+                  onOpenClient ? onOpenClient(item.clientId!) : onNavigate?.('clients')
+                }
+                className="inline-flex items-center gap-1 hover:text-[var(--kz-accent-text)] cursor-pointer"
+              >
+                <Users className="w-3 h-3" />
+                <span>{item.clientName}</span>
+              </button>
+            )}
+            {item.projectId && item.projectName && (
+              <button
+                type="button"
+                onClick={() =>
+                  onOpenProject ? onOpenProject(item.projectId!) : onNavigate?.('projects')
+                }
+                className="inline-flex items-center gap-1 hover:text-[var(--kz-accent-text)] cursor-pointer"
+              >
+                <FolderKanban className="w-3 h-3" />
+                <span>{item.projectName}</span>
+              </button>
+            )}
           </div>
+        )}
 
-          {/* Scope Selector */}
-          <div className="flex items-center bg-white p-0.5 rounded-xl border border-slate-200 text-xs shadow-2xs">
-            <button
-              type="button"
-              onClick={() => setScopeMode('niche')}
-              className={`px-3 py-1.5 rounded-lg font-semibold transition-colors cursor-pointer ${
-                scopeMode === 'niche' ? 'bg-slate-900 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              {niche.emoji} {niche.name}
-            </button>
-            <button
-              type="button"
-              onClick={() => setScopeMode('all')}
-              className={`px-3 py-1.5 rounded-lg font-semibold transition-colors cursor-pointer ${
-                scopeMode === 'all' ? 'bg-slate-900 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Todos os Nichos
-            </button>
-          </div>
+        <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-[var(--kz-border-subtle)]/70">
+          <Button
+            size="xs"
+            variant="outline"
+            onClick={() => handleItemAction(item)}
+            leftIcon={<Edit3 className="w-3 h-3" />}
+          >
+            {item.editableAsAgendaEvent ? 'Editar Evento' : 'Abrir Origem'}
+          </Button>
 
-          {/* Calendar vs List Mode */}
-          <div className="flex items-center bg-white p-0.5 rounded-xl border border-slate-200 text-xs shadow-2xs">
-            <button
-              type="button"
-              onClick={() => setViewMode('calendar')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold transition-colors cursor-pointer ${
-                viewMode === 'calendar' ? 'bg-blue-600 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
-              }`}
+          {item.sourceKind === 'agenda_event' && item.rawEvent && onSaveAgendaEvent && (
+            <Button
+              size="xs"
+              variant={item.isCompleted ? 'ghost' : 'secondary'}
+              onClick={() => handleToggleEventCompleted(item.rawEvent!)}
+              leftIcon={<Check className="w-3 h-3" />}
             >
-              <CalendarIcon className="w-3.5 h-3.5" />
-              <span>Calendário</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('list')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold transition-colors cursor-pointer ${
-                viewMode === 'list' ? 'bg-blue-600 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
-              }`}
+              {item.isCompleted ? 'Reabrir' : 'Concluir'}
+            </Button>
+          )}
+
+          {item.meetingLink && (
+            <a
+              href={item.meetingLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 h-7 px-2.5 text-[11px] font-semibold rounded-lg bg-[var(--kz-accent-soft)] text-[var(--kz-accent-text)] border border-[var(--kz-accent-border)] hover:bg-[var(--kz-accent)]/20 transition-colors"
             >
-              <ListOrdered className="w-3.5 h-3.5" />
-              <span>Pauta / Lista</span>
-            </button>
-          </div>
+              <Video className="w-3 h-3" />
+              <span>Sala</span>
+            </a>
+          )}
+
+          {item.sourceKind === 'lead_meeting' && item.rawLead && (
+            <a
+              href={buildWhatsAppMeetingLink(item.rawLead)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 h-7 px-2.5 text-[11px] font-semibold rounded-lg bg-[var(--kz-success-bg)] text-[var(--kz-success-text)] border border-[var(--kz-success-border)] hover:bg-emerald-500/20 transition-colors"
+            >
+              <MessageCircle className="w-3 h-3" />
+              <span>WhatsApp</span>
+            </a>
+          )}
+
+          <a
+            href={googleUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 h-7 px-2.5 text-[11px] font-medium rounded-lg bg-[var(--kz-bg-surface)] text-[var(--kz-text-secondary)] border border-[var(--kz-border-default)] hover:bg-[var(--kz-bg-muted)] transition-colors ml-auto"
+            title="Abrir rascunho manual no Google Calendar"
+          >
+            <ExternalLink className="w-3 h-3" />
+            <span>Rascunho Google</span>
+          </a>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
+      {/* Header */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-[var(--kz-border-subtle)] pb-5">
+        <div className="space-y-1">
+          <h2 className="kz-page-title">Agenda Integrada</h2>
+          <p className="kz-subtitle">
+            Central única de compromissos, reuniões comerciais, prazos de entrega dos projetos e datas das tarefas sem duplicação de registros.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            leftIcon={<PhoneCall className="w-3.5 h-3.5" />}
+            onClick={() => setIsCallbackPickerOpen(true)}
+          >
+            Agendar Retorno CRM
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            leftIcon={<CalendarCheck className="w-3.5 h-3.5" />}
+            onClick={() => setIsQuickPickerOpen(true)}
+          >
+            Marcar Reunião Lead
+          </Button>
+          {onSaveAgendaEvent && (
+            <Button
+              variant="primary"
+              size="sm"
+              leftIcon={<Plus className="w-3.5 h-3.5" />}
+              onClick={() => {
+                setEditingAgendaEvent(null);
+                setDefaultEventClientId(undefined);
+                setIsEventModalOpen(true);
+              }}
+            >
+              Novo Compromisso
+            </Button>
+          )}
         </div>
       </div>
 
-      {/* SECTION: Contatos da Pipeline em "Reunião Marcada" */}
-      <div className="max-w-7xl mx-auto w-full mb-6 bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-2xs">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-base">🤝</span>
-              <h2 className="text-sm font-bold text-slate-900">
-                Contatos em Reunião Marcada vindos da Pipeline
-              </h2>
-              <span className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
-                {meetingLeads.length} contatos
-              </span>
+      {cloudPermissionBlocked && (
+        <Alert
+          variant="warning"
+          title="Sincronização em nuvem aguardando publicação de firestore.rules"
+        >
+          Novos compromissos da coleção <code className="font-mono">agendaEvents</code> estão sendo salvos no armazenamento local até você publicar o <code className="font-mono">firestore.rules</code> atualizado no Firebase Console.
+        </Alert>
+      )}
+
+      {/* Honest Google Calendar OAuth architectural status */}
+      <Alert variant="info" title={GOOGLE_CALENDAR_OAUTH_ARCHITECTURE.statusLabel}>
+        {GOOGLE_CALENDAR_OAUTH_ARCHITECTURE.description}
+      </Alert>
+
+      {/* Urgent CRM Callbacks Today / Overdue Strip */}
+      {urgentCallbacks.length > 0 && (
+        <Card padding="md" className="border-[var(--kz-warning-border)] space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-[var(--kz-warning-bg)] text-[var(--kz-warning-text)] flex items-center justify-center">
+                <BellRing className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="text-xs font-bold text-[var(--kz-text-primary)]">
+                  Retornos comerciais pendentes ({urgentCallbacks.length})
+                </div>
+                <div className="text-[11px] text-[var(--kz-text-muted)]">
+                  Leads do CRM que pediram contato hoje ou possuem retorno em atraso.
+                </div>
+              </div>
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Estes são os contatos que você colocou na etapa <strong>Reunião Marcada</strong> após a ligação. Clique para definir o horário ou preencher o estudo de caso.
-            </p>
+            <Button
+              variant="outline"
+              size="xs"
+              onClick={onSwitchToKanban}
+              rightIcon={<ArrowRight className="w-3 h-3" />}
+            >
+              Ir ao Pipeline
+            </Button>
           </div>
 
-          <div className="flex items-center gap-2">
-            {/* Filter buttons */}
-            <div className="flex items-center bg-slate-100 p-0.5 rounded-lg text-xs">
-              <button
-                type="button"
-                onClick={() => setActiveTabSubFilter('all')}
-                className={`px-2.5 py-1 rounded-md font-semibold text-[11px] cursor-pointer transition-colors ${
-                  activeTabSubFilter === 'all' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Todos ({meetingLeads.length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTabSubFilter('pending')}
-                className={`px-2.5 py-1 rounded-md font-semibold text-[11px] cursor-pointer transition-colors ${
-                  activeTabSubFilter === 'pending' ? 'bg-amber-100 text-amber-900 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Sem Horário ({unscheduledLeads.length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTabSubFilter('scheduled')}
-                className={`px-2.5 py-1 rounded-md font-semibold text-[11px] cursor-pointer transition-colors ${
-                  activeTabSubFilter === 'scheduled' ? 'bg-emerald-100 text-emerald-900 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Agendados ({scheduledLeads.length})
-              </button>
-            </div>
-
-            {/* Search filter input */}
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Buscar contato..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8 pr-3 py-1 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-36 sm:w-48"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Grid of meeting cards */}
-        {filteredMeetingDrawerLeads.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 pt-3">
-            {filteredMeetingDrawerLeads.map((lead) => {
-              const isScheduled = Boolean(lead.meetingDate);
-              const dateFmt = lead.meetingDate
-                ? new Date(lead.meetingDate + 'T00:00:00').toLocaleDateString('pt-BR', {
-                    day: '2-digit',
-                    month: '2-digit',
-                  })
-                : null;
-
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
+            {urgentCallbacks.slice(0, 6).map((lead) => {
+              const isOverdue = (lead.callbackDate || '') < todayDateString;
               return (
                 <div
                   key={lead.id}
-                  className={`p-3.5 rounded-xl border transition-all duration-150 flex flex-col justify-between gap-3 ${
-                    isScheduled
-                      ? 'bg-slate-50/70 border-slate-200/90 hover:border-blue-300 hover:bg-blue-50/20'
-                      : 'bg-amber-50/40 border-amber-200 hover:border-amber-300'
+                  className={`p-3 rounded-xl border bg-[var(--kz-bg-subtle)]/70 flex flex-col justify-between gap-2 ${
+                    isOverdue
+                      ? 'border-[var(--kz-danger-border)]'
+                      : 'border-[var(--kz-warning-border)]'
                   }`}
                 >
-                  <div className="space-y-1.5">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                          <span>{lead.companyName}</span>
-                        </h4>
-                        <p className="text-[11px] text-slate-500">
-                          {lead.contactName || 'Responsável'} • {formatDisplayPhone(lead.phone)}
-                        </p>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold text-[var(--kz-text-primary)] truncate">
+                        {lead.companyName}
                       </div>
-
-                      {isScheduled ? (
-                        <span className="text-[11px] font-mono font-bold text-emerald-800 bg-emerald-100 border border-emerald-300/80 px-2 py-0.5 rounded-md flex items-center gap-1 shrink-0">
-                          <CalendarIcon className="w-3 h-3 text-emerald-600" />
-                          <span>{dateFmt} às {lead.meetingTime || '10:00'}</span>
-                        </span>
-                      ) : (
-                        <span className="text-[10px] font-bold text-amber-800 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-md flex items-center gap-1 shrink-0">
-                          <AlertCircle className="w-3 h-3 text-amber-600" />
-                          <span>Sem horário</span>
-                        </span>
-                      )}
+                      <div className="text-[11px] text-[var(--kz-text-muted)] truncate">
+                        {lead.contactName || 'Responsável'} · {formatDisplayPhone(lead.phone)}
+                      </div>
                     </div>
-
-                    {/* Case study & notes preview */}
-                    {lead.meetingNotes ? (
-                      <div className="text-[11px] text-slate-700 bg-white p-2 rounded-lg border border-slate-200/70 line-clamp-2">
-                        <span className="font-semibold text-slate-900">Estudo de caso / Pauta: </span>
-                        <span>{lead.meetingNotes}</span>
-                      </div>
-                    ) : (
-                      <p className="text-[11px] text-slate-400 italic">
-                        Nenhuma observação de estudo de caso cadastrada ainda.
-                      </p>
-                    )}
+                    <Badge variant={isOverdue ? 'danger' : 'warning'} size="sm">
+                      {lead.callbackTime || 'Horário'}
+                    </Badge>
                   </div>
-
-                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-200/60">
-                    <button
-                      type="button"
-                      onClick={() => handleOpenMeetingEditor(lead)}
-                      className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs ${
-                        isScheduled
-                          ? 'bg-white hover:bg-slate-100 text-slate-800 border border-slate-300'
-                          : 'bg-emerald-600 hover:bg-emerald-700 text-white font-bold'
-                      }`}
-                    >
-                      <Edit3 className="w-3.5 h-3.5" />
-                      <span>{isScheduled ? 'Editar Horário & Pauta' : 'Definir Dia e Horário'}</span>
-                    </button>
-
+                  <div className="flex items-center gap-1.5">
                     <a
-                      href={buildWhatsAppMeetingLink(lead)}
+                      href={buildWhatsAppLink(
+                        lead.phone,
+                        `Olá ${lead.contactName || ''}! Conforme combinamos, estou retornando o contato sobre a ${lead.companyName}.`
+                      )}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg transition-colors cursor-pointer"
-                      title="Chamar para confirmar no WhatsApp"
+                      className="flex-1 h-7 px-2 rounded-lg bg-[var(--kz-success-solid)] hover:bg-emerald-700 text-white text-[11px] font-bold flex items-center justify-center gap-1 transition-colors"
                     >
-                      <MessageCircle className="w-4 h-4" />
+                      <PhoneCall className="w-3 h-3" />
+                      <span>WhatsApp</span>
                     </a>
-
-                    <button
-                      type="button"
-                      onClick={() => onOpenLeadModal(lead)}
-                      className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors cursor-pointer"
-                      title="Abrir ficha completa"
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      onClick={() => handleMarkCallbackDone(lead)}
                     >
-                      <FileText className="w-4 h-4" />
-                    </button>
+                      Concluir
+                    </Button>
+                    <Button
+                      size="xs"
+                      variant="ghost"
+                      onClick={() => handleOpenCallbackEditor(lead)}
+                    >
+                      Editar
+                    </Button>
                   </div>
                 </div>
               );
             })}
           </div>
-        ) : (
-          <div className="text-center py-8 bg-slate-50/60 rounded-xl border border-dashed border-slate-200 mt-3">
-            <CalendarCheck className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-            <p className="text-xs font-bold text-slate-700">
-              {searchTerm ? 'Nenhum contato encontrado com este termo' : 'Nenhum contato em "Reunião Marcada" nesta visualização'}
-            </p>
-            <p className="text-[11px] text-slate-500 max-w-md mx-auto mt-1 mb-4">
-              Quando você ligar para uma empresa e combinar a apresentação, arraste o contato para a coluna <strong>Reunião Marcada</strong> no Pipeline ou use o botão abaixo para agendar agora.
-            </p>
-            <button
-              type="button"
-              onClick={() => setIsQuickPickerOpen(true)}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-2xs transition-colors inline-flex items-center gap-1.5 cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Agendar Contato da Pipeline Agora</span>
-            </button>
+        </Card>
+      )}
+
+      {/* KPI Strip */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+        <Card padding="sm">
+          <div className="text-[11px] font-semibold text-[var(--kz-accent-text)] flex items-center justify-between">
+            <span>Para Hoje</span>
+            <CalendarDays className="w-3.5 h-3.5 text-[var(--kz-accent)]" />
           </div>
-        )}
+          <div className="mt-2 text-2xl kz-metric text-[var(--kz-text-primary)]">
+            {summaryStats.todayItems}
+          </div>
+          <div className="mt-0.5 text-[11px] text-[var(--kz-text-muted)]">
+            Compromissos, entregas e tarefas
+          </div>
+        </Card>
+
+        <Card padding="sm">
+          <div className="text-[11px] font-semibold text-[var(--kz-danger-text)] flex items-center justify-between">
+            <span>Itens em Atraso</span>
+            <AlertCircle className="w-3.5 h-3.5 text-[var(--kz-danger-solid)]" />
+          </div>
+          <div className="mt-2 text-2xl kz-metric text-[var(--kz-danger-text)]">
+            {summaryStats.overdueItems}
+          </div>
+          <div className="mt-0.5 text-[11px] text-[var(--kz-text-muted)]">
+            Prazos ou compromissos vencidos
+          </div>
+        </Card>
+
+        <Card padding="sm">
+          <div className="text-[11px] font-semibold text-[var(--kz-info-text)] flex items-center justify-between">
+            <span>Semana Atual</span>
+            <Clock className="w-3.5 h-3.5 text-[var(--kz-info-solid)]" />
+          </div>
+          <div className="mt-2 text-2xl kz-metric text-[var(--kz-info-text)]">
+            {summaryStats.thisWeekItems}
+          </div>
+          <div className="mt-0.5 text-[11px] text-[var(--kz-text-muted)]">
+            Pendentes nesta semana
+          </div>
+        </Card>
+
+        <Card padding="sm">
+          <div className="text-[11px] font-semibold text-[var(--kz-success-text)] flex items-center justify-between">
+            <span>Reuniões Ativas</span>
+            <Video className="w-3.5 h-3.5 text-[var(--kz-success-solid)]" />
+          </div>
+          <div className="mt-2 text-2xl kz-metric text-[var(--kz-success-text)]">
+            {summaryStats.meetingsCount}
+          </div>
+          <div className="mt-0.5 text-[11px] text-[var(--kz-text-muted)]">
+            {unscheduledMeetingLeads.length} leads sem data definida
+          </div>
+        </Card>
       </div>
 
-      {/* MAIN VIEW: CALENDAR OR LIST */}
-      <div className="max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Left 2 Cols: Monthly Calendar */}
-        {viewMode === 'calendar' ? (
-          <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-4 sm:p-6 flex flex-col">
-            {/* Month Navigation Header */}
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
-              <div className="flex items-center gap-2">
-                <h2 className="text-base sm:text-lg font-bold text-slate-900">
-                  {monthNames[month]} {year}
-                </h2>
-                <button
-                  type="button"
-                  onClick={handleToday}
-                  className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold rounded-md transition-colors cursor-pointer"
-                >
-                  Hoje
-                </button>
-              </div>
+      {/* Controls: View Tabs & Filters */}
+      <div className="space-y-3">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          <Tabs
+            activeId={viewMode}
+            onChange={(id) => setViewMode(id)}
+            items={[
+              { id: 'month', label: 'Calendário Mensal', icon: <CalendarIcon className="w-3.5 h-3.5" /> },
+              { id: 'week', label: 'Semanal', icon: <CalendarDays className="w-3.5 h-3.5" /> },
+              { id: 'day', label: 'Agenda Diária', icon: <Clock className="w-3.5 h-3.5" /> },
+              {
+                id: 'list',
+                label: 'Próximos Compromissos',
+                badge: upcomingAndPendingList.length,
+                icon: <ListOrdered className="w-3.5 h-3.5" />,
+              },
+            ]}
+          />
 
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" size="xs" onClick={handleGoToday}>
+              Hoje
+            </Button>
+            <div className="inline-flex items-center rounded-lg border border-[var(--kz-border-default)] bg-[var(--kz-bg-surface)] p-0.5 text-xs">
+              <button
+                type="button"
+                onClick={() => setScopeMode('all')}
+                className={`px-2.5 py-1 rounded-md font-medium cursor-pointer transition-colors ${
+                  scopeMode === 'all'
+                    ? 'bg-[var(--kz-accent)] text-[var(--kz-accent-fg)]'
+                    : 'text-[var(--kz-text-muted)]'
+                }`}
+              >
+                Toda Agência
+              </button>
+              <button
+                type="button"
+                onClick={() => setScopeMode('niche')}
+                className={`px-2.5 py-1 rounded-md font-medium cursor-pointer transition-colors ${
+                  scopeMode === 'niche'
+                    ? 'bg-[var(--kz-accent)] text-[var(--kz-accent-fg)]'
+                    : 'text-[var(--kz-text-muted)]'
+                }`}
+              >
+                {niche.emoji} {niche.name}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+          <Input
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Buscar evento, cliente, projeto ou tarefa..."
+            leftIcon={<Search className="w-3.5 h-3.5" />}
+          />
+          <Select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value as AgendaEventType | 'all')}
+          >
+            <option value="all">Todos os tipos de evento</option>
+            {AGENDA_EVENT_TYPE_OPTIONS.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.label}
+              </option>
+            ))}
+          </Select>
+          <Select
+            value={sourceFilter}
+            onChange={(e) =>
+              setSourceFilter(e.target.value as IntegratedAgendaSourceKind | 'all')
+            }
+          >
+            <option value="all">Todas as origens</option>
+            <option value="agenda_event">Eventos da Agenda</option>
+            <option value="project_deadline">Prazos de Projetos</option>
+            <option value="task_deadline">Datas de Tarefas</option>
+            <option value="lead_meeting">Reuniões CRM</option>
+            <option value="lead_callback">Retornos CRM</option>
+          </Select>
+          <label className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--kz-bg-surface)] border border-[var(--kz-border-default)] text-xs text-[var(--kz-text-secondary)] cursor-pointer">
+            <input
+              type="checkbox"
+              checked={hideCompleted}
+              onChange={(e) => setHideCompleted(e.target.checked)}
+            />
+            <span>Ocultar itens concluídos/cancelados</span>
+          </label>
+        </div>
+      </div>
+
+      {/* MAIN VIEW AREA */}
+      {viewMode === 'month' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          <Card padding="md" className="lg:col-span-2 space-y-4">
+            <div className="flex items-center justify-between border-b border-[var(--kz-border-subtle)] pb-3">
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-[var(--kz-text-primary)]">
+                  {MONTH_NAMES[currentDate.getMonth()]} {currentDate.getFullYear()}
+                </h3>
+                <Badge variant="neutral" size="sm">
+                  {filteredItems.length} registros
+                </Badge>
+              </div>
               <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={handlePrevMonth}
-                  className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
-                  title="Mês anterior"
+                <Button
+                  size="xs"
+                  variant="outline"
+                  onClick={() =>
+                    setCurrentDate(
+                      new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1)
+                    )
+                  }
                 >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={handleNextMonth}
-                  className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
-                  title="Próximo mês"
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </Button>
+                <Button
+                  size="xs"
+                  variant="outline"
+                  onClick={() =>
+                    setCurrentDate(
+                      new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1)
+                    )
+                  }
                 >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </Button>
               </div>
             </div>
 
-            {/* Days of week header */}
-            <div className="grid grid-cols-7 gap-1 text-center mb-1">
-              {['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].map((d) => (
-                <div key={d} className="text-[11px] font-semibold text-slate-400 py-1 uppercase tracking-wider">
+            <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-semibold text-[var(--kz-text-muted)] uppercase">
+              {WEEKDAY_NAMES_SHORT.map((d) => (
+                <div key={d} className="py-1">
                   {d}
                 </div>
               ))}
             </div>
 
-            {/* Calendar Grid Cells */}
-            <div className="grid grid-cols-7 gap-1 flex-1">
-              {/* Empty leading padding cells */}
-              {Array.from({ length: startingDayOfWeek }).map((_, i) => (
-                <div key={`empty-${i}`} className="min-h-[85px] sm:min-h-[100px] bg-slate-50/40 rounded-xl border border-transparent p-1 text-slate-300 pointer-events-none" />
-              ))}
-
-              {/* Day cells */}
-              {Array.from({ length: totalDaysInMonth }).map((_, i) => {
-                const dayNum = i + 1;
-                const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
-                const dayLeads = leadsByDate.get(dateKey) || [];
-                const dayCallbacks = callbacksByDate.get(dateKey) || [];
-                const isToday = new Date().toISOString().split('T')[0] === dateKey;
-                const isSelected = selectedDayString === dateKey;
+            <div className="grid grid-cols-7 gap-1.5">
+              {monthGridCells.map((cell) => {
+                const dayItems = itemsByDate.get(cell.dateStr) || [];
+                const isToday = cell.dateStr === todayDateString;
+                const isSelected = cell.dateStr === selectedDayString;
 
                 return (
                   <div
-                    key={dateKey}
-                    onClick={() => setSelectedDayString(dateKey)}
-                    className={`min-h-[85px] sm:min-h-[105px] rounded-xl border p-1.5 flex flex-col justify-between transition-all cursor-pointer ${
+                    key={cell.dateStr}
+                    onClick={() => setSelectedDayString(cell.dateStr)}
+                    className={`min-h-[92px] p-1.5 rounded-xl border cursor-pointer transition-colors flex flex-col justify-between ${
                       isSelected
-                        ? 'border-blue-500 bg-blue-50/30 ring-1 ring-blue-400 shadow-2xs'
+                        ? 'border-[var(--kz-accent)] bg-[var(--kz-accent-soft)]/50'
                         : isToday
-                        ? 'border-emerald-400 bg-emerald-50/20 shadow-2xs'
-                        : 'border-slate-200/80 bg-white hover:border-slate-300 hover:bg-slate-50/50'
+                        ? 'border-[var(--kz-success-border)] bg-[var(--kz-success-bg)]/35'
+                        : cell.inMonth
+                        ? 'border-[var(--kz-border-subtle)] bg-[var(--kz-bg-subtle)]/50 hover:border-[var(--kz-border-default)]'
+                        : 'border-transparent bg-[var(--kz-bg-canvas)]/40 opacity-50'
                     }`}
                   >
                     <div className="flex items-center justify-between">
                       <span
-                        className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full ${
+                        className={`text-[11px] font-mono font-bold w-5 h-5 rounded-full flex items-center justify-center ${
                           isToday
-                            ? 'bg-emerald-600 text-white'
+                            ? 'bg-[var(--kz-success-solid)] text-white'
                             : isSelected
-                            ? 'bg-blue-600 text-white'
-                            : 'text-slate-700'
+                            ? 'bg-[var(--kz-accent)] text-[var(--kz-accent-fg)]'
+                            : 'text-[var(--kz-text-secondary)]'
                         }`}
                       >
-                        {dayNum}
+                        {cell.dayNumber}
                       </span>
-                      <div className="flex items-center gap-1">
-                        {dayLeads.length > 0 && (
-                          <span
-                            className="text-[10px] font-bold font-mono px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300/80"
-                            title={`${dayLeads.length} Reunião(ões)`}
-                          >
-                            {dayLeads.length}
-                          </span>
-                        )}
-                        {dayCallbacks.length > 0 && (
-                          <span
-                            className="text-[10px] font-bold font-mono px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-0.5"
-                            title={`${dayCallbacks.length} Retorno(s) / Ligar mais tarde`}
-                          >
-                            <PhoneCall className="w-2.5 h-2.5" />
-                            <span>{dayCallbacks.length}</span>
-                          </span>
-                        )}
-                      </div>
+                      {dayItems.length > 0 && (
+                        <span className="text-[10px] font-mono text-[var(--kz-text-muted)]">
+                          {dayItems.length}
+                        </span>
+                      )}
                     </div>
 
-                    {/* Meetings & Callbacks chips inside day cell */}
                     <div className="space-y-1 mt-1 overflow-hidden">
-                      {dayLeads.slice(0, 2).map((l) => (
+                      {dayItems.slice(0, 3).map((item) => (
                         <div
-                          key={l.id}
+                          key={item.id}
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleOpenMeetingEditor(l);
+                            setSelectedDayString(cell.dateStr);
+                            handleItemAction(item);
                           }}
-                          className="px-1.5 py-0.5 bg-emerald-100/90 hover:bg-emerald-200 text-emerald-900 border border-emerald-300 rounded text-[10px] font-semibold truncate flex items-center gap-1 transition-colors"
-                          title={`Reunião: ${l.meetingTime || ''} - ${l.companyName}: ${l.meetingNotes || 'Clique para ver estudo de caso e pauta'}`}
-                        >
-                          <span className="font-mono text-[9px] text-emerald-700 shrink-0">
-                            {l.meetingTime || '10:00'}
-                          </span>
-                          <span className="truncate">{l.companyName}</span>
-                        </div>
-                      ))}
-
-                      {dayCallbacks.slice(0, 2).map((l) => (
-                        <div
-                          key={'cb-cell-' + l.id}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenCallbackEditor(l);
-                          }}
-                          className={`px-1.5 py-0.5 border rounded text-[10px] font-semibold truncate flex items-center gap-1 transition-colors ${
-                            l.callbackStatus === 'realizado'
-                              ? 'bg-slate-100 text-slate-500 border-slate-200 line-through'
-                              : 'bg-amber-100/90 hover:bg-amber-200 text-amber-950 border-amber-300'
+                          className={`px-1.5 py-0.5 rounded text-[10px] font-medium truncate border ${
+                            item.isOverdue
+                              ? 'bg-[var(--kz-danger-bg)] text-[var(--kz-danger-text)] border-[var(--kz-danger-border)]'
+                              : item.isCompleted
+                              ? 'bg-[var(--kz-bg-muted)] text-[var(--kz-text-subtle)] border-[var(--kz-border-subtle)] line-through'
+                              : item.sourceKind === 'project_deadline'
+                              ? 'bg-[var(--kz-accent-soft)] text-[var(--kz-accent-text)] border-[var(--kz-accent-border)]'
+                              : item.sourceKind === 'task_deadline'
+                              ? 'bg-[var(--kz-info-bg)] text-[var(--kz-info-text)] border-[var(--kz-info-border)]'
+                              : 'bg-[var(--kz-success-bg)] text-[var(--kz-success-text)] border-[var(--kz-success-border)]'
                           }`}
-                          title={`Retorno: ${l.callbackTime || ''} - ${l.companyName}: ${l.callbackNotes || 'Ligar mais tarde'}`}
+                          title={item.title}
                         >
-                          <PhoneCall className="w-2.5 h-2.5 text-amber-700 shrink-0" />
-                          <span className="font-mono text-[9px] text-amber-800 shrink-0">
-                            {l.callbackTime || '15:30'}
-                          </span>
-                          <span className="truncate">{l.companyName}</span>
+                          {item.startTime ? `${item.startTime} ` : ''}
+                          {item.title}
                         </div>
                       ))}
-
-                      {dayLeads.length + dayCallbacks.length > 2 && (
-                        <span className="text-[9px] font-bold text-slate-500 px-1 block">
-                          +{dayLeads.length + dayCallbacks.length - 2} mais
-                        </span>
+                      {dayItems.length > 3 && (
+                        <div className="text-[9px] font-semibold text-[var(--kz-text-muted)] px-1">
+                          +{dayItems.length - 3} mais
+                        </div>
                       )}
                     </div>
                   </div>
                 );
               })}
             </div>
-          </div>
-        ) : (
-          /* LIST VIEW OF ALL MEETINGS */
-          <div className="lg:col-span-2 space-y-3">
-            <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-2xs flex items-center justify-between">
-              <h2 className="text-sm font-bold text-slate-800">
-                Lista Cronológica de Reuniões Marcadas ({meetingLeads.length})
-              </h2>
-              <span className="text-xs text-slate-500 font-mono">
-                Ordenado por data e horário
-              </span>
-            </div>
+          </Card>
 
-            {meetingLeads
-              .slice()
-              .sort((a, b) => {
-                if (!a.meetingDate) return 1;
-                if (!b.meetingDate) return -1;
-                return (
-                  new Date(`${a.meetingDate}T${a.meetingTime || '00:00'}`).getTime() -
-                  new Date(`${b.meetingDate}T${b.meetingTime || '00:00'}`).getTime()
-                );
-              })
-              .map((lead) => {
-                const dateFmt = lead.meetingDate
-                  ? new Date(lead.meetingDate + 'T00:00:00').toLocaleDateString('pt-BR', {
-                      weekday: 'short',
-                      day: '2-digit',
-                      month: '2-digit',
-                      year: 'numeric',
-                    })
-                  : 'Data não definida';
-
-                return (
-                  <div
-                    key={lead.id}
-                    className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-2xs hover:border-slate-300 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
-                  >
-                    <div className="space-y-1 max-w-xl">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs font-bold text-slate-900">{lead.companyName}</span>
-                        {lead.contactName && (
-                          <span className="text-[11px] text-slate-500">• {lead.contactName}</span>
-                        )}
-                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
-                          {lead.meetingStatus === 'realizada' ? 'Realizada' : 'Agendada'}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-3 text-xs text-slate-600 flex-wrap">
-                        <div className="flex items-center gap-1 font-semibold text-emerald-900">
-                          <CalendarIcon className="w-3.5 h-3.5 text-emerald-600" />
-                          <span>{dateFmt}</span>
-                        </div>
-                        {lead.meetingTime && (
-                          <div className="flex items-center gap-1 font-mono text-slate-700">
-                            <Clock className="w-3.5 h-3.5 text-slate-400" />
-                            <span>{lead.meetingTime}</span>
-                          </div>
-                        )}
-                        <div className="text-[11px] text-slate-500 font-mono">
-                          {formatDisplayPhone(lead.phone)}
-                        </div>
-                      </div>
-
-                      {lead.meetingNotes && (
-                        <p className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-100 line-clamp-3">
-                          <strong>Estudo de Caso & Pauta:</strong> {lead.meetingNotes}
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                      <a
-                        href={buildWhatsAppMeetingLink(lead)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition-colors"
-                      >
-                        <MessageCircle className="w-3.5 h-3.5" />
-                        <span>Confirmar WhatsApp</span>
-                      </a>
-                      <button
-                        type="button"
-                        onClick={() => handleOpenMeetingEditor(lead)}
-                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-                      >
-                        <Edit3 className="w-3.5 h-3.5" />
-                        <span>Editar</span>
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-          </div>
-        )}
-
-        {/* Right Col: Selected Day Panel & Agenda Details */}
-        <div className="space-y-4">
-          {/* Day Detail Card */}
-          <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-2xs">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+          {/* Selected Day Sidebar Detail */}
+          <Card padding="md" className="space-y-4">
+            <div className="flex items-center justify-between border-b border-[var(--kz-border-subtle)] pb-3">
               <div>
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-[var(--kz-text-muted)]">
                   Dia Selecionado
-                </span>
-                <h3 className="text-sm sm:text-base font-bold text-slate-900">
-                  {selectedDayString
-                    ? new Date(selectedDayString + 'T00:00:00').toLocaleDateString('pt-BR', {
-                        weekday: 'long',
-                        day: '2-digit',
-                        month: 'long',
-                      })
-                    : 'Escolha um dia'}
-                </h3>
+                </div>
+                <div className="text-sm font-bold text-[var(--kz-text-primary)] capitalize">
+                  {new Date(`${selectedDayString}T12:00:00`).toLocaleDateString('pt-BR', {
+                    weekday: 'long',
+                    day: '2-digit',
+                    month: 'long',
+                  })}
+                </div>
               </div>
-
-              <span className="text-xs font-bold font-mono px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full border border-blue-200">
-                {selectedDayLeads.length} {selectedDayLeads.length === 1 ? 'reunião' : 'reuniões'}
-              </span>
+              {onSaveAgendaEvent && (
+                <Button
+                  size="xs"
+                  variant="primary"
+                  leftIcon={<Plus className="w-3 h-3" />}
+                  onClick={() => {
+                    setEditingAgendaEvent(null);
+                    setDefaultEventClientId(undefined);
+                    setIsEventModalOpen(true);
+                  }}
+                >
+                  Evento
+                </Button>
+              )}
             </div>
 
-            {/* List of meetings on selected day */}
-            {selectedDayLeads.length > 0 ? (
-              <div className="space-y-3">
-                {selectedDayLeads.map((lead) => (
-                  <div
-                    key={lead.id}
-                    className="p-3.5 bg-slate-50 hover:bg-slate-100/80 rounded-xl border border-slate-200/80 transition-all space-y-2.5"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <h4 className="text-xs font-bold text-slate-900">
-                          {lead.companyName}
-                        </h4>
-                        <p className="text-[11px] text-slate-500">
-                          {lead.contactName || 'Responsável'} • {formatDisplayPhone(lead.phone)}
-                        </p>
-                      </div>
-
-                      <div className="flex items-center gap-1 shrink-0 font-mono text-xs font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md">
-                        <Clock className="w-3 h-3 text-emerald-600" />
-                        <span>{lead.meetingTime || '10:00'}</span>
-                      </div>
-                    </div>
-
-                    {/* Full Meeting Notes (Case Study and Profile) */}
-                    {lead.meetingNotes && (
-                      <div className="text-[11px] text-slate-700 bg-white p-2.5 rounded-lg border border-slate-200/70">
-                        <p className="font-bold text-slate-800 mb-1 flex items-center gap-1">
-                          <Bookmark className="w-3 h-3 text-blue-600" />
-                          <span>Estudo de Caso & Perfil do Cliente:</span>
-                        </p>
-                        <p className="whitespace-pre-line leading-relaxed font-sans">{lead.meetingNotes}</p>
-                      </div>
-                    )}
-
-                    {lead.meetingLink && (
-                      <div className="flex items-center gap-1.5 text-xs text-blue-600 bg-blue-50 p-2 rounded-lg border border-blue-100">
-                        <Video className="w-3.5 h-3.5 shrink-0" />
-                        <a
-                          href={lead.meetingLink}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="truncate hover:underline font-mono text-[11px]"
-                        >
-                          {lead.meetingLink}
-                        </a>
-                      </div>
-                    )}
-
-                    {/* Action buttons for this meeting */}
-                    <div className="flex items-center gap-1.5 pt-1 flex-wrap">
-                      <a
-                        href={buildWhatsAppMeetingLink(lead)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex-1 px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1 shadow-2xs transition-colors"
-                        title="Enviar mensagem de confirmação no WhatsApp"
-                      >
-                        <MessageCircle className="w-3 h-3" />
-                        <span>Confirmar WhatsApp</span>
-                      </a>
-
-                      <a
-                        href={buildGoogleCalendarUrl(lead)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-2.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors"
-                        title="Adicionar evento no Google Agenda"
-                      >
-                        <CalendarCheck className="w-3 h-3 text-blue-600" />
-                        <span>Google Agenda</span>
-                      </a>
-
-                      <button
-                        type="button"
-                        onClick={() => handleOpenMeetingEditor(lead)}
-                        className="p-1.5 bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 rounded-lg transition-colors cursor-pointer"
-                        title="Editar data, hora e estudo de caso"
-                      >
-                        <Edit3 className="w-3.5 h-3.5" />
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => onOpenLeadModal(lead)}
-                        className="p-1.5 bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 rounded-lg transition-colors cursor-pointer"
-                        title="Ver ficha completa do lead"
-                      >
-                        <FileText className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-
-                    {/* Pipeline progression buttons */}
-                    <div className="flex items-center gap-1.5 pt-1 text-[11px]">
-                      <button
-                        type="button"
-                        onClick={() => onMoveStage(lead.id, 'fechado')}
-                        className="flex-1 py-1.5 px-2 bg-green-50 hover:bg-green-100 text-green-800 border border-green-200 rounded-lg font-bold flex items-center justify-center gap-1 transition-colors cursor-pointer"
-                        title="Mover para Fechado (Venda Concluída!)"
-                      >
-                        <DollarSign className="w-3.5 h-3.5 text-green-600" />
-                        <span>Venda Fechada!</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onMoveStage(lead.id, 'follow_up_1')}
-                        className="py-1.5 px-2 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-lg font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer"
-                        title="Reagendar / Voltar para Follow-up"
-                      >
-                        <RotateCcw className="w-3 h-3 text-purple-600" />
-                        <span>Follow-up</span>
-                      </button>
-                    </div>
-                  </div>
-                ))}
+            {selectedDayItems.length === 0 ? (
+              <div className="py-10 text-center space-y-2 border border-dashed border-[var(--kz-border-default)] rounded-xl">
+                <CalendarIcon className="w-7 h-7 text-[var(--kz-text-subtle)] mx-auto" />
+                <div className="text-xs font-semibold text-[var(--kz-text-primary)]">
+                  Nenhum compromisso ou prazo nesta data
+                </div>
+                <div className="text-[11px] text-[var(--kz-text-muted)]">
+                  Crie um compromisso direto ou defina prazos em Projetos/Tarefas.
+                </div>
               </div>
             ) : (
-              <div className="text-center py-8 px-4 bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                <CalendarIcon className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                <p className="text-xs font-bold text-slate-700">Nenhuma reunião neste dia</p>
-                <p className="text-[11px] text-slate-500 mt-0.5 mb-4">
-                  Deseja marcar uma reunião para esta data?
-                </p>
-                {unscheduledLeads.length > 0 ? (
-                  <div className="space-y-1.5">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                      Escolha um contato pendente para hoje:
-                    </p>
-                    <div className="max-h-36 overflow-y-auto space-y-1">
-                      {unscheduledLeads.map((l) => (
+              <div className="space-y-2.5 max-h-[560px] overflow-y-auto pr-1">
+                {selectedDayItems.map((item) => renderAgendaItemCard(item))}
+              </div>
+            )}
+          </Card>
+        </div>
+      )}
+
+      {viewMode === 'week' && (
+        <Card padding="md" className="space-y-4">
+          <div className="flex items-center justify-between border-b border-[var(--kz-border-subtle)] pb-3">
+            <div className="text-sm font-bold text-[var(--kz-text-primary)]">
+              Semana de {weekDates[0].split('-').reverse().join('/')} a{' '}
+              {weekDates[6].split('-').reverse().join('/')}
+            </div>
+            <div className="flex items-center gap-1">
+              <Button size="xs" variant="outline" onClick={() => shiftSelectedDate(-7)}>
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </Button>
+              <Button size="xs" variant="outline" onClick={() => shiftSelectedDate(7)}>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-7 gap-2.5">
+            {weekDates.map((dateStr, idx) => {
+              const dayItems = itemsByDate.get(dateStr) || [];
+              const isToday = dateStr === todayDateString;
+              return (
+                <div
+                  key={dateStr}
+                  className={`p-2.5 rounded-xl border min-h-[240px] flex flex-col gap-2 ${
+                    isToday
+                      ? 'border-[var(--kz-accent-border)] bg-[var(--kz-accent-soft)]/30'
+                      : 'border-[var(--kz-border-subtle)] bg-[var(--kz-bg-subtle)]/50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between border-b border-[var(--kz-border-subtle)] pb-1.5">
+                    <div>
+                      <div className="text-[10px] font-bold uppercase text-[var(--kz-text-muted)]">
+                        {WEEKDAY_NAMES_SHORT[idx]}
+                      </div>
+                      <div className="text-xs font-mono font-bold text-[var(--kz-text-primary)]">
+                        {dateStr.split('-').reverse().slice(0, 2).join('/')}
+                      </div>
+                    </div>
+                    {onSaveAgendaEvent && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedDayString(dateStr);
+                          setEditingAgendaEvent(null);
+                          setDefaultEventClientId(undefined);
+                          setIsEventModalOpen(true);
+                        }}
+                        className="p-1 rounded hover:bg-[var(--kz-bg-muted)] text-[var(--kz-text-muted)] hover:text-[var(--kz-accent-text)] cursor-pointer"
+                        title="Adicionar evento neste dia"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  {dayItems.length === 0 ? (
+                    <div className="text-[11px] text-[var(--kz-text-subtle)] italic py-4 text-center">
+                      Livre
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {dayItems.map((item) => (
                         <button
-                          key={l.id}
+                          key={item.id}
                           type="button"
-                          onClick={() => {
-                            setEditingMeetingLead(l);
-                            setEditMeetingDate(selectedDayString);
-                            setEditMeetingTime('10:00');
-                            setEditMeetingNotes(l.meetingNotes || '');
-                            setEditMeetingLink(l.meetingLink || '');
-                            setEditMeetingStatus('agendada');
-                          }}
-                          className="w-full text-left p-2 rounded-lg bg-white hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 text-xs flex items-center justify-between cursor-pointer transition-colors"
+                          onClick={() => handleItemAction(item)}
+                          className={`w-full text-left p-2 rounded-lg border text-[11px] space-y-0.5 cursor-pointer transition-colors ${
+                            item.isOverdue
+                              ? 'bg-[var(--kz-danger-bg)]/30 border-[var(--kz-danger-border)]'
+                              : 'bg-[var(--kz-bg-surface)] border-[var(--kz-border-subtle)] hover:border-[var(--kz-accent-border)]'
+                          }`}
                         >
-                          <span className="font-semibold text-slate-800 truncate">{l.companyName}</span>
-                          <span className="text-[10px] font-bold text-emerald-700 shrink-0">+ Agendar</span>
+                          <div className="font-mono text-[10px] text-[var(--kz-accent-text)]">
+                            {item.startTime || getSourceBadgeLabel(item.sourceKind)}
+                          </div>
+                          <div className="font-semibold text-[var(--kz-text-primary)] line-clamp-2">
+                            {item.title}
+                          </div>
                         </button>
                       ))}
                     </div>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setIsQuickPickerOpen(true)}
-                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold cursor-pointer transition-colors"
-                  >
-                    + Agendar Lead da Pipeline
-                  </button>
-                )}
-              </div>
-            )}
-
-            {/* Contatos para Ligar Mais Tarde no Dia Selecionado */}
-            <div className="pt-3 border-t border-slate-100 mt-4">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-1.5">
-                  <PhoneCall className="w-3.5 h-3.5 text-amber-600" />
-                  <span className="text-xs font-bold text-slate-800">
-                    Ligar Mais Tarde neste Dia ({selectedDayCallbacks.length})
-                  </span>
+                  )}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditCallbackDate(selectedDayString);
-                    setIsCallbackPickerOpen(true);
-                  }}
-                  className="text-[10px] font-bold text-amber-800 hover:text-amber-950 bg-amber-50 hover:bg-amber-100 px-2 py-0.5 rounded cursor-pointer border border-amber-200 transition-colors"
-                >
-                  + Agendar Retorno
-                </button>
-              </div>
-
-              {selectedDayCallbacks.length > 0 ? (
-                <div className="space-y-2">
-                  {selectedDayCallbacks.map((lead) => (
-                    <div
-                      key={'sel-cb-' + lead.id}
-                      className="p-3 bg-amber-50/70 rounded-xl border border-amber-200/80 space-y-2"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="truncate">
-                          <h4 className="text-xs font-bold text-slate-900 truncate">{lead.companyName}</h4>
-                          <p className="text-[11px] text-slate-600 truncate">
-                            {lead.contactName || 'Responsável'} • {formatDisplayPhone(lead.phone)}
-                          </p>
-                        </div>
-                        <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-950 border border-amber-300 shrink-0">
-                          ⏰ {lead.callbackTime || '15:30'}
-                        </span>
-                      </div>
-
-                      {lead.callbackNotes && (
-                        <p className="text-[11px] text-amber-950 bg-white p-2 rounded-lg border border-amber-200">
-                          💬 "{lead.callbackNotes}"
-                        </p>
-                      )}
-
-                      <div className="flex items-center gap-1.5 pt-1">
-                        <a
-                          href={buildWhatsAppLink(
-                            lead.phone,
-                            `Olá ${lead.contactName || ''}! Conforme combinamos, estou retornando o contato agora com relação ao projeto da ${lead.companyName}. Podemos falar um instante?`
-                          )}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex-1 py-1 px-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1 shadow-2xs"
-                        >
-                          <PhoneCall className="w-3 h-3" />
-                          <span>Ligar Agora</span>
-                        </a>
-
-                        <button
-                          type="button"
-                          onClick={() => handleMarkCallbackDone(lead)}
-                          className={`p-1.5 rounded-lg text-xs font-semibold cursor-pointer ${
-                            lead.callbackStatus === 'realizado'
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : 'bg-white hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 border border-slate-200'
-                          }`}
-                          title={lead.callbackStatus === 'realizado' ? 'Retorno Concluído' : 'Marcar como Concluído'}
-                        >
-                          <Check className="w-3.5 h-3.5 text-emerald-600" />
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => handleOpenCallbackEditor(lead)}
-                          className="p-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-xs cursor-pointer"
-                          title="Editar horário do retorno"
-                        >
-                          <Edit3 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-[11px] text-slate-400 italic py-1">
-                  Nenhum retorno agendado para este dia.
-                </p>
-              )}
-            </div>
+              );
+            })}
           </div>
-
-          {/* Quick Checklist for Sales Calls & Demo Meetings */}
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50/40 rounded-2xl border border-blue-200/80 p-4 sm:p-5 shadow-2xs">
-            <div className="flex items-center gap-2 mb-2">
-              <Sparkles className="w-4 h-4 text-blue-600" />
-              <h3 className="text-xs font-bold text-blue-950 uppercase tracking-wider">
-                Roteiro da Reunião (10-15 Min)
-              </h3>
-            </div>
-            <ul className="space-y-2 text-xs text-blue-900/90 leading-relaxed">
-              <li className="flex items-start gap-1.5">
-                <Check className="w-3.5 h-3.5 text-blue-600 shrink-0 mt-0.5" />
-                <span><strong>1. Abra no celular:</strong> Mostre a demonstração personalizada com o nome e cores da empresa.</span>
-              </li>
-              <li className="flex items-start gap-1.5">
-                <Check className="w-3.5 h-3.5 text-blue-600 shrink-0 mt-0.5" />
-                <span><strong>2. Destaque o agendamento:</strong> Mostre como o visitante clica e já cai no WhatsApp com os serviços escolhidos.</span>
-              </li>
-              <li className="flex items-start gap-1.5">
-                <Check className="w-3.5 h-3.5 text-blue-600 shrink-0 mt-0.5" />
-                <span><strong>3. Ancoragem de R$ 997 por R$ 697:</strong> Apresente como condição exclusiva desta rodada de prospecção.</span>
-              </li>
-              <li className="flex items-start gap-1.5">
-                <Check className="w-3.5 h-3.5 text-blue-600 shrink-0 mt-0.5" />
-                <span><strong>4. Entrega em 72h:</strong> Feche com Pix 50% para início e 50% na entrega.</span>
-              </li>
-            </ul>
-          </div>
-        </div>
-      </div>
-
-      {/* MODAL: EDIT MEETING DETAILS & CASE STUDY */}
-      {editingMeetingLead && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-xl w-full max-h-[92vh] overflow-y-auto animate-in fade-in zoom-in-95">
-            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white z-10">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 bg-emerald-100 text-emerald-800 rounded-xl flex items-center justify-center font-bold shrink-0">
-                  <CalendarCheck className="w-5 h-5 text-emerald-700" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900 truncate max-w-[280px] sm:max-w-md">
-                    Reunião Marcada: {editingMeetingLead.companyName}
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    {editingMeetingLead.contactName || 'Responsável'} • {formatDisplayPhone(editingMeetingLead.phone)} • {editingMeetingLead.city || niche.city}
-                  </p>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setEditingMeetingLead(null)}
-                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer text-xs font-bold"
-              >
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveMeeting} className="p-4 sm:p-6 space-y-4">
-              {/* Row: Date & Time */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    📅 Data da Reunião *
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={editMeetingDate}
-                    onChange={(e) => setEditMeetingDate(e.target.value)}
-                    className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-slate-900 font-bold"
-                  />
-                  {/* Quick date shortcuts */}
-                  <div className="flex items-center gap-1 mt-1.5 flex-wrap">
-                    <button
-                      type="button"
-                      onClick={() => setEditMeetingDate(new Date().toISOString().split('T')[0])}
-                      className="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-0.5 rounded cursor-pointer font-medium"
-                    >
-                      Hoje
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const d = new Date();
-                        d.setDate(d.getDate() + 1);
-                        setEditMeetingDate(d.toISOString().split('T')[0]);
-                      }}
-                      className="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-0.5 rounded cursor-pointer font-medium"
-                    >
-                      Amanhã
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const d = new Date();
-                        d.setDate(d.getDate() + 2);
-                        setEditMeetingDate(d.toISOString().split('T')[0]);
-                      }}
-                      className="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-0.5 rounded cursor-pointer font-medium"
-                    >
-                      Em 2 dias
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const d = new Date();
-                        d.setDate(15);
-                        setEditMeetingDate(d.toISOString().split('T')[0]);
-                      }}
-                      className="text-[10px] bg-blue-50 hover:bg-blue-100 text-blue-700 px-2 py-0.5 rounded cursor-pointer font-bold"
-                    >
-                      Dia 15
-                    </button>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    ⏰ Horário da Reunião *
-                  </label>
-                  <input
-                    type="time"
-                    required
-                    value={editMeetingTime}
-                    onChange={(e) => setEditMeetingTime(e.target.value)}
-                    className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-slate-900 font-bold"
-                  />
-                  {/* Quick time shortcuts */}
-                  <div className="flex items-center gap-1 mt-1.5 flex-wrap">
-                    {['09:00', '10:00', '11:00', '14:00', '15:00', '16:00', '17:00'].map((t) => (
-                      <button
-                        key={t}
-                        type="button"
-                        onClick={() => setEditMeetingTime(t)}
-                        className={`text-[10px] px-1.5 py-0.5 rounded cursor-pointer font-mono ${
-                          editMeetingTime === t
-                            ? 'bg-blue-600 text-white font-bold'
-                            : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                        }`}
-                      >
-                        {t}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Video Link */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  🔗 Link da Videochamada (Google Meet / Zoom / WhatsApp)
-                </label>
-                <div className="flex gap-1.5">
-                  <input
-                    type="text"
-                    placeholder="https://meet.google.com/xyz ou WhatsApp Video"
-                    value={editMeetingLink}
-                    onChange={(e) => setEditMeetingLink(e.target.value)}
-                    className="flex-1 text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-slate-900"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setEditMeetingLink('https://meet.google.com/new')}
-                    className="px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold rounded-lg transition-colors cursor-pointer shrink-0"
-                    title="Criar nova sala Google Meet"
-                  >
-                    + Novo Meet
-                  </button>
-                </div>
-              </div>
-
-              {/* Status */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Status da Reunião
-                </label>
-                <select
-                  value={editMeetingStatus}
-                  onChange={(e) => setEditMeetingStatus(e.target.value as any)}
-                  className="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-semibold text-slate-900"
-                >
-                  <option value="agendada">📅 Reunião Agendada</option>
-                  <option value="realizada">✅ Reunião Realizada</option>
-                  <option value="remarcada">🔁 Remarcada</option>
-                  <option value="cancelada">❌ Cancelada</option>
-                </select>
-              </div>
-
-              {/* Meeting Notes / Case Study & Profile */}
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                    <Bookmark className="w-3.5 h-3.5 text-blue-600" />
-                    <span>Observações da Reunião (Estudo de Caso & Perfil do Cliente)</span>
-                  </label>
-                </div>
-
-                {/* Quick Snippet Templates */}
-                <div className="flex items-center gap-1.5 mb-2 flex-wrap">
-                  <button
-                    type="button"
-                    onClick={applyCompleteCaseStudyTemplate}
-                    className="text-[10px] bg-blue-100 hover:bg-blue-200 text-blue-900 font-bold px-2.5 py-1 rounded-md cursor-pointer transition-colors flex items-center gap-1"
-                  >
-                    <Sparkles className="w-3 h-3 text-blue-700" />
-                    <span>+ Template Estudo de Caso & Perfil</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleInsertTemplateNote(`• O QUE O CLIENTE TEM:\n- Não tem site próprio.\n- Perfil no Google com boa avaliação e fotos no Instagram.`)}
-                    className="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-1 rounded-md cursor-pointer font-medium"
-                  >
-                    + O que ele tem
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleInsertTemplateNote(`• O QUE VOU FAZER NA REUNIÃO:\n- Demonstrar o site interativo no celular.\n- Destacar o botão de agendamento rápido no WhatsApp.`)}
-                    className="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-1 rounded-md cursor-pointer font-medium"
-                  >
-                    + O que vou fazer
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleInsertTemplateNote(`• PROPOSTA: R$ 697 (ancoragem de R$ 997) + R$ 200/mês suporte Google. Pix 50/50 entrega em 72h.`)}
-                    className="text-[10px] bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-semibold px-2 py-1 rounded-md cursor-pointer"
-                  >
-                    + Valores R$ 697
-                  </button>
-                </div>
-
-                <textarea
-                  rows={7}
-                  value={editMeetingNotes}
-                  onChange={(e) => setEditMeetingNotes(e.target.value)}
-                  placeholder="Escreva tudo sobre o cliente e a reunião:
-- Quem é o cliente e o que ele faz
-- O que ele tem hoje (Google Maps, Instagram, site antigo)
-- As dúvidas levantadas na ligação
-- O que você vai demonstrar no protótipo
-- Pauta e proposta de valores para se organizar..."
-                  className="w-full text-xs p-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-sans leading-relaxed text-slate-900"
-                />
-              </div>
-
-              {/* Form buttons */}
-              <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setEditingMeetingLead(null)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
-                >
-                  Cancelar
-                </button>
-
-                <div className="flex items-center gap-2">
-                  <a
-                    href={buildWhatsAppMeetingLink({
-                      ...editingMeetingLead,
-                      meetingDate: editMeetingDate,
-                      meetingTime: editMeetingTime,
-                      meetingLink: editMeetingLink,
-                    })}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors"
-                  >
-                    <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Confirmar WhatsApp</span>
-                  </a>
-
-                  <button
-                    type="submit"
-                    className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>Salvar Reunião na Agenda</span>
-                  </button>
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>
+        </Card>
       )}
 
-      {/* MODAL: QUICK PICKER TO SELECT ANY LEAD FROM PIPELINE FOR MEETING */}
-      {isQuickPickerOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full p-5 animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
-              <div>
-                <h3 className="text-sm font-bold text-slate-900">
-                  Marcar Reunião para Contato da Pipeline
-                </h3>
-                <p className="text-xs text-slate-500">
-                  Escolha qualquer contato do funil para mover para "Reunião Marcada" e agendar data e pauta:
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsQuickPickerOpen(false)}
-                className="text-slate-400 hover:text-slate-600 p-1 text-xs font-bold cursor-pointer"
+      {viewMode === 'day' && (
+        <Card padding="md" className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--kz-border-subtle)] pb-3">
+            <div>
+              <h3 className="text-sm font-bold text-[var(--kz-text-primary)] capitalize">
+                {new Date(`${selectedDayString}T12:00:00`).toLocaleDateString('pt-BR', {
+                  weekday: 'long',
+                  day: '2-digit',
+                  month: 'long',
+                  year: 'numeric',
+                })}
+              </h3>
+              <p className="text-xs text-[var(--kz-text-muted)]">
+                {selectedDayItems.length} item(ns) programado(s) para esta data.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button size="xs" variant="outline" onClick={() => shiftSelectedDate(-1)}>
+                <ChevronLeft className="w-3.5 h-3.5" /> Anterior
+              </Button>
+              <Button size="xs" variant="outline" onClick={() => shiftSelectedDate(1)}>
+                Próximo <ChevronRight className="w-3.5 h-3.5" />
+              </Button>
+            </div>
+          </div>
+
+          {selectedDayItems.length === 0 ? (
+            <EmptyState
+              icon={<CalendarIcon className="w-5 h-5" />}
+              title="Agenda livre neste dia"
+              description="Nenhum compromisso, reunião, entrega de projeto ou tarefa vencendo nesta data."
+              action={
+                onSaveAgendaEvent ? (
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    leftIcon={<Plus className="w-3.5 h-3.5" />}
+                    onClick={() => {
+                      setEditingAgendaEvent(null);
+                      setDefaultEventClientId(undefined);
+                      setIsEventModalOpen(true);
+                    }}
+                  >
+                    Adicionar Compromisso
+                  </Button>
+                ) : undefined
+              }
+            />
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {selectedDayItems.map((item) => renderAgendaItemCard(item))}
+            </div>
+          )}
+        </Card>
+      )}
+
+      {viewMode === 'list' && (
+        <Card padding="md" className="space-y-4">
+          <div className="flex items-center justify-between border-b border-[var(--kz-border-subtle)] pb-3">
+            <div>
+              <h3 className="text-sm font-bold text-[var(--kz-text-primary)]">
+                Próximos Compromissos & Itens Pendentes ({upcomingAndPendingList.length})
+              </h3>
+              <p className="text-xs text-[var(--kz-text-muted)]">
+                Ordenados cronologicamente combinando Agenda, Projetos, Tarefas e CRM.
+              </p>
+            </div>
+          </div>
+
+          {upcomingAndPendingList.length === 0 ? (
+            <EmptyState
+              icon={<ListOrdered className="w-5 h-5" />}
+              title="Nenhum compromisso futuro ou pendente"
+              description="Crie um novo compromisso ou defina prazos em projetos e tarefas para vê-los aqui."
+            />
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {upcomingAndPendingList.map((item) => renderAgendaItemCard(item))}
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* Standalone AgendaEvent CRUD Modal */}
+      {onSaveAgendaEvent && (
+        <AgendaEventModal
+          isOpen={isEventModalOpen}
+          onClose={() => {
+            setIsEventModalOpen(false);
+            setEditingAgendaEvent(null);
+            setDefaultEventClientId(undefined);
+          }}
+          clients={clients}
+          leads={allLeads || leads}
+          projects={projects}
+          editingEvent={editingAgendaEvent}
+          defaultDate={selectedDayString}
+          defaultClientId={defaultEventClientId}
+          onSaveEvent={onSaveAgendaEvent}
+          onDeleteEvent={onDeleteAgendaEvent}
+        />
+      )}
+
+      {/* CRM Lead Meeting Modal */}
+      {editingMeetingLead && (
+        <Modal
+          isOpen
+          onClose={() => setEditingMeetingLead(null)}
+          size="lg"
+          title={`Reunião Comercial — ${editingMeetingLead.companyName}`}
+          subtitle={`${editingMeetingLead.contactName || 'Responsável'} · ${formatDisplayPhone(
+            editingMeetingLead.phone
+          )}`}
+          footer={
+            <>
+              <Button variant="ghost" onClick={() => setEditingMeetingLead(null)}>
+                Cancelar
+              </Button>
+              <a
+                href={buildWhatsAppMeetingLink({
+                  ...editingMeetingLead,
+                  meetingDate: editMeetingDate,
+                  meetingTime: editMeetingTime,
+                  meetingLink: editMeetingLink,
+                })}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 h-8 px-3 text-xs font-semibold rounded-lg bg-[var(--kz-success-bg)] text-[var(--kz-success-text)] border border-[var(--kz-success-border)]"
               >
-                ✕
-              </button>
+                <MessageCircle className="w-3.5 h-3.5" />
+                <span>Confirmar WhatsApp</span>
+              </a>
+              <Button type="submit" form="crm-meeting-form" variant="primary">
+                Salvar Reunião
+              </Button>
+            </>
+          }
+        >
+          <form id="crm-meeting-form" onSubmit={handleSaveMeeting} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <Input
+                label="Data *"
+                type="date"
+                value={editMeetingDate}
+                onChange={(e) => setEditMeetingDate(e.target.value)}
+                required
+                className="font-mono"
+              />
+              <Input
+                label="Horário *"
+                type="time"
+                value={editMeetingTime}
+                onChange={(e) => setEditMeetingTime(e.target.value)}
+                required
+                className="font-mono"
+              />
+              <Select
+                label="Status"
+                value={editMeetingStatus}
+                onChange={(e) =>
+                  setEditMeetingStatus(
+                    e.target.value as 'agendada' | 'realizada' | 'remarcada' | 'cancelada'
+                  )
+                }
+              >
+                <option value="agendada">Agendada</option>
+                <option value="realizada">Realizada</option>
+                <option value="remarcada">Remarcada</option>
+                <option value="cancelada">Cancelada</option>
+              </Select>
             </div>
 
-            <div className="relative mb-3">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Buscar por nome da empresa, contato ou telefone..."
-                value={quickSearchTerm}
-                onChange={(e) => setQuickSearchTerm(e.target.value)}
-                className="w-full text-xs pl-8 pr-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                autoFocus
+            <Input
+              label="Link da Reunião (Meet / Zoom)"
+              value={editMeetingLink}
+              onChange={(e) => setEditMeetingLink(e.target.value)}
+              placeholder="https://meet.google.com/..."
+              className="font-mono"
+            />
+
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="kz-label flex items-center gap-1.5">
+                  <Bookmark className="w-3.5 h-3.5 text-[var(--kz-accent)]" />
+                  <span>Pauta / Estudo de Caso</span>
+                </label>
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="outline"
+                  leftIcon={<Sparkles className="w-3 h-3" />}
+                  onClick={() =>
+                    setEditMeetingNotes(
+                      `• PERFIL: ${editingMeetingLead.companyName} (${
+                        editingMeetingLead.city || niche.city
+                      })\n• OPORTUNIDADE: Site responsivo + WhatsApp + Google Business Profile.\n• PROPOSTA: Setup + recorrência mensal.`
+                    )
+                  }
+                >
+                  Inserir Roteiro
+                </Button>
+              </div>
+              <textarea
+                rows={5}
+                value={editMeetingNotes}
+                onChange={(e) => setEditMeetingNotes(e.target.value)}
+                className="w-full text-xs p-3 bg-[var(--kz-bg-subtle)] border border-[var(--kz-border-default)] rounded-xl text-[var(--kz-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--kz-accent)]"
               />
             </div>
 
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[var(--kz-border-subtle)]">
+              <Button
+                type="button"
+                size="xs"
+                variant="outline"
+                leftIcon={<DollarSign className="w-3 h-3" />}
+                onClick={() => {
+                  onMoveStage(editingMeetingLead.id, 'fechado');
+                  setEditingMeetingLead(null);
+                }}
+              >
+                Marcar Venda Fechada
+              </Button>
+              <Button
+                type="button"
+                size="xs"
+                variant="ghost"
+                leftIcon={<RotateCcw className="w-3 h-3" />}
+                onClick={() => {
+                  onMoveStage(editingMeetingLead.id, 'follow_up_1');
+                  setEditingMeetingLead(null);
+                }}
+              >
+                Mover p/ Follow-up
+              </Button>
+              <Button
+                type="button"
+                size="xs"
+                variant="ghost"
+                leftIcon={<FileText className="w-3 h-3" />}
+                onClick={() => {
+                  onOpenLeadModal(editingMeetingLead);
+                  setEditingMeetingLead(null);
+                }}
+              >
+                Abrir Ficha do Lead
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* Quick Lead Meeting Picker */}
+      {isQuickPickerOpen && (
+        <Modal
+          isOpen
+          onClose={() => setIsQuickPickerOpen(false)}
+          size="md"
+          title="Marcar Reunião para Lead do CRM"
+          subtitle="Move o lead para Reunião Marcada e abre o agendamento de data/pauta."
+        >
+          <div className="space-y-3">
+            <Input
+              value={quickSearchTerm}
+              onChange={(e) => setQuickSearchTerm(e.target.value)}
+              placeholder="Buscar lead por empresa, contato ou telefone..."
+              leftIcon={<Search className="w-3.5 h-3.5" />}
+            />
             <div className="max-h-72 overflow-y-auto space-y-1.5 pr-1">
               {filteredQuickPickers.slice(0, 15).map((l) => (
-                <div
+                <button
                   key={l.id}
+                  type="button"
                   onClick={() => handleSelectLeadForMeeting(l)}
-                  className="p-2.5 rounded-xl hover:bg-blue-50/70 border border-slate-200 hover:border-blue-300 transition-colors flex items-center justify-between group cursor-pointer"
+                  className="w-full text-left p-2.5 rounded-xl bg-[var(--kz-bg-subtle)] hover:bg-[var(--kz-bg-muted)] border border-[var(--kz-border-subtle)] flex items-center justify-between gap-2 cursor-pointer"
                 >
-                  <div className="truncate pr-2">
-                    <p className="text-xs font-bold text-slate-900 group-hover:text-blue-600 truncate">
+                  <div className="min-w-0">
+                    <div className="text-xs font-bold text-[var(--kz-text-primary)] truncate">
                       {l.companyName}
-                    </p>
-                    <p className="text-[11px] text-slate-500 truncate">
-                      {l.contactName || 'Sem contato'} • {formatDisplayPhone(l.phone)} • {l.city || niche.city}
-                    </p>
+                    </div>
+                    <div className="text-[11px] text-[var(--kz-text-muted)] truncate">
+                      {l.contactName || 'Contato'} · {formatDisplayPhone(l.phone)}
+                    </div>
                   </div>
-                  <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 group-hover:bg-emerald-600 group-hover:text-white px-2.5 py-1 rounded-lg border border-emerald-200 shrink-0 transition-colors">
-                    + Agendar Reunião
-                  </span>
-                </div>
+                  <Badge variant="success" size="sm">
+                    + Agendar
+                  </Badge>
+                </button>
               ))}
               {filteredQuickPickers.length === 0 && (
-                <p className="text-xs text-slate-400 text-center py-6">
-                  Nenhum contato encontrado na pipeline com esse nome.
-                </p>
+                <div className="py-6 text-center text-xs text-[var(--kz-text-muted)]">
+                  Nenhum lead disponível encontrado.
+                </div>
               )}
             </div>
-
-            <div className="pt-3 border-t border-slate-100 flex items-center justify-end">
-              <button
-                type="button"
-                onClick={() => setIsQuickPickerOpen(false)}
-                className="px-3.5 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
-              >
-                Fechar
-              </button>
-            </div>
           </div>
-        </div>
+        </Modal>
       )}
 
-      {/* MODAL: EDIT CALLBACK DETAILS (Ligar Mais Tarde) */}
+      {/* CRM Callback Editor Modal */}
       {editingCallbackLead && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full max-h-[92vh] overflow-y-auto animate-in fade-in zoom-in-95">
-            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white z-10">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 bg-amber-100 text-amber-800 rounded-xl flex items-center justify-center font-bold shrink-0">
-                  <PhoneCall className="w-5 h-5 text-amber-700" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900 truncate max-w-[280px]">
-                    Ligar Mais Tarde: {editingCallbackLead.companyName}
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    {editingCallbackLead.contactName || 'Responsável'} • {formatDisplayPhone(editingCallbackLead.phone)} • {editingCallbackLead.city || niche.city}
-                  </p>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setEditingCallbackLead(null)}
-                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer text-xs font-bold"
+        <Modal
+          isOpen
+          onClose={() => setEditingCallbackLead(null)}
+          size="md"
+          title={`Retorno CRM — ${editingCallbackLead.companyName}`}
+          footer={
+            <div className="w-full flex items-center justify-between gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-[var(--kz-danger-text)]"
+                onClick={() => handleRemoveCallback(editingCallbackLead)}
               >
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveCallback} className="p-4 sm:p-6 space-y-4">
-              {/* Quick time shortcuts */}
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-700 mb-1.5">
-                  Atalhos de Horário Rápido:
-                </label>
-                <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditCallbackDate(todayDateString);
-                      const now = new Date();
-                      const nextH = (now.getHours() + 1) % 24;
-                      setEditCallbackTime(`${String(nextH).padStart(2, '0')}:00`);
-                    }}
-                    className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-lg font-semibold cursor-pointer"
-                  >
-                    Hoje +1 hora
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditCallbackDate(todayDateString);
-                      setEditCallbackTime('15:00');
-                    }}
-                    className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-lg font-semibold cursor-pointer"
-                  >
-                    Hoje às 15:00
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditCallbackDate(todayDateString);
-                      setEditCallbackTime('17:00');
-                    }}
-                    className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-lg font-semibold cursor-pointer"
-                  >
-                    Hoje às 17:00
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const tom = new Date();
-                      tom.setDate(tom.getDate() + 1);
-                      setEditCallbackDate(tom.toISOString().split('T')[0]);
-                      setEditCallbackTime('09:30');
-                    }}
-                    className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-lg font-semibold cursor-pointer"
-                  >
-                    Amanhã às 09:30
-                  </button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Data do Retorno *
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={editCallbackDate}
-                    onChange={(e) => setEditCallbackDate(e.target.value)}
-                    className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 font-mono font-bold"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Horário Previsto *
-                  </label>
-                  <input
-                    type="time"
-                    required
-                    value={editCallbackTime}
-                    onChange={(e) => setEditCallbackTime(e.target.value)}
-                    className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 font-mono font-bold"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Motivo / Observação do Cliente *
-                </label>
-                <textarea
-                  rows={2}
-                  value={editCallbackNotes}
-                  onChange={(e) => setEditCallbackNotes(e.target.value)}
-                  placeholder="Ex: Está em atendimento agora. Pediu para ligar às 16h pois o médico já estará livre."
-                  className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Status do Retorno
-                </label>
-                <select
-                  value={editCallbackStatus}
-                  onChange={(e) => setEditCallbackStatus(e.target.value as any)}
-                  className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 font-semibold"
-                >
-                  <option value="pendente">⏳ Pendente (Aguardando horário)</option>
-                  <option value="realizado">✅ Realizado (Contato efetuado)</option>
-                  <option value="cancelado">❌ Cancelado</option>
-                </select>
-              </div>
-
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-                <button
-                  type="button"
-                  onClick={() => handleRemoveCallback(editingCallbackLead)}
-                  className="px-3 py-1.5 text-xs text-rose-600 hover:bg-rose-50 rounded-lg font-semibold transition-colors cursor-pointer"
-                >
-                  Excluir Retorno
-                </button>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setEditingCallbackLead(null)}
-                    className="px-3 py-2 text-xs text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-xs flex items-center gap-1.5"
-                  >
-                    <Check className="w-4 h-4" />
-                    <span>Salvar Retorno</span>
-                  </button>
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL: PICK ANY LEAD FROM CAMPAIGN TO SCHEDULE CALLBACK */}
-      {isCallbackPickerOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full p-5 animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+                Remover Retorno
+              </Button>
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center">
-                  <PhoneCall className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900">
-                    Agendar Retorno (Ligar Mais Tarde)
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    Selecione o contato que pediu para você ligar em outro horário:
-                  </p>
-                </div>
+                <Button variant="ghost" onClick={() => setEditingCallbackLead(null)}>
+                  Cancelar
+                </Button>
+                <Button type="submit" form="crm-callback-form" variant="primary">
+                  Salvar Retorno
+                </Button>
               </div>
-              <button
-                type="button"
-                onClick={() => setIsCallbackPickerOpen(false)}
-                className="text-slate-400 hover:text-slate-600 p-1 text-xs font-bold cursor-pointer"
-              >
-                ✕
-              </button>
             </div>
-
-            <div className="relative mb-3">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Buscar por empresa, responsável ou telefone..."
-                value={callbackPickerSearch}
-                onChange={(e) => setCallbackPickerSearch(e.target.value)}
-                className="w-full text-xs pl-8 pr-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
-                autoFocus
+          }
+        >
+          <form id="crm-callback-form" onSubmit={handleSaveCallback} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <Input
+                label="Data *"
+                type="date"
+                value={editCallbackDate}
+                onChange={(e) => setEditCallbackDate(e.target.value)}
+                required
+                className="font-mono"
+              />
+              <Input
+                label="Horário *"
+                type="time"
+                value={editCallbackTime}
+                onChange={(e) => setEditCallbackTime(e.target.value)}
+                required
+                className="font-mono"
+              />
+              <Select
+                label="Status"
+                value={editCallbackStatus}
+                onChange={(e) =>
+                  setEditCallbackStatus(
+                    e.target.value as 'pendente' | 'realizado' | 'cancelado'
+                  )
+                }
+              >
+                <option value="pendente">Pendente</option>
+                <option value="realizado">Realizado</option>
+                <option value="cancelado">Cancelado</option>
+              </Select>
+            </div>
+            <div>
+              <label className="kz-label mb-1 block">Observação do Retorno</label>
+              <textarea
+                rows={3}
+                value={editCallbackNotes}
+                onChange={(e) => setEditCallbackNotes(e.target.value)}
+                className="w-full text-xs p-3 bg-[var(--kz-bg-subtle)] border border-[var(--kz-border-default)] rounded-xl text-[var(--kz-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--kz-accent)]"
               />
             </div>
+          </form>
+        </Modal>
+      )}
 
+      {/* Callback Picker Modal */}
+      {isCallbackPickerOpen && (
+        <Modal
+          isOpen
+          onClose={() => setIsCallbackPickerOpen(false)}
+          size="md"
+          title="Agendar Retorno (Ligar Mais Tarde)"
+        >
+          <div className="space-y-3">
+            <Input
+              value={callbackPickerSearch}
+              onChange={(e) => setCallbackPickerSearch(e.target.value)}
+              placeholder="Buscar lead por empresa, contato ou telefone..."
+              leftIcon={<Search className="w-3.5 h-3.5" />}
+            />
             <div className="max-h-72 overflow-y-auto space-y-1.5 pr-1">
               {filteredCallbackPickers.slice(0, 15).map((l) => (
-                <div
+                <button
                   key={l.id}
-                  onClick={() => handleSelectLeadForCallback(l)}
-                  className="p-2.5 rounded-xl hover:bg-amber-50/70 border border-slate-200 hover:border-amber-300 transition-colors flex items-center justify-between group cursor-pointer"
+                  type="button"
+                  onClick={() => {
+                    setIsCallbackPickerOpen(false);
+                    handleOpenCallbackEditor(l);
+                  }}
+                  className="w-full text-left p-2.5 rounded-xl bg-[var(--kz-bg-subtle)] hover:bg-[var(--kz-bg-muted)] border border-[var(--kz-border-subtle)] flex items-center justify-between gap-2 cursor-pointer"
                 >
-                  <div className="truncate pr-2">
-                    <p className="text-xs font-bold text-slate-900 group-hover:text-amber-700 truncate">
+                  <div className="min-w-0">
+                    <div className="text-xs font-bold text-[var(--kz-text-primary)] truncate">
                       {l.companyName}
-                    </p>
-                    <p className="text-[11px] text-slate-500 truncate">
-                      {l.contactName || 'Sem contato'} • {formatDisplayPhone(l.phone)} • {l.city || niche.city}
-                    </p>
+                    </div>
+                    <div className="text-[11px] text-[var(--kz-text-muted)] truncate">
+                      {l.contactName || 'Contato'} · {formatDisplayPhone(l.phone)}
+                    </div>
                   </div>
-                  <span className="text-[11px] font-bold text-amber-800 bg-amber-100 group-hover:bg-amber-600 group-hover:text-white px-2.5 py-1 rounded-lg border border-amber-300 shrink-0 transition-colors flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
-                    <span>Ligar Mais Tarde</span>
-                  </span>
-                </div>
+                  <Badge variant="warning" size="sm">
+                    + Retorno
+                  </Badge>
+                </button>
               ))}
-              {filteredCallbackPickers.length === 0 && (
-                <p className="text-xs text-slate-400 text-center py-6">
-                  Nenhum contato encontrado com esse nome.
-                </p>
-              )}
-            </div>
-
-            <div className="pt-3 border-t border-slate-100 flex items-center justify-end">
-              <button
-                type="button"
-                onClick={() => setIsCallbackPickerOpen(false)}
-                className="px-3.5 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
-              >
-                Fechar
-              </button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

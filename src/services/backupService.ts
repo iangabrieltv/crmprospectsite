@@ -1,4 +1,28 @@
 import { ImportedSheet, Lead, NicheCampaign, normalizeStageId } from '../types/crm';
+import {
+  AgendaEvent,
+  Client,
+  Project,
+  ProposalContract,
+  SocialChannel,
+  SocialPost,
+  Task,
+} from '../types/kaizen';
+import {
+  FinancialAuditLog,
+  FinancialCategory,
+  FinancialEntry,
+  FinancialRecurrence,
+  FinancialSettings,
+  FinancialTransaction,
+} from '../types/finance';
+import {
+  CommercialScript,
+  ModelTemplate,
+  ResourceCategory,
+  ResourceFile,
+  ResourceFolder,
+} from '../types/resources';
 import { APP_ENV, WORKSPACE_ID, firebaseConfig } from '../config/env';
 import { cleanPhoneForWhatsApp } from '../utils/phone';
 
@@ -15,6 +39,23 @@ export interface BackupCounts {
   niches: number;
   leads: number;
   importedSheets: number;
+  clients?: number;
+  proposals?: number;
+  projects?: number;
+  tasks?: number;
+  agendaEvents?: number;
+  socialChannels?: number;
+  socialPosts?: number;
+  financialEntries?: number;
+  financialTransactions?: number;
+  financialCategories?: number;
+  financialRecurrences?: number;
+  financialAuditLogs?: number;
+  resourceFiles?: number;
+  resourceFolders?: number;
+  resourceCategories?: number;
+  commercialScripts?: number;
+  modelTemplates?: number;
 }
 
 export interface CompleteBackupData {
@@ -27,6 +68,24 @@ export interface CompleteBackupData {
   niches: NicheCampaign[];
   leads: Lead[];
   importedSheets: ImportedSheet[];
+  clients?: Client[];
+  proposals?: ProposalContract[];
+  projects?: Project[];
+  tasks?: Task[];
+  agendaEvents?: AgendaEvent[];
+  socialChannels?: SocialChannel[];
+  socialPosts?: SocialPost[];
+  financialEntries?: FinancialEntry[];
+  financialTransactions?: FinancialTransaction[];
+  financialCategories?: FinancialCategory[];
+  financialRecurrences?: FinancialRecurrence[];
+  financialSettings?: FinancialSettings;
+  financialAuditLogs?: FinancialAuditLog[];
+  resourceFiles?: ResourceFile[];
+  resourceFolders?: ResourceFolder[];
+  resourceCategories?: ResourceCategory[];
+  commercialScripts?: CommercialScript[];
+  modelTemplates?: ModelTemplate[];
 }
 
 export interface BackupValidationResult {
@@ -69,6 +128,24 @@ export function computeBackupIntegrityHash(payload: {
   niches: NicheCampaign[];
   leads: Lead[];
   importedSheets: ImportedSheet[];
+  clients?: Client[];
+  proposals?: ProposalContract[];
+  projects?: Project[];
+  tasks?: Task[];
+  agendaEvents?: AgendaEvent[];
+  socialChannels?: SocialChannel[];
+  socialPosts?: SocialPost[];
+  financialEntries?: FinancialEntry[];
+  financialTransactions?: FinancialTransaction[];
+  financialCategories?: FinancialCategory[];
+  financialRecurrences?: FinancialRecurrence[];
+  financialSettings?: FinancialSettings;
+  financialAuditLogs?: FinancialAuditLog[];
+  resourceFiles?: ResourceFile[];
+  resourceFolders?: ResourceFolder[];
+  resourceCategories?: ResourceCategory[];
+  commercialScripts?: CommercialScript[];
+  modelTemplates?: ModelTemplate[];
 }): string {
   const canonical = JSON.stringify({
     version: payload.version,
@@ -79,6 +156,44 @@ export function computeBackupIntegrityHash(payload: {
     niches: payload.niches,
     leads: payload.leads,
     importedSheets: payload.importedSheets,
+    ...(payload.clients !== undefined ? { clients: payload.clients } : {}),
+    ...(payload.proposals !== undefined ? { proposals: payload.proposals } : {}),
+    ...(payload.projects !== undefined ? { projects: payload.projects } : {}),
+    ...(payload.tasks !== undefined ? { tasks: payload.tasks } : {}),
+    ...(payload.agendaEvents !== undefined ? { agendaEvents: payload.agendaEvents } : {}),
+    ...(payload.socialChannels !== undefined
+      ? { socialChannels: payload.socialChannels }
+      : {}),
+    ...(payload.socialPosts !== undefined ? { socialPosts: payload.socialPosts } : {}),
+    ...(payload.financialEntries !== undefined
+      ? { financialEntries: payload.financialEntries }
+      : {}),
+    ...(payload.financialTransactions !== undefined
+      ? { financialTransactions: payload.financialTransactions }
+      : {}),
+    ...(payload.financialCategories !== undefined
+      ? { financialCategories: payload.financialCategories }
+      : {}),
+    ...(payload.financialRecurrences !== undefined
+      ? { financialRecurrences: payload.financialRecurrences }
+      : {}),
+    ...(payload.financialSettings !== undefined
+      ? { financialSettings: payload.financialSettings }
+      : {}),
+    ...(payload.financialAuditLogs !== undefined
+      ? { financialAuditLogs: payload.financialAuditLogs }
+      : {}),
+    ...(payload.resourceFiles !== undefined ? { resourceFiles: payload.resourceFiles } : {}),
+    ...(payload.resourceFolders !== undefined
+      ? { resourceFolders: payload.resourceFolders }
+      : {}),
+    ...(payload.resourceCategories !== undefined
+      ? { resourceCategories: payload.resourceCategories }
+      : {}),
+    ...(payload.commercialScripts !== undefined
+      ? { commercialScripts: payload.commercialScripts }
+      : {}),
+    ...(payload.modelTemplates !== undefined ? { modelTemplates: payload.modelTemplates } : {}),
   });
 
   let h1 = 0x811c9dc5;
@@ -96,13 +211,31 @@ export function computeBackupIntegrityHash(payload: {
 }
 
 /**
- * Builds a complete, integrity-checked v3.0 JSON backup including leads, niches, scripts,
- * histories, meetings, callbacks, and importedSheets (without exposing any credentials).
+ * Builds a complete, integrity-checked v3.0 JSON backup including CRM, Clientes,
+ * Propostas, Projetos, Tarefas, Agenda Integrada e Redes Sociais (sem credenciais).
  */
 export function buildCompleteBackupData(params: {
   niches: NicheCampaign[];
   leads: Lead[];
   importedSheets: ImportedSheet[];
+  clients?: Client[];
+  proposals?: ProposalContract[];
+  projects?: Project[];
+  tasks?: Task[];
+  agendaEvents?: AgendaEvent[];
+  socialChannels?: SocialChannel[];
+  socialPosts?: SocialPost[];
+  financialEntries?: FinancialEntry[];
+  financialTransactions?: FinancialTransaction[];
+  financialCategories?: FinancialCategory[];
+  financialRecurrences?: FinancialRecurrence[];
+  financialSettings?: FinancialSettings;
+  financialAuditLogs?: FinancialAuditLog[];
+  resourceFiles?: ResourceFile[];
+  resourceFolders?: ResourceFolder[];
+  resourceCategories?: ResourceCategory[];
+  commercialScripts?: CommercialScript[];
+  modelTemplates?: ModelTemplate[];
   userName: string;
   exportedAt?: string;
 }): CompleteBackupData {
@@ -117,6 +250,49 @@ export function buildCompleteBackupData(params: {
     niches: params.niches.length,
     leads: params.leads.length,
     importedSheets: params.importedSheets.length,
+    ...(params.clients !== undefined ? { clients: params.clients.length } : {}),
+    ...(params.proposals !== undefined ? { proposals: params.proposals.length } : {}),
+    ...(params.projects !== undefined ? { projects: params.projects.length } : {}),
+    ...(params.tasks !== undefined ? { tasks: params.tasks.length } : {}),
+    ...(params.agendaEvents !== undefined
+      ? { agendaEvents: params.agendaEvents.length }
+      : {}),
+    ...(params.socialChannels !== undefined
+      ? { socialChannels: params.socialChannels.length }
+      : {}),
+    ...(params.socialPosts !== undefined
+      ? { socialPosts: params.socialPosts.length }
+      : {}),
+    ...(params.financialEntries !== undefined
+      ? { financialEntries: params.financialEntries.length }
+      : {}),
+    ...(params.financialTransactions !== undefined
+      ? { financialTransactions: params.financialTransactions.length }
+      : {}),
+    ...(params.financialCategories !== undefined
+      ? { financialCategories: params.financialCategories.length }
+      : {}),
+    ...(params.financialRecurrences !== undefined
+      ? { financialRecurrences: params.financialRecurrences.length }
+      : {}),
+    ...(params.financialAuditLogs !== undefined
+      ? { financialAuditLogs: params.financialAuditLogs.length }
+      : {}),
+    ...(params.resourceFiles !== undefined
+      ? { resourceFiles: params.resourceFiles.length }
+      : {}),
+    ...(params.resourceFolders !== undefined
+      ? { resourceFolders: params.resourceFolders.length }
+      : {}),
+    ...(params.resourceCategories !== undefined
+      ? { resourceCategories: params.resourceCategories.length }
+      : {}),
+    ...(params.commercialScripts !== undefined
+      ? { commercialScripts: params.commercialScripts.length }
+      : {}),
+    ...(params.modelTemplates !== undefined
+      ? { modelTemplates: params.modelTemplates.length }
+      : {}),
   };
 
   const basePayload = {
@@ -128,6 +304,44 @@ export function buildCompleteBackupData(params: {
     niches: params.niches,
     leads: params.leads,
     importedSheets: params.importedSheets,
+    ...(params.clients !== undefined ? { clients: params.clients } : {}),
+    ...(params.proposals !== undefined ? { proposals: params.proposals } : {}),
+    ...(params.projects !== undefined ? { projects: params.projects } : {}),
+    ...(params.tasks !== undefined ? { tasks: params.tasks } : {}),
+    ...(params.agendaEvents !== undefined ? { agendaEvents: params.agendaEvents } : {}),
+    ...(params.socialChannels !== undefined
+      ? { socialChannels: params.socialChannels }
+      : {}),
+    ...(params.socialPosts !== undefined ? { socialPosts: params.socialPosts } : {}),
+    ...(params.financialEntries !== undefined
+      ? { financialEntries: params.financialEntries }
+      : {}),
+    ...(params.financialTransactions !== undefined
+      ? { financialTransactions: params.financialTransactions }
+      : {}),
+    ...(params.financialCategories !== undefined
+      ? { financialCategories: params.financialCategories }
+      : {}),
+    ...(params.financialRecurrences !== undefined
+      ? { financialRecurrences: params.financialRecurrences }
+      : {}),
+    ...(params.financialSettings !== undefined
+      ? { financialSettings: params.financialSettings }
+      : {}),
+    ...(params.financialAuditLogs !== undefined
+      ? { financialAuditLogs: params.financialAuditLogs }
+      : {}),
+    ...(params.resourceFiles !== undefined ? { resourceFiles: params.resourceFiles } : {}),
+    ...(params.resourceFolders !== undefined
+      ? { resourceFolders: params.resourceFolders }
+      : {}),
+    ...(params.resourceCategories !== undefined
+      ? { resourceCategories: params.resourceCategories }
+      : {}),
+    ...(params.commercialScripts !== undefined
+      ? { commercialScripts: params.commercialScripts }
+      : {}),
+    ...(params.modelTemplates !== undefined ? { modelTemplates: params.modelTemplates } : {}),
   };
 
   return {
@@ -140,6 +354,24 @@ export function serializeCompleteBackupJson(params: {
   niches: NicheCampaign[];
   leads: Lead[];
   importedSheets: ImportedSheet[];
+  clients?: Client[];
+  proposals?: ProposalContract[];
+  projects?: Project[];
+  tasks?: Task[];
+  agendaEvents?: AgendaEvent[];
+  socialChannels?: SocialChannel[];
+  socialPosts?: SocialPost[];
+  financialEntries?: FinancialEntry[];
+  financialTransactions?: FinancialTransaction[];
+  financialCategories?: FinancialCategory[];
+  financialRecurrences?: FinancialRecurrence[];
+  financialSettings?: FinancialSettings;
+  financialAuditLogs?: FinancialAuditLog[];
+  resourceFiles?: ResourceFile[];
+  resourceFolders?: ResourceFolder[];
+  resourceCategories?: ResourceCategory[];
+  commercialScripts?: CommercialScript[];
+  modelTemplates?: ModelTemplate[];
   userName: string;
 }): string {
   return JSON.stringify(buildCompleteBackupData(params), null, 2);
@@ -225,6 +457,27 @@ export function parseAndValidateBackup(jsonString: string): BackupValidationResu
     }
   }
 
+  const hasClientsField = Array.isArray(obj.clients);
+  const hasProposalsField = Array.isArray(obj.proposals);
+  const hasProjectsField = Array.isArray(obj.projects);
+  const hasTasksField = Array.isArray(obj.tasks);
+  const hasAgendaEventsField = Array.isArray(obj.agendaEvents);
+  const hasSocialChannelsField = Array.isArray(obj.socialChannels);
+  const hasSocialPostsField = Array.isArray(obj.socialPosts);
+  const hasFinancialEntriesField = Array.isArray(obj.financialEntries);
+  const hasFinancialTransactionsField = Array.isArray(obj.financialTransactions);
+  const hasFinancialCategoriesField = Array.isArray(obj.financialCategories);
+  const hasFinancialRecurrencesField = Array.isArray(obj.financialRecurrences);
+  const hasFinancialSettingsField = Boolean(
+    obj.financialSettings && typeof obj.financialSettings === 'object'
+  );
+  const hasFinancialAuditLogsField = Array.isArray(obj.financialAuditLogs);
+  const hasResourceFilesField = Array.isArray(obj.resourceFiles);
+  const hasResourceFoldersField = Array.isArray(obj.resourceFolders);
+  const hasResourceCategoriesField = Array.isArray(obj.resourceCategories);
+  const hasCommercialScriptsField = Array.isArray(obj.commercialScripts);
+  const hasModelTemplatesField = Array.isArray(obj.modelTemplates);
+
   const normalizedData: CompleteBackupData = {
     version,
     exportedAt: typeof obj.exportedAt === 'string' ? obj.exportedAt : new Date().toISOString(),
@@ -243,6 +496,78 @@ export function parseAndValidateBackup(jsonString: string): BackupValidationResu
       notes: Array.isArray(l.notes) ? l.notes : [],
     })),
     importedSheets: importedSheetsRaw as ImportedSheet[],
+    ...(hasClientsField
+      ? {
+          clients: (obj.clients as Client[]).map((c) => ({
+            ...c,
+            timeline: Array.isArray(c.timeline) ? c.timeline : [],
+          })),
+        }
+      : {}),
+    ...(hasProposalsField
+      ? {
+          proposals: (obj.proposals as ProposalContract[]).map((p) => ({
+            ...p,
+            items: Array.isArray(p.items) ? p.items : [],
+            history: Array.isArray(p.history) ? p.history : [],
+          })),
+        }
+      : {}),
+    ...(hasProjectsField
+      ? {
+          projects: (obj.projects as Project[]).map((proj) => ({
+            ...proj,
+            documents: Array.isArray(proj.documents) ? proj.documents : [],
+            history: Array.isArray(proj.history) ? proj.history : [],
+          })),
+        }
+      : {}),
+    ...(hasTasksField
+      ? {
+          tasks: (obj.tasks as Task[]).map((t) => ({
+            ...t,
+            checklist: Array.isArray(t.checklist) ? t.checklist : [],
+          })),
+        }
+      : {}),
+    ...(hasAgendaEventsField
+      ? { agendaEvents: obj.agendaEvents as AgendaEvent[] }
+      : {}),
+    ...(hasSocialChannelsField
+      ? { socialChannels: obj.socialChannels as SocialChannel[] }
+      : {}),
+    ...(hasSocialPostsField ? { socialPosts: obj.socialPosts as SocialPost[] } : {}),
+    ...(hasFinancialEntriesField
+      ? { financialEntries: obj.financialEntries as FinancialEntry[] }
+      : {}),
+    ...(hasFinancialTransactionsField
+      ? { financialTransactions: obj.financialTransactions as FinancialTransaction[] }
+      : {}),
+    ...(hasFinancialCategoriesField
+      ? { financialCategories: obj.financialCategories as FinancialCategory[] }
+      : {}),
+    ...(hasFinancialRecurrencesField
+      ? { financialRecurrences: obj.financialRecurrences as FinancialRecurrence[] }
+      : {}),
+    ...(hasFinancialSettingsField
+      ? { financialSettings: obj.financialSettings as FinancialSettings }
+      : {}),
+    ...(hasFinancialAuditLogsField
+      ? { financialAuditLogs: obj.financialAuditLogs as FinancialAuditLog[] }
+      : {}),
+    ...(hasResourceFilesField ? { resourceFiles: obj.resourceFiles as ResourceFile[] } : {}),
+    ...(hasResourceFoldersField
+      ? { resourceFolders: obj.resourceFolders as ResourceFolder[] }
+      : {}),
+    ...(hasResourceCategoriesField
+      ? { resourceCategories: obj.resourceCategories as ResourceCategory[] }
+      : {}),
+    ...(hasCommercialScriptsField
+      ? { commercialScripts: obj.commercialScripts as CommercialScript[] }
+      : {}),
+    ...(hasModelTemplatesField
+      ? { modelTemplates: obj.modelTemplates as ModelTemplate[] }
+      : {}),
   };
 
   if (version === '3.0' && normalizedData.integrityHash) {
@@ -255,6 +580,38 @@ export function parseAndValidateBackup(jsonString: string): BackupValidationResu
       niches: normalizedData.niches,
       leads: normalizedData.leads,
       importedSheets: normalizedData.importedSheets,
+      ...(hasClientsField ? { clients: normalizedData.clients } : {}),
+      ...(hasProposalsField ? { proposals: normalizedData.proposals } : {}),
+      ...(hasProjectsField ? { projects: normalizedData.projects } : {}),
+      ...(hasTasksField ? { tasks: normalizedData.tasks } : {}),
+      ...(hasAgendaEventsField ? { agendaEvents: normalizedData.agendaEvents } : {}),
+      ...(hasSocialChannelsField ? { socialChannels: normalizedData.socialChannels } : {}),
+      ...(hasSocialPostsField ? { socialPosts: normalizedData.socialPosts } : {}),
+      ...(hasFinancialEntriesField ? { financialEntries: normalizedData.financialEntries } : {}),
+      ...(hasFinancialTransactionsField
+        ? { financialTransactions: normalizedData.financialTransactions }
+        : {}),
+      ...(hasFinancialCategoriesField
+        ? { financialCategories: normalizedData.financialCategories }
+        : {}),
+      ...(hasFinancialRecurrencesField
+        ? { financialRecurrences: normalizedData.financialRecurrences }
+        : {}),
+      ...(hasFinancialSettingsField
+        ? { financialSettings: normalizedData.financialSettings }
+        : {}),
+      ...(hasFinancialAuditLogsField
+        ? { financialAuditLogs: normalizedData.financialAuditLogs }
+        : {}),
+      ...(hasResourceFilesField ? { resourceFiles: normalizedData.resourceFiles } : {}),
+      ...(hasResourceFoldersField ? { resourceFolders: normalizedData.resourceFolders } : {}),
+      ...(hasResourceCategoriesField
+        ? { resourceCategories: normalizedData.resourceCategories }
+        : {}),
+      ...(hasCommercialScriptsField
+        ? { commercialScripts: normalizedData.commercialScripts }
+        : {}),
+      ...(hasModelTemplatesField ? { modelTemplates: normalizedData.modelTemplates } : {}),
     });
     if (expectedHash !== normalizedData.integrityHash) {
       return {
@@ -270,7 +627,51 @@ export function parseAndValidateBackup(jsonString: string): BackupValidationResu
     normalizedData.counts &&
     (normalizedData.counts.leads !== normalizedData.leads.length ||
       normalizedData.counts.niches !== normalizedData.niches.length ||
-      normalizedData.counts.importedSheets !== normalizedData.importedSheets.length)
+      normalizedData.counts.importedSheets !== normalizedData.importedSheets.length ||
+      (normalizedData.counts.clients !== undefined &&
+        normalizedData.counts.clients !== (normalizedData.clients?.length ?? 0)) ||
+      (normalizedData.counts.proposals !== undefined &&
+        normalizedData.counts.proposals !== (normalizedData.proposals?.length ?? 0)) ||
+      (normalizedData.counts.projects !== undefined &&
+        normalizedData.counts.projects !== (normalizedData.projects?.length ?? 0)) ||
+      (normalizedData.counts.tasks !== undefined &&
+        normalizedData.counts.tasks !== (normalizedData.tasks?.length ?? 0)) ||
+      (normalizedData.counts.agendaEvents !== undefined &&
+        normalizedData.counts.agendaEvents !== (normalizedData.agendaEvents?.length ?? 0)) ||
+      (normalizedData.counts.socialChannels !== undefined &&
+        normalizedData.counts.socialChannels !==
+          (normalizedData.socialChannels?.length ?? 0)) ||
+      (normalizedData.counts.socialPosts !== undefined &&
+        normalizedData.counts.socialPosts !== (normalizedData.socialPosts?.length ?? 0)) ||
+      (normalizedData.counts.financialEntries !== undefined &&
+        normalizedData.counts.financialEntries !==
+          (normalizedData.financialEntries?.length ?? 0)) ||
+      (normalizedData.counts.financialTransactions !== undefined &&
+        normalizedData.counts.financialTransactions !==
+          (normalizedData.financialTransactions?.length ?? 0)) ||
+      (normalizedData.counts.financialCategories !== undefined &&
+        normalizedData.counts.financialCategories !==
+          (normalizedData.financialCategories?.length ?? 0)) ||
+      (normalizedData.counts.financialRecurrences !== undefined &&
+        normalizedData.counts.financialRecurrences !==
+          (normalizedData.financialRecurrences?.length ?? 0)) ||
+      (normalizedData.counts.financialAuditLogs !== undefined &&
+        normalizedData.counts.financialAuditLogs !==
+          (normalizedData.financialAuditLogs?.length ?? 0)) ||
+      (normalizedData.counts.resourceFiles !== undefined &&
+        normalizedData.counts.resourceFiles !== (normalizedData.resourceFiles?.length ?? 0)) ||
+      (normalizedData.counts.resourceFolders !== undefined &&
+        normalizedData.counts.resourceFolders !==
+          (normalizedData.resourceFolders?.length ?? 0)) ||
+      (normalizedData.counts.resourceCategories !== undefined &&
+        normalizedData.counts.resourceCategories !==
+          (normalizedData.resourceCategories?.length ?? 0)) ||
+      (normalizedData.counts.commercialScripts !== undefined &&
+        normalizedData.counts.commercialScripts !==
+          (normalizedData.commercialScripts?.length ?? 0)) ||
+      (normalizedData.counts.modelTemplates !== undefined &&
+        normalizedData.counts.modelTemplates !==
+          (normalizedData.modelTemplates?.length ?? 0)))
   ) {
     return {
       ok: false,
@@ -380,6 +781,24 @@ export function prepareBackupRestorePayload(
   nichesToWrite: NicheCampaign[];
   leadsToWrite: Lead[];
   sheetsToWrite: ImportedSheet[];
+  clientsToWrite: Client[];
+  proposalsToWrite: ProposalContract[];
+  projectsToWrite: Project[];
+  tasksToWrite: Task[];
+  agendaEventsToWrite: AgendaEvent[];
+  socialChannelsToWrite: SocialChannel[];
+  socialPostsToWrite: SocialPost[];
+  financialEntriesToWrite: FinancialEntry[];
+  financialTransactionsToWrite: FinancialTransaction[];
+  financialCategoriesToWrite: FinancialCategory[];
+  financialRecurrencesToWrite: FinancialRecurrence[];
+  financialSettingsToWrite?: FinancialSettings;
+  financialAuditLogsToWrite: FinancialAuditLog[];
+  resourceFilesToWrite: ResourceFile[];
+  resourceFoldersToWrite: ResourceFolder[];
+  resourceCategoriesToWrite: ResourceCategory[];
+  commercialScriptsToWrite: CommercialScript[];
+  modelTemplatesToWrite: ModelTemplate[];
   skippedDuplicates: number;
 } {
   const existingLeadIds = new Set(current.leads.map((l) => l.id));
@@ -424,10 +843,151 @@ export function prepareBackupRestorePayload(
     schemaVersion: s.schemaVersion ?? 1,
   }));
 
+  const clientsToWrite: Client[] = (backup.clients || []).map((c) => ({
+    ...c,
+    timeline: Array.isArray(c.timeline) ? c.timeline : [],
+    schemaVersion: c.schemaVersion ?? 1,
+  }));
+
+  const proposalsToWrite: ProposalContract[] = (backup.proposals || []).map((p) => ({
+    ...p,
+    items: Array.isArray(p.items) ? p.items : [],
+    history: Array.isArray(p.history) ? p.history : [],
+    schemaVersion: p.schemaVersion ?? 1,
+  }));
+
+  const projectsToWrite: Project[] = (backup.projects || []).map((proj) => ({
+    ...proj,
+    documents: Array.isArray(proj.documents) ? proj.documents : [],
+    history: Array.isArray(proj.history) ? proj.history : [],
+    schemaVersion: proj.schemaVersion ?? 1,
+  }));
+
+  const tasksToWrite: Task[] = (backup.tasks || []).map((t) => ({
+    ...t,
+    checklist: Array.isArray(t.checklist) ? t.checklist : [],
+    schemaVersion: t.schemaVersion ?? 1,
+  }));
+
+  const agendaEventsToWrite: AgendaEvent[] = (backup.agendaEvents || []).map((ev) => ({
+    ...ev,
+    schemaVersion: ev.schemaVersion ?? 1,
+  }));
+
+  const socialChannelsToWrite: SocialChannel[] = (backup.socialChannels || []).map(
+    (ch) => ({
+      ...ch,
+      schemaVersion: ch.schemaVersion ?? 1,
+    })
+  );
+
+  const socialPostsToWrite: SocialPost[] = (backup.socialPosts || []).map((post) => ({
+    ...post,
+    schemaVersion: post.schemaVersion ?? 1,
+  }));
+
+  const financialEntriesToWrite: FinancialEntry[] = (backup.financialEntries || []).map(
+    (entry) => ({
+      ...entry,
+      schemaVersion: entry.schemaVersion ?? 1,
+    })
+  );
+
+  const financialTransactionsToWrite: FinancialTransaction[] = (
+    backup.financialTransactions || []
+  ).map((tx) => ({
+    ...tx,
+    schemaVersion: tx.schemaVersion ?? 1,
+  }));
+
+  const financialCategoriesToWrite: FinancialCategory[] = (
+    backup.financialCategories || []
+  ).map((cat) => ({
+    ...cat,
+    schemaVersion: cat.schemaVersion ?? 1,
+  }));
+
+  const financialRecurrencesToWrite: FinancialRecurrence[] = (
+    backup.financialRecurrences || []
+  ).map((rec) => ({
+    ...rec,
+    schemaVersion: rec.schemaVersion ?? 1,
+  }));
+
+  const financialSettingsToWrite: FinancialSettings | undefined = backup.financialSettings
+    ? {
+        ...backup.financialSettings,
+        openingBalanceHistory: Array.isArray(backup.financialSettings.openingBalanceHistory)
+          ? backup.financialSettings.openingBalanceHistory
+          : [],
+        paymentMethods: Array.isArray(backup.financialSettings.paymentMethods)
+          ? backup.financialSettings.paymentMethods
+          : [],
+        schemaVersion: backup.financialSettings.schemaVersion ?? 1,
+      }
+    : undefined;
+
+  const financialAuditLogsToWrite: FinancialAuditLog[] = (
+    backup.financialAuditLogs || []
+  ).map((log) => ({
+    ...log,
+    schemaVersion: log.schemaVersion ?? 1,
+  }));
+
+  const resourceFilesToWrite: ResourceFile[] = (backup.resourceFiles || []).map((f) => ({
+    ...f,
+    tags: Array.isArray(f.tags) ? f.tags : [],
+    schemaVersion: f.schemaVersion ?? 1,
+  }));
+
+  const resourceFoldersToWrite: ResourceFolder[] = (backup.resourceFolders || []).map((f) => ({
+    ...f,
+    schemaVersion: f.schemaVersion ?? 1,
+  }));
+
+  const resourceCategoriesToWrite: ResourceCategory[] = (
+    backup.resourceCategories || []
+  ).map((c) => ({
+    ...c,
+    schemaVersion: c.schemaVersion ?? 1,
+  }));
+
+  const commercialScriptsToWrite: CommercialScript[] = (
+    backup.commercialScripts || []
+  ).map((s) => ({
+    ...s,
+    tags: Array.isArray(s.tags) ? s.tags : [],
+    schemaVersion: s.schemaVersion ?? 1,
+  }));
+
+  const modelTemplatesToWrite: ModelTemplate[] = (backup.modelTemplates || []).map((t) => ({
+    ...t,
+    tags: Array.isArray(t.tags) ? t.tags : [],
+    schemaVersion: t.schemaVersion ?? 1,
+  }));
+
   return {
     nichesToWrite,
     leadsToWrite,
     sheetsToWrite,
+    clientsToWrite,
+    proposalsToWrite,
+    projectsToWrite,
+    tasksToWrite,
+    agendaEventsToWrite,
+    socialChannelsToWrite,
+    socialPostsToWrite,
+    financialEntriesToWrite,
+    financialTransactionsToWrite,
+    financialCategoriesToWrite,
+    financialRecurrencesToWrite,
+    financialSettingsToWrite,
+    financialAuditLogsToWrite,
+    resourceFilesToWrite,
+    resourceFoldersToWrite,
+    resourceCategoriesToWrite,
+    commercialScriptsToWrite,
+    modelTemplatesToWrite,
     skippedDuplicates,
   };
 }

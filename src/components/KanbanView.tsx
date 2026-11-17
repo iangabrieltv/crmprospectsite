@@ -301,25 +301,25 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
   return (
     <div className="flex flex-col h-full flex-1 min-h-0 min-w-0 w-full max-w-full overflow-hidden">
       {/* Top Filter & Quick Stat Bar */}
-      <div className="bg-white border-b border-slate-200/80 px-2.5 sm:px-6 py-2 sm:py-2.5 shrink-0 w-full max-w-full overflow-hidden">
+      <div className="bg-[var(--kz-bg-surface)] border-b border-[var(--kz-border-subtle)] px-2.5 sm:px-6 py-2 sm:py-2.5 shrink-0 w-full max-w-full overflow-visible">
         <div className="w-full max-w-full flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-2 sm:gap-3">
           
           {/* Search, Filter Icon and Dropdowns */}
           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
             {/* Search Input */}
             <div className="relative flex-1 min-w-[130px] sm:min-w-[240px]">
-              <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--kz-text-subtle)]" />
               <input
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Buscar empresa, telefone, cidade..."
-                className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white text-slate-900 placeholder:text-slate-400"
+                className="w-full pl-8 pr-3 py-1.5 text-xs bg-[var(--kz-bg-subtle)] border border-[var(--kz-border-default)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--kz-accent)]/30 focus:border-[var(--kz-accent)] text-[var(--kz-text-primary)] placeholder:text-[var(--kz-text-subtle)]"
               />
               {searchTerm && (
                 <button
                   onClick={() => setSearchTerm('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600 cursor-pointer"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-[var(--kz-text-subtle)] hover:text-[var(--kz-text-primary)] cursor-pointer"
                 >
                   ✕
                 </button>
@@ -331,41 +331,41 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
               <button
                 type="button"
                 onClick={() => setIsCityDropdownOpen(!isCityDropdownOpen)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors cursor-pointer shadow-2xs ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors cursor-pointer shadow-[var(--kz-shadow-xs)] ${
                   selectedCity === 'all'
-                    ? 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
-                    : 'bg-blue-50 text-blue-800 border-blue-300 ring-1 ring-blue-200 font-bold'
+                    ? 'bg-[var(--kz-bg-subtle)] text-[var(--kz-text-secondary)] border-[var(--kz-border-default)] hover:bg-[var(--kz-bg-muted)] hover:text-[var(--kz-text-primary)]'
+                    : 'bg-[var(--kz-accent-soft)] text-[var(--kz-accent-text)] border-[var(--kz-accent-border)] font-bold'
                 }`}
                 title="Escolher cidade de acordo com a planilha"
               >
                 {selectedCity === 'all' ? (
                   <>
-                    <Globe className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                    <Globe className="w-3.5 h-3.5 text-[var(--kz-accent)] shrink-0" />
                     <span>Todas as Cidades</span>
-                    <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-slate-100 text-slate-600">
+                    <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-[var(--kz-bg-muted)] text-[var(--kz-text-muted)]">
                       {leads.length}
                     </span>
                   </>
                 ) : (
                   <>
-                    <MapPin className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                    <MapPin className="w-3.5 h-3.5 text-[var(--kz-accent)] shrink-0" />
                     <span className="max-w-[150px] truncate">{selectedCity}</span>
-                    <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-blue-100 text-blue-700 font-bold">
+                    <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-[var(--kz-accent)]/20 text-[var(--kz-accent-text)] font-bold">
                       {filteredLeads.length}
                     </span>
                   </>
                 )}
-                <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isCityDropdownOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`w-3.5 h-3.5 text-[var(--kz-text-subtle)] transition-transform ${isCityDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
 
               {/* Menu Dropdown de Cidades da Planilha */}
               {isCityDropdownOpen && (
-                <div className="absolute left-0 mt-1.5 w-64 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
-                  <div className="px-3 py-1.5 border-b border-slate-100 flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                <div className="absolute left-0 mt-1.5 w-64 bg-[#19191F] rounded-xl shadow-[var(--kz-shadow-lg)] border border-[var(--kz-border-default)] py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
+                  <div className="px-3 py-1.5 border-b border-[var(--kz-border-subtle)] flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-[var(--kz-text-muted)] uppercase tracking-wider">
                       Cidades da Planilha
                     </span>
-                    <span className="text-[10px] text-slate-400 font-mono">
+                    <span className="text-[10px] text-[var(--kz-text-subtle)] font-mono">
                       {prospectedCities.length} {prospectedCities.length === 1 ? 'cidade' : 'cidades'}
                     </span>
                   </div>
@@ -379,28 +379,28 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
                     }}
                     className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between transition-colors cursor-pointer ${
                       selectedCity === 'all'
-                        ? 'bg-blue-50 text-blue-900 font-bold'
-                        : 'hover:bg-slate-50 text-slate-700'
+                        ? 'bg-[var(--kz-accent-soft)] text-[var(--kz-accent-text)] font-bold'
+                        : 'hover:bg-[var(--kz-bg-muted)] text-[var(--kz-text-secondary)]'
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      <Globe className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                      <Globe className="w-3.5 h-3.5 text-[var(--kz-accent)] shrink-0" />
                       <span>Todas as Cidades</span>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-slate-100 text-slate-600">
+                      <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-[var(--kz-bg-muted)] text-[var(--kz-text-muted)]">
                         {leads.length}
                       </span>
-                      {selectedCity === 'all' && <Check className="w-3.5 h-3.5 text-blue-600 shrink-0" />}
+                      {selectedCity === 'all' && <Check className="w-3.5 h-3.5 text-[var(--kz-accent)] shrink-0" />}
                     </div>
                   </button>
 
-                  <div className="my-1 border-t border-slate-100" />
+                  <div className="my-1 border-t border-[var(--kz-border-subtle)]" />
 
                   {/* Lista de Cidades da Planilha */}
                   <div className="max-h-60 overflow-y-auto py-0.5">
                     {prospectedCities.length === 0 ? (
-                      <div className="px-3 py-3 text-xs text-slate-400 text-center">
+                      <div className="px-3 py-3 text-xs text-[var(--kz-text-subtle)] text-center">
                         Nenhuma cidade encontrada na planilha.
                       </div>
                     ) : (
@@ -416,19 +416,19 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
                             }}
                             className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between transition-colors cursor-pointer ${
                               isSelected
-                                ? 'bg-blue-50 text-blue-900 font-bold'
-                                : 'hover:bg-slate-50 text-slate-700'
+                                ? 'bg-[var(--kz-accent-soft)] text-[var(--kz-accent-text)] font-bold'
+                                : 'hover:bg-[var(--kz-bg-muted)] text-[var(--kz-text-secondary)]'
                             }`}
                           >
                             <div className="flex items-center gap-2 truncate">
-                              <MapPin className={`w-3.5 h-3.5 shrink-0 ${isSelected ? 'text-blue-600' : 'text-slate-400'}`} />
+                              <MapPin className={`w-3.5 h-3.5 shrink-0 ${isSelected ? 'text-[var(--kz-accent)]' : 'text-[var(--kz-text-subtle)]'}`} />
                               <span className="truncate">{item.city}</span>
                             </div>
                             <div className="flex items-center gap-1.5 shrink-0">
-                              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-slate-100 text-slate-600">
+                              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-[var(--kz-bg-muted)] text-[var(--kz-text-muted)]">
                                 {item.count}
                               </span>
-                              {isSelected && <Check className="w-3.5 h-3.5 text-blue-600 shrink-0" />}
+                              {isSelected && <Check className="w-3.5 h-3.5 text-[var(--kz-accent)] shrink-0" />}
                             </div>
                           </button>
                         );
@@ -443,7 +443,7 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
             <select
               value={scriptFilter}
               onChange={(e) => setScriptFilter(e.target.value as any)}
-              className="text-xs px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+              className="text-xs px-2.5 py-1.5 bg-[var(--kz-bg-subtle)] border border-[var(--kz-border-default)] rounded-lg text-[var(--kz-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--kz-accent)]/30 focus:border-[var(--kz-accent)] cursor-pointer"
             >
               <option value="all">Todos os Scripts</option>
               {Object.values(niche.scripts).map((s) => (
@@ -459,26 +459,26 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
               <button
                 type="button"
                 onClick={() => setShowFilterMenu(!showFilterMenu)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors cursor-pointer shadow-2xs ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors cursor-pointer shadow-[var(--kz-shadow-xs)] ${
                   sortOption.startsWith('last_contact') || contactFilter !== 'all'
-                    ? 'bg-blue-50 text-blue-700 border-blue-300 ring-1 ring-blue-200'
-                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                    ? 'bg-[var(--kz-accent-soft)] text-[var(--kz-accent-text)] border-[var(--kz-accent-border)]'
+                    : 'bg-[var(--kz-bg-subtle)] text-[var(--kz-text-secondary)] border-[var(--kz-border-default)] hover:bg-[var(--kz-bg-muted)]'
                 }`}
                 title="Filtrar e ordenar por último ou primeiro contato"
               >
-                <SlidersHorizontal className="w-3.5 h-3.5 text-blue-600" />
+                <SlidersHorizontal className="w-3.5 h-3.5 text-[var(--kz-accent)]" />
                 <span className="truncate max-w-[170px]">{getSortOptionLabel(sortOption)}</span>
-                <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform ${showFilterMenu ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`w-3 h-3 text-[var(--kz-text-subtle)] transition-transform ${showFilterMenu ? 'rotate-180' : ''}`} />
               </button>
 
               {/* POPUP DROPDOWN MENU */}
               {showFilterMenu && (
-                <div className="absolute left-0 mt-1.5 w-72 bg-white rounded-xl shadow-xl border border-slate-200 p-3 z-50 animate-in fade-in zoom-in-95 duration-100 space-y-3">
+                <div className="absolute left-0 mt-1.5 w-72 bg-[#19191F] rounded-xl shadow-[var(--kz-shadow-lg)] border border-[var(--kz-border-default)] p-3 z-50 animate-in fade-in zoom-in-95 duration-100 space-y-3">
                   
                   {/* Section 1: Order by Contact Date / Sent Message */}
                   <div>
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 flex items-center gap-1">
-                      <ArrowUpDown className="w-3 h-3 text-blue-600" />
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--kz-text-muted)] mb-1.5 flex items-center gap-1">
+                      <ArrowUpDown className="w-3 h-3 text-[var(--kz-accent)]" />
                       <span>Ordenar Contatos</span>
                     </div>
 
@@ -491,18 +491,18 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
                         }}
                         className={`w-full flex items-center justify-between p-2 rounded-lg text-xs text-left cursor-pointer transition-colors ${
                           sortOption === 'last_contact_desc'
-                            ? 'bg-blue-50 text-blue-800 font-bold border border-blue-200'
-                            : 'text-slate-700 hover:bg-slate-50'
+                            ? 'bg-[var(--kz-accent-soft)] text-[var(--kz-accent-text)] font-bold border border-[var(--kz-accent-border)]'
+                            : 'text-[var(--kz-text-secondary)] hover:bg-[var(--kz-bg-muted)] border border-transparent'
                         }`}
                       >
                         <div className="flex items-center gap-2">
-                          <Send className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                          <Send className="w-3.5 h-3.5 text-[var(--kz-accent)] shrink-0" />
                           <div>
                             <div>Último contato que mandei msg</div>
-                            <span className="text-[10px] text-slate-500 font-normal">Mais recente no topo</span>
+                            <span className="text-[10px] text-[var(--kz-text-muted)] font-normal">Mais recente no topo</span>
                           </div>
                         </div>
-                        {sortOption === 'last_contact_desc' && <Check className="w-4 h-4 text-blue-600 shrink-0" />}
+                        {sortOption === 'last_contact_desc' && <Check className="w-4 h-4 text-[var(--kz-accent)] shrink-0" />}
                       </button>
 
                       <button
@@ -513,18 +513,18 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
                         }}
                         className={`w-full flex items-center justify-between p-2 rounded-lg text-xs text-left cursor-pointer transition-colors ${
                           sortOption === 'last_contact_asc'
-                            ? 'bg-blue-50 text-blue-800 font-bold border border-blue-200'
-                            : 'text-slate-700 hover:bg-slate-50'
+                            ? 'bg-[var(--kz-accent-soft)] text-[var(--kz-accent-text)] font-bold border border-[var(--kz-accent-border)]'
+                            : 'text-[var(--kz-text-secondary)] hover:bg-[var(--kz-bg-muted)] border border-transparent'
                         }`}
                       >
                         <div className="flex items-center gap-2">
-                          <Clock className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                          <Clock className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
                           <div>
                             <div>Primeiro contato que mandei msg</div>
-                            <span className="text-[10px] text-slate-500 font-normal">Mais antigo no topo</span>
+                            <span className="text-[10px] text-[var(--kz-text-muted)] font-normal">Mais antigo no topo</span>
                           </div>
                         </div>
-                        {sortOption === 'last_contact_asc' && <Check className="w-4 h-4 text-blue-600 shrink-0" />}
+                        {sortOption === 'last_contact_asc' && <Check className="w-4 h-4 text-[var(--kz-accent)] shrink-0" />}
                       </button>
 
                       <button
@@ -535,15 +535,15 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
                         }}
                         className={`w-full flex items-center justify-between p-2 rounded-lg text-xs text-left cursor-pointer transition-colors ${
                           sortOption === 'created_desc'
-                            ? 'bg-blue-50 text-blue-800 font-bold border border-blue-200'
-                            : 'text-slate-700 hover:bg-slate-50'
+                            ? 'bg-[var(--kz-accent-soft)] text-[var(--kz-accent-text)] font-bold border border-[var(--kz-accent-border)]'
+                            : 'text-[var(--kz-text-secondary)] hover:bg-[var(--kz-bg-muted)] border border-transparent'
                         }`}
                       >
                         <div className="flex items-center gap-2">
-                          <Calendar className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                          <Calendar className="w-3.5 h-3.5 text-[var(--kz-text-muted)] shrink-0" />
                           <div>Cadastro mais recente</div>
                         </div>
-                        {sortOption === 'created_desc' && <Check className="w-4 h-4 text-blue-600 shrink-0" />}
+                        {sortOption === 'created_desc' && <Check className="w-4 h-4 text-[var(--kz-accent)] shrink-0" />}
                       </button>
 
                       <button
@@ -554,23 +554,23 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
                         }}
                         className={`w-full flex items-center justify-between p-2 rounded-lg text-xs text-left cursor-pointer transition-colors ${
                           sortOption === 'rating_desc'
-                            ? 'bg-blue-50 text-blue-800 font-bold border border-blue-200'
-                            : 'text-slate-700 hover:bg-slate-50'
+                            ? 'bg-[var(--kz-accent-soft)] text-[var(--kz-accent-text)] font-bold border border-[var(--kz-accent-border)]'
+                            : 'text-[var(--kz-text-secondary)] hover:bg-[var(--kz-bg-muted)] border border-transparent'
                         }`}
                       >
                         <div className="flex items-center gap-2">
-                          <Star className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                          <Star className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                           <div>Maior avaliação Google (⭐)</div>
                         </div>
-                        {sortOption === 'rating_desc' && <Check className="w-4 h-4 text-blue-600 shrink-0" />}
+                        {sortOption === 'rating_desc' && <Check className="w-4 h-4 text-[var(--kz-accent)] shrink-0" />}
                       </button>
                     </div>
                   </div>
 
                   {/* Section 2: Filter by Contact Status */}
-                  <div className="pt-2 border-t border-slate-100">
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 flex items-center gap-1">
-                      <Filter className="w-3 h-3 text-slate-500" />
+                  <div className="pt-2 border-t border-[var(--kz-border-subtle)]">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--kz-text-muted)] mb-1.5 flex items-center gap-1">
+                      <Filter className="w-3 h-3 text-[var(--kz-text-muted)]" />
                       <span>Filtrar por Status de Disparo</span>
                     </div>
 
@@ -580,8 +580,8 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
                         onClick={() => setContactFilter('all')}
                         className={`p-1.5 rounded-lg text-[11px] font-medium text-center cursor-pointer transition-colors ${
                           contactFilter === 'all'
-                            ? 'bg-blue-600 text-white font-bold'
-                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                            ? 'bg-[var(--kz-accent)] text-[var(--kz-accent-fg)] font-bold'
+                            : 'bg-[var(--kz-bg-muted)] text-[var(--kz-text-secondary)] hover:bg-[#2B2B34]'
                         }`}
                       >
                         Todos
@@ -591,8 +591,8 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
                         onClick={() => setContactFilter('with_contact')}
                         className={`p-1.5 rounded-lg text-[11px] font-medium text-center cursor-pointer transition-colors ${
                           contactFilter === 'with_contact'
-                            ? 'bg-blue-600 text-white font-bold'
-                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                            ? 'bg-[var(--kz-accent)] text-[var(--kz-accent-fg)] font-bold'
+                            : 'bg-[var(--kz-bg-muted)] text-[var(--kz-text-secondary)] hover:bg-[#2B2B34]'
                         }`}
                       >
                         Com Msg
@@ -602,8 +602,8 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
                         onClick={() => setContactFilter('without_contact')}
                         className={`p-1.5 rounded-lg text-[11px] font-medium text-center cursor-pointer transition-colors ${
                           contactFilter === 'without_contact'
-                            ? 'bg-blue-600 text-white font-bold'
-                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                            ? 'bg-[var(--kz-accent)] text-[var(--kz-accent-fg)] font-bold'
+                            : 'bg-[var(--kz-bg-muted)] text-[var(--kz-text-secondary)] hover:bg-[#2B2B34]'
                         }`}
                       >
                         Sem Msg
@@ -619,14 +619,14 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
               onClick={() => setOnlyInactive(!onlyInactive)}
               className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer border ${
                 onlyInactive
-                  ? 'bg-amber-100 text-amber-900 border-amber-300 font-semibold'
-                  : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                  ? 'bg-[var(--kz-warning-bg)] text-[var(--kz-warning-text)] border-[var(--kz-warning-border)] font-semibold'
+                  : 'bg-[var(--kz-bg-subtle)] text-[var(--kz-text-secondary)] border-[var(--kz-border-default)] hover:bg-[var(--kz-bg-muted)]'
               }`}
             >
-              <Clock className="w-3.5 h-3.5 text-amber-600" />
+              <Clock className="w-3.5 h-3.5 text-[var(--kz-warning-text)]" />
               <span>Inativos +48h</span>
               {inactiveCount > 0 && (
-                <span className="ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] bg-amber-200 text-amber-900 font-mono">
+                <span className="ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] bg-amber-500/20 text-[var(--kz-warning-text)] font-mono">
                   {inactiveCount}
                 </span>
               )}
@@ -635,50 +635,50 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
 
           {/* Quick Metrics Badges - Always 100% visible on desktop, hidden on mobile */}
           <div className="hidden xl:flex flex-wrap items-center gap-1.5 text-xs font-mono tabular-nums">
-            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 rounded-lg text-slate-700 border border-slate-200/80 shrink-0" title="Total de leads cadastrados">
-              <span className="text-slate-500 font-sans text-[11px]">Leads:</span>
-              <span className="font-bold text-slate-900">{totalLeads}</span>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[var(--kz-bg-subtle)] rounded-lg text-[var(--kz-text-secondary)] border border-[var(--kz-border-subtle)] shrink-0" title="Total de leads cadastrados">
+              <span className="text-[var(--kz-text-muted)] font-sans text-[11px]">Leads:</span>
+              <span className="font-bold text-[var(--kz-text-primary)]">{totalLeads}</span>
             </div>
 
-            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-50/90 rounded-lg text-blue-700 border border-blue-200/80 shrink-0" title="Total de pessoas que você já entrou em contato (mensagens enviadas, follow-ups, interessados, etc.)">
-              <Send className="w-3 h-3 text-blue-600 shrink-0" />
-              <span className="text-blue-600 font-sans text-[11px]">Já Contatados:</span>
-              <span className="font-bold text-blue-800">{totalContactedLeads}</span>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[var(--kz-info-bg)] rounded-lg text-[var(--kz-info-text)] border border-[var(--kz-info-border)] shrink-0" title="Total de pessoas que você já entrou em contato (mensagens enviadas, follow-ups, interessados, etc.)">
+              <Send className="w-3 h-3 shrink-0" />
+              <span className="font-sans text-[11px]">Já Contatados:</span>
+              <span className="font-bold">{totalContactedLeads}</span>
             </div>
 
-            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 rounded-lg text-slate-700 border border-slate-200/80 shrink-0" title="Leads sem contato aguardando abordagem">
-              <span className="text-slate-500 font-sans text-[11px]">Sem Contato:</span>
-              <span className="font-bold text-slate-900">{semContatoCount}</span>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[var(--kz-bg-subtle)] rounded-lg text-[var(--kz-text-secondary)] border border-[var(--kz-border-subtle)] shrink-0" title="Leads sem contato aguardando abordagem">
+              <span className="text-[var(--kz-text-muted)] font-sans text-[11px]">Sem Contato:</span>
+              <span className="font-bold text-[var(--kz-text-primary)]">{semContatoCount}</span>
             </div>
 
-            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-50/90 rounded-lg text-blue-700 border border-blue-200/80 shrink-0" title="Primeiro contato enviado no WhatsApp">
-              <Send className="w-3 h-3 text-blue-600 shrink-0" />
-              <span className="text-blue-600 font-sans text-[11px]">1º Contato:</span>
-              <span className="font-bold text-blue-800">{primeiroContatoCount}</span>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[var(--kz-info-bg)] rounded-lg text-[var(--kz-info-text)] border border-[var(--kz-info-border)] shrink-0" title="Primeiro contato enviado no WhatsApp">
+              <Send className="w-3 h-3 shrink-0" />
+              <span className="font-sans text-[11px]">1º Contato:</span>
+              <span className="font-bold">{primeiroContatoCount}</span>
             </div>
 
-            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-50/90 rounded-lg text-amber-800 border border-amber-200/80 shrink-0" title="Mensagens não respondidas / não atendidas">
-              <PhoneOff className="w-3 h-3 text-amber-600 shrink-0" />
-              <span className="text-amber-700 font-sans text-[11px]">Não Atendida:</span>
-              <span className="font-bold text-amber-900">{naoAtendidaCount}</span>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[var(--kz-warning-bg)] rounded-lg text-[var(--kz-warning-text)] border border-[var(--kz-warning-border)] shrink-0" title="Mensagens não respondidas / não atendidas">
+              <PhoneOff className="w-3 h-3 shrink-0" />
+              <span className="font-sans text-[11px]">Não Atendida:</span>
+              <span className="font-bold">{naoAtendidaCount}</span>
             </div>
 
-            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-purple-50/90 rounded-lg text-purple-700 border border-purple-200/80 shrink-0" title="Follow-up 1 e Follow-up 2">
-              <Clock className="w-3 h-3 text-purple-600 shrink-0" />
-              <span className="text-purple-600 font-sans text-[11px]">Follow-ups:</span>
-              <span className="font-bold text-purple-800">{inFollowupLeads}</span>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-violet-500/12 rounded-lg text-violet-300 border border-violet-500/25 shrink-0" title="Follow-up 1 e Follow-up 2">
+              <Clock className="w-3 h-3 shrink-0" />
+              <span className="font-sans text-[11px]">Follow-ups:</span>
+              <span className="font-bold">{inFollowupLeads}</span>
             </div>
 
-            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50/90 rounded-lg text-emerald-800 border border-emerald-200/80 shrink-0" title="Reunião ou demonstração agendada">
-              <Sparkles className="w-3 h-3 text-emerald-600 shrink-0" />
-              <span className="text-emerald-700 font-sans text-[11px]">Reunião:</span>
-              <span className="font-bold text-emerald-900">{reuniaoCount}</span>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[var(--kz-accent-soft)] rounded-lg text-[var(--kz-accent-text)] border border-[var(--kz-accent-border)] shrink-0" title="Reunião ou demonstração agendada">
+              <Sparkles className="w-3 h-3 shrink-0" />
+              <span className="font-sans text-[11px]">Reunião:</span>
+              <span className="font-bold">{reuniaoCount}</span>
             </div>
 
-            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-green-100 rounded-lg text-green-800 border border-green-300 shrink-0" title="Contratos fechados e MRR mensal">
-              <DollarSign className="w-3 h-3 text-green-700 shrink-0" />
-              <span className="text-green-800 font-sans text-[11px] font-bold">Fechados ({closedLeads.length}):</span>
-              <span className="font-bold text-green-900">R$ {totalMrr.toLocaleString('pt-BR')}/mês</span>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-[var(--kz-success-bg)] rounded-lg text-[var(--kz-success-text)] border border-[var(--kz-success-border)] shrink-0" title="Contratos fechados e MRR mensal">
+              <DollarSign className="w-3 h-3 shrink-0" />
+              <span className="font-sans text-[11px] font-bold">Fechados ({closedLeads.length}):</span>
+              <span className="font-bold">R$ {totalMrr.toLocaleString('pt-BR')}/mês</span>
             </div>
           </div>
         </div>
@@ -686,9 +686,9 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
 
       {/* Clean Zero-State Guide Banner */}
       {totalLeads === 0 && (
-        <div className="bg-blue-50/80 border-b border-blue-200/90 px-4 sm:px-6 py-3 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-blue-950">
+        <div className="bg-[var(--kz-accent-soft)] border-b border-[var(--kz-accent-border)] px-4 sm:px-6 py-3 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[var(--kz-text-primary)]">
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-blue-600" />
+            <span className="w-2 h-2 rounded-full bg-[var(--kz-accent)] shrink-0" />
             <span>
               <strong>Sua lista de contatos está limpa e pronta para prospecção!</strong> Cadastre seus contatos manualmente ou importe sua planilha do Excel/Sheets para começar a disparar o <em>Script 1 (Mockup)</em>.
             </span>
@@ -697,7 +697,7 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
             <button
               type="button"
               onClick={() => onOpenNewLeadModal('leads_sem_contato')}
-              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shadow-2xs transition-colors cursor-pointer"
+              className="px-3 py-1.5 bg-[var(--kz-accent)] hover:bg-[var(--kz-accent-hover)] text-[var(--kz-accent-fg)] rounded-lg font-semibold shadow-[var(--kz-shadow-xs)] transition-colors cursor-pointer"
             >
               + Novo Lead
             </button>
@@ -705,7 +705,7 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
               <button
                 type="button"
                 onClick={onSwitchToImporter}
-                className="px-3 py-1.5 bg-white hover:bg-slate-100 text-blue-700 border border-blue-200 rounded-lg font-semibold transition-colors cursor-pointer"
+                className="px-3 py-1.5 bg-[var(--kz-bg-subtle)] hover:bg-[var(--kz-bg-muted)] text-[var(--kz-text-primary)] border border-[var(--kz-border-default)] rounded-lg font-semibold transition-colors cursor-pointer"
               >
                 📥 Importar Planilha
               </button>
@@ -715,7 +715,7 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
       )}
 
       {/* Kanban Board Container with All Sequential Stages */}
-      <div className="flex-1 min-h-0 overflow-x-auto p-2 sm:p-6 bg-slate-50/50 min-w-0 w-full">
+      <div className="flex-1 min-h-0 overflow-x-auto p-2 sm:p-6 bg-[var(--kz-bg-canvas)] min-w-0 w-full">
         <div className="flex items-start gap-3 h-full min-w-max pb-2">
           {FUNNEL_STAGES.map((stage) => {
             const stageLeads = filteredLeads
@@ -734,19 +734,19 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
                 onDragOver={(e) => handleDragOver(e, stage.id)}
                 onDragLeave={(e) => handleDragLeave(e, stage.id)}
                 onDrop={(e) => handleDrop(e, stage.id)}
-                className={`flex flex-col w-[85vw] max-w-[320px] lg:w-[300px] shrink-0 bg-slate-100/90 rounded-xl border transition-all duration-150 h-full ${
+                className={`flex flex-col w-[85vw] max-w-[320px] lg:w-[300px] shrink-0 bg-[var(--kz-bg-surface)] rounded-xl border transition-all duration-150 h-full ${
                   isDragOver
-                    ? 'border-blue-500 ring-2 ring-blue-300/50 bg-blue-50/30'
-                    : 'border-slate-200/80 shadow-2xs'
+                    ? 'border-[var(--kz-accent)] ring-2 ring-[var(--kz-accent)]/30 bg-[var(--kz-accent-soft)]/30'
+                    : 'border-[var(--kz-border-subtle)] shadow-[var(--kz-shadow-xs)]'
                 }`}
               >
                 {/* Column Header */}
-                <div className="p-3 border-b border-slate-200/80 flex items-center justify-between shrink-0 bg-white/70 rounded-t-xl">
+                <div className="p-3 border-b border-[var(--kz-border-subtle)] flex items-center justify-between shrink-0 bg-[var(--kz-bg-surface)] rounded-t-xl">
                   <div className="flex items-center gap-2 truncate">
-                    <span className="text-xs font-bold text-slate-800 tracking-tight truncate">
+                    <span className="text-xs font-bold text-[var(--kz-text-primary)] tracking-tight truncate">
                       {stage.name}
                     </span>
-                    <span className="font-mono tabular-nums text-[11px] font-semibold text-slate-500 bg-slate-200/80 px-1.5 py-0.5 rounded-full shrink-0">
+                    <span className="font-mono tabular-nums text-[11px] font-semibold text-[var(--kz-text-muted)] bg-[var(--kz-bg-subtle)] border border-[var(--kz-border-subtle)] px-1.5 py-0.5 rounded-full shrink-0">
                       {stageLeads.length}
                     </span>
                   </div>
@@ -758,10 +758,10 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
                       onClick={handleToggleColumnContactSort}
                       className={`p-1 rounded transition-colors cursor-pointer ${
                         sortOption === 'last_contact_desc'
-                          ? 'text-blue-600 bg-blue-50 hover:bg-blue-100'
+                          ? 'text-[var(--kz-accent-text)] bg-[var(--kz-accent-soft)] hover:bg-[var(--kz-accent)]/20'
                           : sortOption === 'last_contact_asc'
-                          ? 'text-indigo-600 bg-indigo-50 hover:bg-indigo-100'
-                          : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
+                          ? 'text-indigo-300 bg-indigo-500/15 hover:bg-indigo-500/25'
+                          : 'text-[var(--kz-text-subtle)] hover:text-[var(--kz-text-primary)] hover:bg-[var(--kz-bg-subtle)]'
                       }`}
                       title={
                         sortOption === 'last_contact_desc'
@@ -776,7 +776,7 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
                     <button
                       type="button"
                       onClick={() => onOpenNewLeadModal(stage.id)}
-                      className="p-1 rounded text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
+                      className="p-1 rounded text-[var(--kz-text-subtle)] hover:text-[var(--kz-accent-text)] hover:bg-[var(--kz-accent-soft)] transition-colors cursor-pointer"
                       title={`Adicionar lead em ${stage.name}`}
                     >
                       <Plus className="w-3.5 h-3.5" />
@@ -787,10 +787,10 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
                       <button
                         type="button"
                         onClick={() => onSwitchToAgenda()}
-                        className="ml-1 px-2 py-0.5 text-[10px] font-bold text-emerald-800 bg-emerald-100 hover:bg-emerald-200 border border-emerald-300 rounded-md transition-colors flex items-center gap-1 cursor-pointer shrink-0"
+                        className="ml-1 px-2 py-0.5 text-[10px] font-bold text-[var(--kz-success-text)] bg-[var(--kz-success-bg)] hover:bg-emerald-500/20 border border-[var(--kz-success-border)] rounded-md transition-colors flex items-center gap-1 cursor-pointer shrink-0"
                         title="Ver e organizar reuniões na Agenda"
                       >
-                        <Calendar className="w-3 h-3 text-emerald-700" />
+                        <Calendar className="w-3 h-3" />
                         <span>Agenda</span>
                       </button>
                     )}
@@ -799,12 +799,12 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
 
                 {/* Subtitle / Stage Summary if values exist */}
                 {(stageSetupSum > 0 || stageMrrSum > 0) && (
-                  <div className="px-3 py-1 bg-white/40 border-b border-slate-200/50 flex items-center justify-between text-[10px] font-mono text-slate-500 shrink-0">
+                  <div className="px-3 py-1 bg-[var(--kz-bg-canvas)]/60 border-b border-[var(--kz-border-subtle)] flex items-center justify-between text-[10px] font-mono text-[var(--kz-text-muted)] shrink-0">
                     {stageSetupSum > 0 && (
                       <span>Setup: R$ {stageSetupSum.toLocaleString('pt-BR')}</span>
                     )}
                     {stageMrrSum > 0 && (
-                      <span className="text-emerald-700 font-semibold">
+                      <span className="text-[var(--kz-success-text)] font-semibold">
                         MRR: R$ {stageMrrSum.toLocaleString('pt-BR')}/mês
                       </span>
                     )}
@@ -818,11 +818,11 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
                   className="p-2 space-y-2 overflow-y-auto flex-1 min-h-0 kanban-column-scroll pb-24 sm:pb-4"
                 >
                   {stageLeads.length === 0 ? (
-                    <div className="h-32 border border-dashed border-slate-200 rounded-lg flex flex-col items-center justify-center p-3 text-center text-slate-400">
+                    <div className="h-32 border border-dashed border-[var(--kz-border-default)] rounded-lg flex flex-col items-center justify-center p-3 text-center text-[var(--kz-text-subtle)]">
                       <p className="text-xs">Nenhum lead nesta etapa</p>
                       <button
                         onClick={() => onOpenNewLeadModal(stage.id)}
-                        className="mt-1.5 text-[11px] font-medium text-blue-600 hover:underline cursor-pointer"
+                        className="mt-1.5 text-[11px] font-medium text-[var(--kz-accent-text)] hover:underline cursor-pointer"
                       >
                         + Adicionar
                       </button>

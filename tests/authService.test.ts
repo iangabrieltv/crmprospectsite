@@ -1,7 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { isValidAdminUidConfig } from '../src/config/env';
-import { evaluateSingleAdminAuthorization } from '../src/services/authService';
+import {
+  evaluateSingleAdminAuthorization,
+  mapFirebaseAuthError,
+} from '../src/services/authService';
 
 test('isValidAdminUidConfig rejeita vazio, placeholders e UIDs curtos/inválidos', () => {
   assert.equal(isValidAdminUidConfig(''), false);
@@ -57,4 +60,10 @@ test('evaluateSingleAdminAuthorization autoriza somente quando configuração é
   assert.equal(ok.allowed, true);
   assert.equal(ok.configValid, true);
   assert.equal(ok.code, 'OK');
+});
+
+test('mapFirebaseAuthError mapeia erros de popup Google e domínio não autorizado', () => {
+  assert.match(mapFirebaseAuthError({ code: 'auth/popup-closed-by-user' }), /fechada/i);
+  assert.match(mapFirebaseAuthError({ code: 'auth/popup-blocked' }), /pop-up/i);
+  assert.match(mapFirebaseAuthError({ code: 'auth/unauthorized-domain' }), /domínio/i);
 });

@@ -32,8 +32,8 @@ export const FUNNEL_STAGES: FunnelStageConfig[] = [
     shortName: 'Leads Encontrados',
     order: 1,
     description: 'Leads cadastrados ou importados da planilha aguardando abordagem inicial.',
-    colorBadge: 'bg-slate-100 text-slate-700',
-    borderAccent: 'border-l-slate-400',
+    colorBadge: 'bg-zinc-500/15 text-zinc-300 border border-zinc-500/25',
+    borderAccent: 'border-t-zinc-500/60',
   },
   {
     id: 'primeiro_contato',
@@ -41,8 +41,8 @@ export const FUNNEL_STAGES: FunnelStageConfig[] = [
     shortName: '1ª Ligação',
     order: 2,
     description: 'Primeira ligação direta ou tentativa de contato inicial com o lead.',
-    colorBadge: 'bg-blue-50 text-blue-700',
-    borderAccent: 'border-l-blue-500',
+    colorBadge: 'bg-sky-500/12 text-sky-300 border border-sky-500/25',
+    borderAccent: 'border-t-sky-500/60',
   },
   {
     id: 'nao_atendida',
@@ -50,8 +50,8 @@ export const FUNNEL_STAGES: FunnelStageConfig[] = [
     shortName: 'Não Atendida',
     order: 3,
     description: 'Ligação não atendida, chamada ocupada ou caiu na caixa postal.',
-    colorBadge: 'bg-amber-50 text-amber-700',
-    borderAccent: 'border-l-amber-500',
+    colorBadge: 'bg-amber-500/12 text-amber-300 border border-amber-500/25',
+    borderAccent: 'border-t-amber-500/60',
   },
   {
     id: 'mandei_mensagem',
@@ -59,8 +59,8 @@ export const FUNNEL_STAGES: FunnelStageConfig[] = [
     shortName: 'Mensagem',
     order: 4,
     description: 'Mensagem de WhatsApp enviada após a ligação não ser atendida.',
-    colorBadge: 'bg-sky-50 text-sky-700',
-    borderAccent: 'border-l-sky-500',
+    colorBadge: 'bg-cyan-500/12 text-cyan-300 border border-cyan-500/25',
+    borderAccent: 'border-t-cyan-500/60',
   },
   {
     id: 'follow_up_1',
@@ -68,8 +68,8 @@ export const FUNNEL_STAGES: FunnelStageConfig[] = [
     shortName: 'Follow 1',
     order: 5,
     description: 'Primeiro lembrete/toque estratégico enviado após 24h a 48h da mensagem.',
-    colorBadge: 'bg-purple-50 text-purple-700',
-    borderAccent: 'border-l-purple-500',
+    colorBadge: 'bg-violet-500/12 text-violet-300 border border-violet-500/25',
+    borderAccent: 'border-t-violet-500/60',
   },
   {
     id: 'follow_up_2',
@@ -77,8 +77,8 @@ export const FUNNEL_STAGES: FunnelStageConfig[] = [
     shortName: 'Follow 2',
     order: 6,
     description: 'Segundo toque ou follow-up direto com pergunta clara.',
-    colorBadge: 'bg-indigo-50 text-indigo-700',
-    borderAccent: 'border-l-indigo-500',
+    colorBadge: 'bg-indigo-500/12 text-indigo-300 border border-indigo-500/25',
+    borderAccent: 'border-t-indigo-500/60',
   },
   {
     id: 'reuniao_marcada',
@@ -86,8 +86,8 @@ export const FUNNEL_STAGES: FunnelStageConfig[] = [
     shortName: 'Reunião',
     order: 7,
     description: 'Demonstração rápida ou reunião comercial agendada com o cliente.',
-    colorBadge: 'bg-emerald-50 text-emerald-700',
-    borderAccent: 'border-l-emerald-500',
+    colorBadge: 'bg-[#C6A15B]/15 text-[#D9BC7E] border border-[#C6A15B]/30',
+    borderAccent: 'border-t-[#C6A15B]/70',
   },
   {
     id: 'fechado',
@@ -95,8 +95,8 @@ export const FUNNEL_STAGES: FunnelStageConfig[] = [
     shortName: 'Fechamento',
     order: 8,
     description: 'Contrato fechado! Valor de criação e mensalidade ativados.',
-    colorBadge: 'bg-green-100 text-green-800 font-semibold',
-    borderAccent: 'border-l-green-600',
+    colorBadge: 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-semibold',
+    borderAccent: 'border-t-emerald-500/70',
   },
 ];
 
@@ -272,4 +272,23 @@ export interface ImportedSheet {
   updatedAt?: string;
 }
 
-export type AppTab = 'kanban' | 'dashboard' | 'agenda' | 'scripts' | 'importer' | 'global';
+export type AppTab =
+  | 'kanban'
+  | 'leads_list'
+  | 'dashboard'
+  | 'agenda'
+  | 'scripts'
+  | 'importer'
+  | 'global'
+  | 'clients'
+  | 'proposals'
+  | 'projects'
+  | 'tasks'
+  | 'social'
+  | 'documents'
+  | 'templates'
+  | 'finance'
+  | 'productivity'
+  | 'settings'
+  | 'ai_assistant';
+

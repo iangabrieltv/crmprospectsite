@@ -1,5 +1,66 @@
 @import "tailwindcss";
 
+:root {
+  color-scheme: dark;
+
+  /* Kaizen Design System — Premium Dark Workspace Canvas & Surfaces */
+  --kz-bg-canvas: #0B0B0D;
+  --kz-bg-sidebar: #101014;
+  --kz-bg-surface: #121216;
+  --kz-bg-subtle: #19191F;
+  --kz-bg-muted: #222229;
+  --kz-bg-hover: #222229;
+  --kz-bg-header: rgba(11, 11, 13, 0.88);
+  --kz-bg-overlay: rgba(5, 5, 7, 0.78);
+
+  /* Kaizen Design System — Typography & Foreground Tokens */
+  --kz-text-primary: #F5F5F5;
+  --kz-text-secondary: #D4D4D8;
+  --kz-text-muted: #A1A1AA;
+  --kz-text-subtle: #71717A;
+
+  /* Kaizen Design System — Border Tokens */
+  --kz-border-subtle: #24242B;
+  --kz-border-default: #303038;
+  --kz-border-strong: #42424D;
+
+  /* Kaizen Design System — Brand Primary Gold Accent */
+  --kz-accent: #C6A15B;
+  --kz-accent-hover: #D2B06E;
+  --kz-accent-active: #A98B50;
+  --kz-accent-fg: #0B0B0D;
+  --kz-accent-soft: rgba(198, 161, 91, 0.12);
+  --kz-accent-border: rgba(198, 161, 91, 0.30);
+  --kz-accent-text: #D9BC7E;
+
+  /* Kaizen Design System — Dark-Calibrated Translucent Semantic Status Tokens */
+  --kz-success-bg: rgba(16, 185, 129, 0.12);
+  --kz-success-border: rgba(16, 185, 129, 0.28);
+  --kz-success-text: #34D399;
+  --kz-success-solid: #059669;
+
+  --kz-warning-bg: rgba(245, 158, 11, 0.12);
+  --kz-warning-border: rgba(245, 158, 11, 0.28);
+  --kz-warning-text: #FBBF24;
+  --kz-warning-solid: #D97706;
+
+  --kz-danger-bg: rgba(244, 63, 94, 0.12);
+  --kz-danger-border: rgba(244, 63, 94, 0.28);
+  --kz-danger-text: #FB7185;
+  --kz-danger-solid: #E11D48;
+
+  --kz-info-bg: rgba(56, 189, 248, 0.12);
+  --kz-info-border: rgba(56, 189, 248, 0.28);
+  --kz-info-text: #38BDF8;
+  --kz-info-solid: #0284C7;
+
+  /* Kaizen Design System — Dark Elevation Shadows */
+  --kz-shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.35);
+  --kz-shadow-sm: 0 2px 6px -1px rgba(0, 0, 0, 0.45), 0 1px 2px -1px rgba(0, 0, 0, 0.30);
+  --kz-shadow-md: 0 8px 20px -4px rgba(0, 0, 0, 0.55), 0 3px 8px -2px rgba(0, 0, 0, 0.35);
+  --kz-shadow-lg: 0 20px 44px -8px rgba(0, 0, 0, 0.72), 0 8px 16px -4px rgba(0, 0, 0, 0.45);
+}
+
 @layer base {
   html, body {
     max-width: 100vw;
@@ -8,8 +69,13 @@
 
   body {
     font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    color: #0f172a;
-    background-color: #f8fafc;
+    color: var(--kz-text-primary);
+    background-color: var(--kz-bg-canvas);
+  }
+
+  select option {
+    background-color: var(--kz-bg-subtle);
+    color: var(--kz-text-primary);
   }
 
   code, kbd, samp, pre, .font-mono {
@@ -18,7 +84,53 @@
   }
 }
 
-/* Linear-style smooth custom scrollbars */
+/* Kaizen Typography Scale Utilities */
+.kz-page-title {
+  font-size: 1.25rem;
+  line-height: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--kz-text-primary);
+}
+
+.kz-section-title {
+  font-size: 0.9375rem;
+  line-height: 1.375rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--kz-text-primary);
+}
+
+.kz-subtitle {
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  color: var(--kz-text-muted);
+}
+
+.kz-label {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 600;
+  color: var(--kz-text-secondary);
+}
+
+.kz-overline {
+  font-size: 0.6875rem;
+  line-height: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--kz-text-muted);
+}
+
+.kz-metric {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+/* Linear-style dark scrollbars */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -27,11 +139,11 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: var(--kz-border-default);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: var(--kz-border-strong);
 }
 
 /* Kanban column custom scroll */
@@ -39,11 +151,11 @@
   width: 4px;
 }
 .kanban-column-scroll::-webkit-scrollbar-thumb {
-  background: #e2e8f0;
+  background: var(--kz-border-subtle);
   border-radius: 4px;
 }
 .kanban-column-scroll::-webkit-scrollbar-thumb:hover {
-  background: #cbd5e1;
+  background: var(--kz-border-default);
 }
 
 /* Utility to hide scrollbars on secondary navigation bars */
@@ -54,3 +166,43 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Print layout for Financial Reports & Printable Views */
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+
+  html, body {
+    background: #ffffff !important;
+    color: #111827 !important;
+    overflow: visible !important;
+    height: auto !important;
+    max-width: none !important;
+  }
+
+  aside,
+  header,
+  .kz-no-print {
+    display: none !important;
+  }
+
+  main {
+    overflow: visible !important;
+    height: auto !important;
+  }
+
+  .kz-print-area {
+    background: #ffffff !important;
+    color: #111827 !important;
+    border-color: #d1d5db !important;
+    box-shadow: none !important;
+  }
+
+  .kz-print-area * {
+    color: #111827 !important;
+    border-color: #e5e7eb !important;
+  }
+}
+

@@ -1,0 +1,1162 @@
+# KAIZEN — PROMPT MESTRE DEFINITIVO
+## TRANSFORMAÇÃO COMPLETA DO CRM EM SISTEMA DE GESTÃO INTEGRADA DA AGÊNCIA
+
+**PROJETO:** KAIZEN  
+**REPOSITÓRIO OFICIAL:** https://github.com/iangabrieltv/crmprospectsite  
+**OBJETIVO:** Evoluir o CRM atual para um sistema completo de gestão da agência, com identidade visual premium, arquitetura organizada e todos os módulos integrados.
+
+---
+
+# 1. INSTRUÇÃO PRINCIPAL
+
+A partir deste momento, você deverá considerar o Kaizen como um projeto de desenvolvimento de longo prazo, com uma visão final já definida.
+
+Não estamos mais desenvolvendo apenas um CRM.
+
+Estamos construindo um **Sistema de Gestão Integrada para uma agência de marketing digital**, que centralizará toda a operação em uma única plataforma.
+
+O CRM atual é a fundação do sistema e precisa ser preservado.
+
+Você deverá:
+
+1. Analisar o estado atual do projeto.
+2. Compreender a estrutura já implementada.
+3. Redefinir completamente a experiência visual do sistema.
+4. Organizar a arquitetura para suportar todos os módulos.
+5. Implementar progressivamente todos os módulos descritos neste documento.
+6. Integrar os módulos entre si.
+7. Preservar os dados e funcionalidades existentes.
+8. Testar cada etapa antes de avançar.
+9. Documentar todas as alterações.
+10. Manter uma visão consistente do produto até sua conclusão.
+
+**IMPORTANTE: não quero apenas um planejamento ou uma lista de sugestões. Quero desenvolvimento real no código existente.**
+
+Você deverá executar as etapas sequencialmente, concluindo e validando cada uma antes de iniciar a próxima.
+
+Não tente implementar tudo de uma vez sem validação. O objetivo é construir o sistema inteiro com qualidade, não produzir uma grande quantidade de telas incompletas.
+
+---
+
+# 2. IDENTIDADE E POSICIONAMENTO DO KAIZEN
+
+O Kaizen será o centro de operação da agência.
+
+A aplicação deverá transmitir uma sensação de sistema profissional, sofisticado, organizado e confiável.
+
+Não deve parecer um template administrativo genérico.
+
+Não deve parecer um CRM básico com alguns módulos adicionados.
+
+Deve parecer um software próprio, com identidade visual consistente.
+
+## 2.1. Redefinição visual obrigatória
+
+A interface atual está utilizando uma combinação de branco, verde e tons escuros que não representam a identidade visual desejada.
+
+Quero uma reformulação completa do design.
+
+Não quero apenas trocar as cores.
+
+Quero que você repense:
+
+- Estrutura do dashboard.
+- Sidebar.
+- Header.
+- Organização dos menus.
+- Cards.
+- Tabelas.
+- Formulários.
+- Modais.
+- Botões.
+- Ícones.
+- Tipografia.
+- Espaçamentos.
+- Hierarquia visual.
+- Navegação.
+- Estados de interação.
+- Responsividade.
+- Experiência geral de utilização.
+
+A mudança deverá ser perceptível em toda a aplicação.
+
+## 2.2. Nova direção artística
+
+<escape> </escape>**Conceito visual: Premium Dark Workspace.**
+
+A direção desejada é uma interface escura, elegante, minimalista e moderna.
+
+Paleta sugerida:
+
+- Preto profundo: `#0B0B0D`
+- Grafite principal: `#121216`
+- Superfícies secundárias: `#19191F`
+- Superfícies elevadas: `#222229`
+- Bordas discretas: `#303038`
+- Dourado principal: `#C6A15B`
+- Dourado suave: `#A98B50`
+- Texto principal: `#F5F5F5`
+- Texto secundário: `#A1A1AA`
+
+O dourado deverá ser utilizado com moderação, como elemento de identidade e destaque.
+
+Não quero uma interface completamente dourada.
+
+Não quero gradientes exagerados, brilhos artificiais, efeitos neon ou excesso de sombras.
+
+O resultado precisa ser sofisticado, com contraste bem trabalhado e leitura confortável.
+
+As cores semânticas de sucesso, alerta e erro poderão ser utilizadas normalmente, desde que não dominem a identidade visual.
+
+## 2.3. Referências de experiência
+
+Utilize como referências conceituais:
+
+- Linear: organização, navegação e minimalismo.
+- Notion: clareza e organização de conteúdo.
+- Stripe Dashboard: apresentação de informações.
+- Interfaces premium de softwares de gestão: hierarquia, consistência e precisão.
+
+Não copie diretamente nenhum produto.
+
+Crie uma identidade própria para o Kaizen.
+
+## 2.4. Logotipo e identidade
+
+Verifique se já existe logotipo do Kaizen no projeto.
+
+Se existir, preserve e utilize corretamente.
+
+Se não existir, não invente um símbolo definitivo sem necessidade. Utilize inicialmente o nome KAIZEN com uma composição tipográfica elegante.
+
+A identidade deve aparecer de maneira consistente na sidebar, login e demais áreas institucionais.
+
+## 2.5. Sidebar
+
+Redesenhe completamente a sidebar.
+
+Quero uma navegação elegante, com:
+
+- Fundo grafite ou preto.
+- Separação visual entre categorias.
+- Ícones minimalistas.
+- Item ativo com destaque dourado discreto.
+- Texto legível.
+- Espaçamento confortável.
+- Possibilidade de recolher.
+- Animações suaves.
+- Versão mobile adaptada.
+
+A sidebar não pode ocupar espaço excessivo.
+
+Ela deve transmitir a ideia de um ambiente de trabalho organizado.
+
+## 2.6. Dashboard
+
+O dashboard precisa ser uma das telas mais bonitas e bem resolvidas do sistema.
+
+Não quero apenas oito cards genéricos em uma grade.
+
+Quero uma composição visual que apresente as informações de maneira inteligente.
+
+Utilize:
+
+- Indicadores bem organizados.
+- Gráficos somente quando úteis.
+- Seções com hierarquia clara.
+- Resumo comercial.
+- Pendências.
+- Atividades importantes.
+- Agenda.
+- Informações financeiras quando disponíveis.
+
+Não invente dados.
+
+Não crie movimentações fictícias.
+
+Não utilize números demonstrativos como se fossem informações reais.
+
+## 2.7. Consistência visual
+
+Todas as páginas devem parecer partes do mesmo produto.
+
+Não quero que o Dashboard tenha um design e o CRM tenha outro.
+
+Não quero componentes brancos isolados em uma aplicação escura.
+
+Não quero telas novas com aparência diferente das telas antigas.
+
+Crie um Design System global e aplique-o a todos os módulos.
+
+---
+
+# 3. DEFINIÇÃO DO PRODUTO
+
+O Kaizen será um sistema privado, utilizado exclusivamente pelo proprietário.
+
+Decisões definitivas:
+
+- Apenas um administrador.
+- Nenhum cadastro público.
+- Nenhum sistema multiusuário.
+- Nenhum convite para funcionários.
+- Nenhuma estrutura de equipes.
+- Nenhuma comercialização como SaaS.
+- Nenhuma migração para Supabase.
+- Firebase Authentication e Firestore continuam sendo a infraestrutura atual.
+- Vercel continua sendo a plataforma de hospedagem.
+- Desktop é a prioridade, com suporte completo para mobile.
+
+Não desenvolva funcionalidades de colaboração entre usuários que não tenham utilidade para esse modelo.
+
+---
+
+# 4. ESTRUTURA COMPLETA DO SISTEMA
+
+A estrutura final deverá conter os seguintes módulos.
+
+## GERAL
+1. Dashboard.
+
+## COMERCIAL
+2. CRM.
+3. Clientes.
+4. Propostas e Contratos.
+
+## OPERAÇÃO
+5. Projetos.
+6. Minhas Tarefas.
+7. Agenda.
+8. Redes Sociais.
+
+## RECURSOS
+9. Materiais e Documentos.
+10. Scripts.
+11. Biblioteca de Modelos.
+
+## GESTÃO
+12. Financeiro.
+13. Relatórios.
+14. Produtividade.
+
+## SISTEMA
+15. Configurações.
+16. Assistente IA.
+
+Todos esses módulos deverão compartilhar a mesma identidade visual e a mesma estrutura de navegação.
+
+---
+
+# 5. ETAPA 1 — FUNDAÇÃO VISUAL E DESIGN SYSTEM
+
+Redefina a interface inteira.
+
+Entregas:
+
+- Novo Design System.
+- Nova paleta.
+- Tipografia.
+- Tokens globais.
+- Componentes compartilhados.
+- Nova sidebar.
+- Novo header.
+- Novo dashboard.
+- Novos padrões de tabelas.
+- Novos padrões de formulários.
+- Modais.
+- Dropdowns.
+- Estados vazios.
+- Loading.
+- Toasts.
+- Responsividade.
+
+Redesenhe também as telas existentes do CRM.
+
+Não altere a lógica de negócio durante a reformulação visual.
+
+Não remova funcionalidades existentes.
+
+Não deixe telas antigas com o design anterior.
+
+**Critério de conclusão:** todo o sistema deverá possuir uma identidade visual unificada e claramente diferente da interface anterior.
+
+---
+
+# 6. ETAPA 2 — CRM E GESTÃO DE CLIENTES
+
+O CRM continuará sendo o núcleo comercial do Kaizen.
+
+## 6.1. CRM
+
+Preservar e evoluir:
+
+- Cadastro de leads.
+- Importação de planilhas.
+- Busca.
+- Filtros.
+- Nichos.
+- Campanhas.
+- Scripts.
+- Histórico.
+- Follow-ups.
+- Relatórios.
+- WhatsApp.
+
+Pipeline comercial desejado:
+
+1. Leads encontrados.
+2. Primeira mensagem.
+3. Segunda mensagem.
+4. Terceira mensagem.
+5. Convite para reunião.
+6. Reunião.
+7. Fechamento.
+8. Fechado.
+
+Estados auxiliares:
+
+- Não tem contato.
+- Não tem interesse.
+- Não respondeu.
+- Follow-up 1.
+- Follow-up 2.
+
+Preserve o histórico atual e planeje qualquer mudança de pipeline de forma compatível com os dados existentes.
+
+## 6.2. Integração com WhatsApp
+
+Cada lead deverá ter ações contextuais.
+
+Ao clicar em WhatsApp:
+
+1. Abrir a conversa correspondente.
+2. Preparar a mensagem de acordo com a etapa comercial.
+3. Permitir que o proprietário revise e envie manualmente.
+4. Registrar a ação de abertura da conversa.
+5. Atualizar o estágio quando a ação for confirmada pelo usuário.
+6. Registrar a data e o histórico.
+
+Importante: abrir o WhatsApp não significa que a mensagem foi enviada.
+
+Não afirmar que uma mensagem foi enviada automaticamente.
+
+## 6.3. Conversão de lead em cliente
+
+Quando um lead for marcado como fechado:
+
+- Criar ou vincular um registro de cliente.
+- Preservar o histórico comercial.
+- Preservar os dados originais.
+- Evitar duplicidade.
+- Relacionar cliente e lead.
+- Disponibilizar o histórico no cadastro do cliente.
+
+## 6.4. Clientes
+
+Criar um módulo completo para gerenciamento de clientes.
+
+Cada cliente deverá ter:
+
+- Nome ou razão social.
+- Nome fantasia.
+- Telefone.
+- WhatsApp.
+- E-mail.
+- Endereço.
+- Instagram.
+- Site.
+- Informações comerciais.
+- Serviços contratados.
+- Status.
+- Data de entrada.
+- Observações.
+- Histórico.
+
+Dentro do cliente, disponibilizar áreas relacionadas:
+
+- Visão geral.
+- Projetos.
+- Tarefas.
+- Financeiro.
+- Propostas e contratos.
+- Documentos.
+- Briefing.
+- Materiais.
+- Reuniões.
+- Histórico.
+
+A página do cliente deverá funcionar como um centro de informações daquele relacionamento.
+
+---
+
+# 7. ETAPA 3 — PROJETOS E TAREFAS
+
+Criar o módulo de gestão operacional.
+
+## 7.1. Projetos
+
+Cada projeto deverá possuir:
+
+- Nome.
+- Cliente vinculado, quando aplicável.
+- Serviço contratado.
+- Descrição.
+- Data de início.
+- Prazo.
+- Status.
+- Responsável: administrador.
+- Progresso.
+- Tarefas relacionadas.
+- Materiais.
+- Observações.
+- Histórico.
+
+## 7.2. Modelos de projetos
+
+Criar modelos reutilizáveis:
+
+- Kaizen Start.
+- Kaizen Performance.
+- Personalizado.
+
+Os modelos deverão funcionar como estruturas independentes.
+
+Ao criar um projeto a partir de um modelo:
+
+- Copiar as tarefas.
+- Copiar as etapas.
+- Copiar prazos relativos, quando aplicável.
+- Permitir personalização.
+- Não modificar o modelo original.
+- Não modificar outros projetos já criados.
+
+## 7.3. Minhas Tarefas
+
+Criar uma central de tarefas que reúna as tarefas de todos os projetos.
+
+Cada tarefa deverá ter:
+
+- Título.
+- Descrição.
+- Projeto.
+- Cliente.
+- Prioridade.
+- Status.
+- Prazo.
+- Data de criação.
+- Conclusão.
+- Observações.
+
+Visualizações:
+
+- Lista.
+- Kanban.
+- Hoje.
+- Próximas.
+- Atrasadas.
+- Concluídas.
+
+Como o sistema é de uso individual, não criar atribuições para funcionários.
+
+---
+
+# 8. ETAPA 4 — AGENDA E CALENDÁRIO
+
+Criar um módulo de agenda.
+
+Visualizações:
+
+- Diária.
+- Semanal.
+- Mensal.
+
+Tipos de compromisso:
+
+- Reunião comercial.
+- Reunião com cliente.
+- Entrega.
+- Prazo de projeto.
+- Tarefa.
+- Compromisso pessoal.
+- Evento.
+
+Os eventos poderão estar vinculados a:
+
+- Leads.
+- Clientes.
+- Projetos.
+- Tarefas.
+
+Permitir:
+
+- Criar.
+- Editar.
+- Remover.
+- Alterar horário.
+- Consultar detalhes.
+- Identificar compromissos próximos.
+
+Preparar arquitetura para futura integração com Google Calendar.
+
+Não afirmar que existe sincronização com Google Calendar enquanto ela não estiver implementada e autenticada.
+
+---
+
+# 9. ETAPA 5 — FINANCEIRO
+
+Criar um módulo financeiro completo.
+
+## 9.1. Dashboard financeiro
+
+Indicadores:
+
+- Receita mensal.
+- Receita recebida.
+- Valores pendentes.
+- Despesas.
+- Lucro.
+- Contas a receber.
+- Contas a pagar.
+- Fluxo de caixa.
+
+## 9.2. Receitas
+
+Permitir registrar:
+
+- Cliente.
+- Projeto.
+- Serviço.
+- Valor.
+- Data de vencimento.
+- Data de recebimento.
+- Forma de pagamento.
+- Status.
+- Recorrência.
+
+## 9.3. Despesas
+
+Permitir registrar:
+
+- Descrição.
+- Categoria.
+- Valor.
+- Vencimento.
+- Pagamento.
+- Recorrência.
+- Observações.
+
+## 9.4. Controle financeiro
+
+Criar:
+
+- Contas a receber.
+- Contas a pagar.
+- Histórico.
+- Fluxo de caixa.
+- Resumo mensal.
+- Resumo anual.
+- Relatórios.
+
+Não implementar integração bancária automática sem autorização e definição de provedor.
+
+Não inventar movimentações financeiras.
+
+Os valores devem ser rastreáveis e editáveis pelo administrador.
+
+---
+
+# 10. ETAPA 6 — PROPOSTAS E CONTRATOS
+
+Criar um módulo para gerenciar documentos comerciais.
+
+## Propostas
+
+- Criar proposta.
+- Vincular a lead ou cliente.
+- Selecionar serviço.
+- Descrever entregas.
+- Definir valores.
+- Definir validade.
+- Definir condições.
+- Gerar PDF.
+- Controlar status.
+
+Status sugeridos:
+
+- Rascunho.
+- Enviada.
+- Visualizada, somente se houver mecanismo real para comprovar.
+- Aceita.
+- Recusada.
+- Expirada.
+
+## Contratos
+
+- Criar contrato.
+- Vincular ao cliente.
+- Definir serviços.
+- Definir período.
+- Definir valores.
+- Definir condições.
+- Gerar PDF.
+- Armazenar documento.
+- Controlar status.
+
+A assinatura do proprietário poderá ser inserida no documento.
+
+A assinatura do cliente poderá acontecer externamente.
+
+Não simular assinatura eletrônica ou validade jurídica de uma assinatura que não tenha sido efetivamente realizada.
+
+---
+
+# 11. ETAPA 7 — REDES SOCIAIS E PRODUÇÃO DE CONTEÚDO
+
+Criar um módulo de planejamento de conteúdo.
+
+## 11.1. Calendário editorial
+
+Permitir organizar:
+
+- Ideias.
+- Planejamento.
+- Produção.
+- Revisão.
+- Aprovado.
+- Publicado.
+
+Cada conteúdo deverá possuir:
+
+- Título.
+- Cliente, quando aplicável.
+- Rede social.
+- Formato.
+- Legenda.
+- Texto.
+- Data prevista.
+- Status.
+- Arquivos.
+- Observações.
+
+## 11.2. Gestão da agência e clientes
+
+Separar claramente:
+
+- Conteúdos da própria Kaizen.
+- Conteúdos de clientes.
+
+A gestão de redes sociais de clientes deverá respeitar o escopo contratado.
+
+Não assumir que todos os clientes possuem gestão de social media.
+
+## 11.3. Calendário
+
+Criar visualizações por:
+
+- Semana.
+- Mês.
+- Cliente.
+- Rede social.
+- Status.
+
+Não implementar publicação automática sem integração real com a plataforma correspondente.
+
+---
+
+# 12. ETAPA 8 — MATERIAIS, DOCUMENTOS E BIBLIOTECA DE MODELOS
+
+## 12.1. Materiais e Documentos
+
+Criar uma biblioteca organizada para:
+
+- Arquivos gerais.
+- Arquivos por cliente.
+- Arquivos por projeto.
+- Briefings.
+- Imagens.
+- Vídeos.
+- PDFs.
+- Documentos comerciais.
+
+Preparar estrutura para futura integração com Google Drive.
+
+Não simular arquivos armazenados no Drive se estiverem apenas no armazenamento local ou no Firestore.
+
+## 12.2. Scripts
+
+Preservar o módulo atual de scripts comerciais e evoluí-lo.
+
+Permitir:
+
+- Categorias.
+- Nichos.
+- Etapas comerciais.
+- Mensagens.
+- Modelos de abordagem.
+- Pesquisa.
+- Favoritos.
+- Edição.
+- Duplicação.
+
+## 12.3. Biblioteca de Modelos
+
+Criar uma biblioteca para:
+
+- Modelos de propostas.
+- Modelos de contratos.
+- Briefings.
+- Checklists.
+- Modelos de tarefas.
+- Modelos de projetos.
+- Estruturas de campanhas.
+- Modelos de conteúdo.
+
+Os modelos devem ser reutilizáveis e independentes dos registros gerados a partir deles.
+
+---
+
+# 13. ETAPA 9 — RELATÓRIOS E PRODUTIVIDADE
+
+## 13.1. Relatórios comerciais
+
+Apresentar:
+
+- Leads por etapa.
+- Leads contatados.
+- Interessados.
+- Reuniões.
+- Fechamentos.
+- Conversão.
+- Desempenho por campanha.
+- Desempenho por nicho.
+
+## 13.2. Relatórios financeiros
+
+Apresentar:
+
+- Receita.
+- Despesas.
+- Lucro.
+- Valores pendentes.
+- Evolução mensal.
+- Receita por cliente.
+- Receita por serviço.
+
+## 13.3. Relatórios operacionais
+
+Apresentar:
+
+- Projetos em andamento.
+- Projetos concluídos.
+- Tarefas pendentes.
+- Tarefas atrasadas.
+- Entregas próximas.
+- Progresso dos projetos.
+
+## 13.4. Produtividade
+
+Criar uma visão da produtividade do administrador:
+
+- Tarefas concluídas.
+- Tarefas atrasadas.
+- Entregas realizadas.
+- Tempo de execução, quando houver dados reais.
+- Evolução semanal e mensal.
+
+Não inventar métricas que não possam ser calculadas a partir dos registros existentes.
+
+---
+
+# 14. ETAPA 10 — CONFIGURAÇÕES E ASSISTENTE IA
+
+## 14.1. Configurações
+
+Criar uma área centralizada para:
+
+- Dados da agência.
+- Identidade visual.
+- Preferências.
+- Configurações comerciais.
+- Serviços.
+- Modelos.
+- Categorias.
+- Integrações.
+- Preferências de notificações.
+- Configurações do sistema.
+
+Respeitar o modelo de administrador único.
+
+## 14.2. Assistente IA
+
+Criar um assistente integrado ao Kaizen.
+
+A proposta é que o assistente possa ajudar em tarefas como:
+
+- Analisar leads.
+- Sugerir abordagens comerciais.
+- Criar mensagens.
+- Resumir informações de clientes.
+- Gerar ideias de conteúdo.
+- Ajudar a organizar tarefas.
+- Interpretar relatórios.
+- Identificar pendências.
+- Preparar propostas.
+- Consultar informações autorizadas do sistema.
+
+A implementação deverá utilizar a infraestrutura de IA já disponível no projeto, se adequada.
+
+Não expor chaves de API no frontend.
+
+Não permitir que o assistente execute operações destrutivas sem confirmação explícita.
+
+Não inventar dados do CRM.
+
+O assistente deverá distinguir claramente informações reais de sugestões geradas por IA.
+
+---
+
+# 15. DASHBOARD DEFINITIVO DO KAIZEN
+
+O Dashboard deverá reunir informações de toda a agência.
+
+Organização sugerida:
+
+## Visão geral
+- Leads contatados hoje.
+- Interessados.
+- Reuniões.
+- Fechamentos.
+- Clientes ativos.
+- Receita mensal.
+
+## Comercial
+- Pipeline.
+- Conversão.
+- Follow-ups pendentes.
+- Próximas reuniões.
+
+## Operacional
+- Projetos em andamento.
+- Tarefas de hoje.
+- Tarefas atrasadas.
+- Próximas entregas.
+
+## Financeiro
+- Receita recebida.
+- Valores pendentes.
+- Despesas.
+- Resultado mensal.
+
+## Agenda
+- Próximos compromissos.
+
+O dashboard deverá ser visualmente equilibrado e permitir navegar até o módulo correspondente.
+
+Não incluir o indicador "leads cadastrados".
+
+Não incluir a seção "Últimas movimentações".
+
+Não apresentar números falsos.
+
+---
+
+# 16. INTEGRAÇÃO ENTRE OS MÓDULOS
+
+O sistema não pode ser uma coleção de páginas independentes.
+
+Os módulos precisam compartilhar informações.
+
+Exemplos:
+
+### CRM → Clientes
+Quando um lead for fechado, seu registro deverá originar ou vincular um cliente.
+
+### Clientes → Projetos
+Os projetos deverão estar relacionados ao cliente.
+
+### Projetos → Tarefas
+As tarefas deverão pertencer a projetos, quando aplicável.
+
+### Tarefas → Agenda
+Prazos e compromissos poderão aparecer na agenda.
+
+### Clientes → Financeiro
+Receitas e recebimentos poderão ser associados a clientes.
+
+### Clientes → Contratos
+Contratos deverão ficar vinculados ao cliente correspondente.
+
+### Projetos → Materiais
+Arquivos poderão ser associados a projetos.
+
+### Redes Sociais → Clientes
+Conteúdos poderão ser vinculados ao cliente contratado.
+
+### Todos os módulos → Relatórios
+Os dados deverão alimentar relatórios consolidados.
+
+Evite duplicação de informações.
+
+Sempre que possível, utilize referências entre registros.
+
+Preserve os históricos.
+
+---
+
+# 17. ARQUITETURA E INTEGRIDADE DOS DADOS
+
+Antes de desenvolver cada módulo, analise os schemas existentes.
+
+O sistema já possui dados reais e histórico.
+
+Não reconstrua o banco sem necessidade.
+
+Não crie coleções duplicadas.
+
+Não altere campos existentes de maneira incompatível.
+
+Não faça migrações destrutivas.
+
+Para cada novo módulo:
+
+1. Defina o modelo de dados.
+2. Analise compatibilidade com a estrutura existente.
+3. Documente relacionamentos.
+4. Implemente serviços.
+5. Implemente interface.
+6. Implemente validações.
+7. Teste criação, leitura, atualização e exclusão quando aplicável.
+8. Teste a persistência.
+9. Atualize a documentação.
+
+As regras do Firestore deverão continuar protegendo os dados.
+
+Não relaxe as Security Rules para facilitar o desenvolvimento.
+
+---
+
+# 18. SEGURANÇA E INFRAESTRUTURA
+
+Mantenha:
+
+- Firebase Authentication.
+- Firestore.
+- Vercel.
+- Modelo de administrador único.
+- Proteção fail-closed.
+- Validação de UID.
+- Proteção dos endpoints de backend.
+- Separação de variáveis públicas e privadas.
+
+As Etapas 0 e 0.4 possuem validações externas que ainda podem estar pendentes.
+
+Portanto:
+
+- Não publique regras em produção.
+- Não altere UID real sem confirmação.
+- Não faça deploy.
+- Não modifique dados reais.
+- Não altere IAM sem autorização.
+- Não execute migrações destrutivas.
+
+É permitido desenvolver localmente e utilizar ambientes isolados de teste.
+
+A segurança não pode ser sacrificada pela velocidade de desenvolvimento.
+
+---
+
+# 19. ORDEM DE EXECUÇÃO E CONTROLE DO PROJETO
+
+Você deverá seguir esta ordem:
+
+| Etapa | Entrega |
+|---|---|
+| 1 | Redesign completo e Design System |
+| 2 | CRM e Clientes |
+| 3 | Projetos e Tarefas |
+| 4 | Agenda |
+| 5 | Financeiro |
+| 6 | Propostas e Contratos |
+| 7 | Redes Sociais |
+| 8 | Materiais, Scripts e Biblioteca de Modelos |
+| 9 | Relatórios e Produtividade |
+| 10 | Configurações e Assistente IA |
+| 11 | Integração geral e validação final |
+
+A Etapa 1 já foi iniciada. Portanto, primeiro audite o que acabou de ser criado e faça a reformulação visual solicitada neste documento.
+
+Não descarte o trabalho recente sem analisar.
+
+## Regra de execução
+
+Trabalhe em uma etapa por vez.
+
+Para cada etapa:
+
+1. Auditar a situação atual.
+2. Planejar a implementação.
+3. Desenvolver.
+4. Executar testes.
+5. Corrigir erros.
+6. Conferir responsividade.
+7. Conferir integração com os módulos existentes.
+8. Documentar.
+9. Apresentar relatório.
+10. Aguardar autorização para avançar à próxima etapa.
+
+Não implemente as dez etapas simultaneamente.
+
+Porém, mantenha todos os requisitos deste documento como especificação permanente do produto.
+
+---
+
+# 20. GIT E PRESERVAÇÃO DO PROJETO
+
+Repositório oficial:
+
+`iangabrieltv/crmprospectsite`
+
+Nunca utilize um repositório diferente.
+
+Antes de qualquer alteração:
+
+- Verifique o estado do Git.
+- Verifique a branch.
+- Preserve arquivos modificados.
+- Preserve alterações não sincronizadas.
+- Não descarte trabalho anterior.
+
+Se a branch de validação existir, confirme seu conteúdo antes de utilizá-la.
+
+Não altere a `main`.
+
+Não faça merge.
+
+Não faça push sem acesso legítimo.
+
+Não publique na Vercel.
+
+Se não houver conexão com GitHub, trabalhe no workspace e documente as alterações pendentes de sincronização.
+
+---
+
+# 21. QUALIDADE E TESTES
+
+O projeto deverá manter qualidade técnica em todas as etapas.
+
+Execute conforme aplicável:
+
+- Testes unitários.
+- Testes de integração.
+- Testes de componentes.
+- Testes de persistência.
+- Testes de segurança.
+- Testes de responsividade.
+- Build.
+- Lint.
+- Verificação de rotas.
+- Verificação de console.
+
+Comandos gerais:
+
+`npm test`
+
+`npm run build`
+
+`npm run lint`
+
+Não considere uma etapa concluída somente porque o código compila.
+
+Verifique o funcionamento real das funcionalidades.
+
+---
+
+# 22. DOCUMENTAÇÃO E CONTROLE DE PROGRESSO
+
+Mantenha um documento central:
+
+`docs/KAIZEN_ROADMAP.md`
+
+Esse documento deverá registrar:
+
+- Visão final do produto.
+- Etapas.
+- Status.
+- Funcionalidades implementadas.
+- Funcionalidades pendentes.
+- Dependências.
+- Decisões técnicas.
+- Problemas conhecidos.
+- Testes realizados.
+- Próximos passos.
+
+Crie também um relatório específico para cada etapa.
+
+Não perca o contexto do projeto entre as etapas.
+
+Não redefina requisitos já aprovados sem necessidade.
+
+---
+
+# 23. CRITÉRIO DE QUALIDADE FINAL
+
+O Kaizen deverá chegar ao resultado de um sistema profissional que permita administrar a agência em um único lugar.
+
+O resultado final deve possuir:
+
+- Identidade visual premium e consistente.
+- Interface moderna e responsiva.
+- CRM funcional.
+- Gestão de clientes.
+- Projetos.
+- Tarefas.
+- Agenda.
+- Financeiro.
+- Propostas.
+- Contratos.
+- Redes sociais.
+- Materiais.
+- Scripts.
+- Biblioteca de modelos.
+- Relatórios.
+- Produtividade.
+- Configurações.
+- Assistente IA.
+- Integração entre os módulos.
+- Persistência segura.
+- Dados íntegros.
+- Navegação fluida.
+- Arquitetura sustentável.
+
+Não quero apenas telas bonitas.
+
+Quero um sistema que funcione de verdade, com dados persistidos, relacionamentos corretos, operações testadas e experiência de uso profissional.
+
+---
+
+# 24. PRIMEIRA AÇÃO IMEDIATA
+
+Comece agora.
+
+A primeira tarefa é analisar a interface que acabou de ser criada na Etapa 1.
+
+Em seguida:
+
+1. Faça uma auditoria visual da aplicação atual.
+2. Identifique todos os componentes que ainda utilizam o design branco e verde anterior.
+3. Identifique as telas que não receberam a nova identidade.
+4. Redesenhe completamente a interface seguindo o conceito Premium Dark Workspace.
+5. Aplique a nova identidade ao Dashboard, CRM, sidebar, header, tabelas, formulários e demais componentes existentes.
+6. Garanta que todas as telas compartilhem o mesmo Design System.
+7. Preserve as funcionalidades existentes.
+8. Execute os testes.
+9. Atualize `docs/KAIZEN_ROADMAP.md`.
+10. Gere o relatório da Etapa 1.
+
+Não comece pela criação de novos módulos antes de terminar e validar o redesign.
+
+**Quero perceber que estou utilizando um sistema completamente novo quando abrir o Kaizen. Não quero apenas uma mudança superficial de cores. Quero uma reformulação visual de verdade.**
+
+Ao concluir, apresente o resultado, as principais mudanças visuais, os testes e o status da Etapa 1.
+
+Aguarde minha autorização antes de iniciar a Etapa 2.

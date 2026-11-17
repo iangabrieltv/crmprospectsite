@@ -798,4 +798,461 @@ test('Suite Real Firebase Emulator — Segurança (10 Cenários) + Compatibilida
     });
     assert.equal(delRes.status, 200);
   });
+
+  await t.test('Compatibilidade 5: Client real completo (Etapa 2) grava, valida campos permitidos e rejeita campo extra', async () => {
+    const clientId = 'cli-1763300000100-abcde';
+    const validClient = toFirestoreDoc({
+      id: clientId,
+      originLeadId: 'lead-1763300000000-ab12c',
+      originNicheId: 'niche-nutri-padrao',
+      companyName: 'Clínica NutriVida Avançada',
+      contactName: 'Dra. Camila Mendes',
+      document: '12.345.678/0001-99',
+      email: 'contato@nutrivida.com.br',
+      phone: '5511988887777',
+      displayPhone: '+55 (11) 98888-7777',
+      city: 'São Paulo - SP',
+      status: 'ativo',
+      setupValue: 1200,
+      monthlyMrr: 350,
+      billingDay: 10,
+      contractStartDate: '2026-11-16',
+      serviceScope: 'Criação de Site e Suporte Mensal',
+      timeline: [
+        {
+          id: 'evt-1',
+          date: '2026-11-16T10:00:00.000Z',
+          type: 'conversao_lead',
+          title: 'Lead convertido em cliente',
+          author: 'Ian',
+        },
+      ],
+      createdAt: '2026-11-16T10:00:00.000Z',
+      schemaVersion: 1,
+      updatedAt: '2026-11-16T10:00:00.000Z',
+    });
+
+    const writeRes = await fetch(docUrl(WORKSPACE_ID, 'clients', clientId), {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminUser.idToken}`,
+      },
+      body: JSON.stringify(validClient),
+    });
+    assert.equal(writeRes.status, 200);
+
+    const shadowClient = await fetch(docUrl(WORKSPACE_ID, 'clients', 'cli-shadow'), {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminUser.idToken}`,
+      },
+      body: JSON.stringify(
+        toFirestoreDoc({
+          id: 'cli-shadow',
+          companyName: 'Cliente Shadow',
+          status: 'ativo',
+          extraFieldBlocked: true,
+        })
+      ),
+    });
+    assert.equal(shadowClient.status, 403);
+  });
+
+  await t.test('Compatibilidade 6: ProposalContract real completo (Etapa 2) grava e respeita regras rígidas', async () => {
+    const propId = 'prop-1763300000200-fghij';
+    const validProposal = toFirestoreDoc({
+      id: propId,
+      code: 'KZ-P-2026-001',
+      kind: 'proposta',
+      title: 'Proposta Comercial — Clínica NutriVida',
+      status: 'enviada',
+      clientId: 'cli-1763300000100-abcde',
+      leadId: 'lead-1763300000000-ab12c',
+      recipientCompany: 'Clínica NutriVida Avançada',
+      recipientContact: 'Dra. Camila Mendes',
+      recipientPhone: '5511988887777',
+      issuerName: 'Agência Kaizen',
+      items: [
+        {
+          id: 'item-1',
+          title: 'Desenvolvimento de Site Profissional',
+          billingType: 'setup',
+          quantity: 1,
+          unitPrice: 1200,
+        },
+      ],
+      discountValue: 0,
+      setupTotal: 1200,
+      monthlyMrr: 350,
+      deliveryDeadlineDays: 7,
+      history: [
+        {
+          id: 'hist-1',
+          date: '2026-11-16T10:30:00.000Z',
+          status: 'enviada',
+          title: 'Proposta enviada',
+          author: 'Ian',
+        },
+      ],
+      createdAt: '2026-11-16T10:30:00.000Z',
+      schemaVersion: 1,
+      updatedAt: '2026-11-16T10:30:00.000Z',
+    });
+
+    const writeRes = await fetch(docUrl(WORKSPACE_ID, 'proposals', propId), {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminUser.idToken}`,
+      },
+      body: JSON.stringify(validProposal),
+    });
+    assert.equal(writeRes.status, 200);
+  });
+
+  await t.test('Compatibilidade 7: Coleções da Etapa 3 (projects, tasks, agendaEvents, socialChannels, socialPosts) gravam e bloqueiam campo extra', async () => {
+    const projectRes = await fetch(docUrl(WORKSPACE_ID, 'projects', 'proj-1763300000300-a1b2c'), {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminUser.idToken}`,
+      },
+      body: JSON.stringify(
+        toFirestoreDoc({
+          id: 'proj-1763300000300-a1b2c',
+          name: 'Landing Page + GBP NutriVida',
+          clientId: 'cli-1763300000100-abcde',
+          serviceType: 'Kaizen Start',
+          templateId: 'kaizen_start',
+          status: 'em_andamento',
+          ownerName: 'Ian',
+          startDate: '2026-11-16',
+          dueDate: '2026-11-30',
+          documents: [],
+          history: [],
+          createdAt: '2026-11-16T12:00:00.000Z',
+          schemaVersion: 1,
+          updatedAt: '2026-11-16T12:00:00.000Z',
+        })
+      ),
+    });
+    assert.equal(projectRes.status, 200);
+
+    const taskRes = await fetch(docUrl(WORKSPACE_ID, 'tasks', 'task-1763300000301-d3e4f'), {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminUser.idToken}`,
+      },
+      body: JSON.stringify(
+        toFirestoreDoc({
+          id: 'task-1763300000301-d3e4f',
+          title: 'Publicar Landing Page',
+          projectId: 'proj-1763300000300-a1b2c',
+          clientId: 'cli-1763300000100-abcde',
+          dueDate: '2026-11-22',
+          priority: 'alta',
+          status: 'a_fazer',
+          checklist: [{ id: 'chk-1', title: 'Testar mobile', done: false }],
+          createdAt: '2026-11-16T12:00:00.000Z',
+          schemaVersion: 1,
+          updatedAt: '2026-11-16T12:00:00.000Z',
+        })
+      ),
+    });
+    assert.equal(taskRes.status, 200);
+
+    const eventRes = await fetch(docUrl(WORKSPACE_ID, 'agendaEvents', 'evt-1763300000302-g5h6i'), {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminUser.idToken}`,
+      },
+      body: JSON.stringify(
+        toFirestoreDoc({
+          id: 'evt-1763300000302-g5h6i',
+          title: 'Alinhamento quinzenal',
+          date: '2026-11-18',
+          startTime: '14:00',
+          endTime: '14:45',
+          type: 'reuniao_cliente',
+          status: 'agendado',
+          clientId: 'cli-1763300000100-abcde',
+          createdAt: '2026-11-16T12:00:00.000Z',
+          schemaVersion: 1,
+          updatedAt: '2026-11-16T12:00:00.000Z',
+        })
+      ),
+    });
+    assert.equal(eventRes.status, 200);
+
+    const channelRes = await fetch(docUrl(WORKSPACE_ID, 'socialChannels', 'sch-1763300000303-j7k8l'), {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminUser.idToken}`,
+      },
+      body: JSON.stringify(
+        toFirestoreDoc({
+          id: 'sch-1763300000303-j7k8l',
+          ownerType: 'kaizen',
+          platform: 'instagram',
+          handle: '@agenciakaizen',
+          active: true,
+          createdAt: '2026-11-16T12:00:00.000Z',
+          schemaVersion: 1,
+          updatedAt: '2026-11-16T12:00:00.000Z',
+        })
+      ),
+    });
+    assert.equal(channelRes.status, 200);
+
+    const postRes = await fetch(docUrl(WORKSPACE_ID, 'socialPosts', 'post-1763300000304-m9n0p'), {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminUser.idToken}`,
+      },
+      body: JSON.stringify(
+        toFirestoreDoc({
+          id: 'post-1763300000304-m9n0p',
+          title: 'Bastidores entrega Kaizen Start',
+          ownerType: 'kaizen',
+          channelId: 'sch-1763300000303-j7k8l',
+          platform: 'instagram',
+          format: 'carrossel',
+          plannedDate: '2026-11-21',
+          plannedTime: '18:00',
+          assignee: 'Ian',
+          status: 'planejamento',
+          createdAt: '2026-11-16T12:00:00.000Z',
+          schemaVersion: 1,
+          updatedAt: '2026-11-16T12:00:00.000Z',
+        })
+      ),
+    });
+    assert.equal(postRes.status, 200);
+
+    const shadowPost = await fetch(docUrl(WORKSPACE_ID, 'socialPosts', 'post-shadow-bad'), {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminUser.idToken}`,
+      },
+      body: JSON.stringify(
+        toFirestoreDoc({
+          id: 'post-shadow-bad',
+          title: 'Shadow Post',
+          ownerType: 'kaizen',
+          platform: 'instagram',
+          format: 'post',
+          plannedDate: '2026-11-21',
+          assignee: 'Ian',
+          status: 'ideias',
+          extraFieldBlocked: true,
+        })
+      ),
+    });
+    assert.equal(shadowPost.status, 403);
+  });
+
+  await t.test('Compatibilidade 8: Coleções financeiras da Etapa 4 validam schemas, bloqueiam campo extra e preservam imutabilidade', async () => {
+    const entryRes = await fetch(docUrl(WORKSPACE_ID, 'financialEntries', 'fin-1763300000401-abcd'), {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminUser.idToken}`,
+      },
+      body: JSON.stringify(
+        toFirestoreDoc({
+          id: 'fin-1763300000401-abcd',
+          kind: 'receita',
+          description: 'Mensalidade Clínica NutriVida',
+          clientId: 'cli-1763300000100-abcde',
+          categoryId: 'fcat-rec-mrr',
+          amountCents: 150000,
+          settledCents: 0,
+          competenceDate: '2026-11-01',
+          dueDate: '2026-11-10',
+          paymentMethod: 'pix',
+          status: 'pendente',
+          createdAt: '2026-11-01T10:00:00.000Z',
+          schemaVersion: 1,
+          updatedAt: '2026-11-01T10:00:00.000Z',
+        })
+      ),
+    });
+    assert.equal(entryRes.status, 200);
+
+    const txRes = await fetch(docUrl(WORKSPACE_ID, 'financialTransactions', 'ftx-1763300000402-efgh'), {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminUser.idToken}`,
+      },
+      body: JSON.stringify(
+        toFirestoreDoc({
+          id: 'ftx-1763300000402-efgh',
+          entryId: 'fin-1763300000401-abcd',
+          entryKind: 'receita',
+          kind: 'recebimento',
+          amountCents: 150000,
+          date: '2026-11-10',
+          paymentMethod: 'pix',
+          createdBy: 'Ian',
+          createdAt: '2026-11-10T14:00:00.000Z',
+          schemaVersion: 1,
+          updatedAt: '2026-11-10T14:00:00.000Z',
+        })
+      ),
+    });
+    assert.equal(txRes.status, 200);
+
+    const deleteTxBlocked = await fetch(docUrl(WORKSPACE_ID, 'financialTransactions', 'ftx-1763300000402-efgh'), {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${adminUser.idToken}` },
+    });
+    assert.equal(deleteTxBlocked.status, 403);
+
+    const catRes = await fetch(docUrl(WORKSPACE_ID, 'financialCategories', 'fcat-rec-mrr'), {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminUser.idToken}`,
+      },
+      body: JSON.stringify(
+        toFirestoreDoc({
+          id: 'fcat-rec-mrr',
+          name: 'Mensalidade / Recorrência (MRR)',
+          kind: 'receita',
+          active: true,
+          isDefault: true,
+          createdAt: '2026-11-01T10:00:00.000Z',
+          schemaVersion: 1,
+          updatedAt: '2026-11-01T10:00:00.000Z',
+        })
+      ),
+    });
+    assert.equal(catRes.status, 200);
+
+    const recRes = await fetch(docUrl(WORKSPACE_ID, 'financialRecurrences', 'frec-1763300000403-ijkl'), {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminUser.idToken}`,
+      },
+      body: JSON.stringify(
+        toFirestoreDoc({
+          id: 'frec-1763300000403-ijkl',
+          name: 'Servidor Vercel Pro',
+          kind: 'despesa',
+          amountCents: 12000,
+          categoryId: 'fcat-desp-hospedagem',
+          paymentMethod: 'cartao_credito',
+          frequency: 'mensal',
+          startDate: '2026-11-05',
+          nextOccurrenceDate: '2026-12-05',
+          status: 'ativa',
+          createdAt: '2026-11-01T10:00:00.000Z',
+          schemaVersion: 1,
+          updatedAt: '2026-11-01T10:00:00.000Z',
+        })
+      ),
+    });
+    assert.equal(recRes.status, 200);
+
+    const settingsRes = await fetch(docUrl(WORKSPACE_ID, 'financialSettings', 'default'), {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminUser.idToken}`,
+      },
+      body: JSON.stringify(
+        toFirestoreDoc({
+          id: 'default',
+          companyName: 'Agência Kaizen',
+          currency: 'BRL',
+          dateFormat: 'DD/MM/YYYY',
+          timezone: 'America/Maceio',
+          openingBalanceCents: 500000,
+          openingBalanceDate: '2026-11-01',
+          openingBalanceDescription: 'Saldo inicial validado',
+          alertDaysAhead: 5,
+          defaultDueDay: 10,
+          schemaVersion: 1,
+          updatedAt: '2026-11-01T10:00:00.000Z',
+        })
+      ),
+    });
+    assert.equal(settingsRes.status, 200);
+
+    const auditCreateRes = await fetch(docUrl(WORKSPACE_ID, 'financialAuditLogs', 'faud-1763300000404-mnop'), {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminUser.idToken}`,
+      },
+      body: JSON.stringify(
+        toFirestoreDoc({
+          id: 'faud-1763300000404-mnop',
+          entityType: 'entry',
+          entityId: 'fin-1763300000401-abcd',
+          action: 'criacao',
+          description: 'Receita criada em teste de regras',
+          amountCents: 150000,
+          actor: 'Ian',
+          createdAt: '2026-11-01T10:00:00.000Z',
+          schemaVersion: 1,
+          updatedAt: '2026-11-01T10:00:00.000Z',
+        })
+      ),
+    });
+    assert.equal(auditCreateRes.status, 200);
+
+    const auditUpdateBlocked = await fetch(docUrl(WORKSPACE_ID, 'financialAuditLogs', 'faud-1763300000404-mnop'), {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminUser.idToken}`,
+      },
+      body: JSON.stringify(
+        toFirestoreDoc({
+          id: 'faud-1763300000404-mnop',
+          entityType: 'entry',
+          entityId: 'fin-1763300000401-abcd',
+          action: 'criacao',
+          description: 'Tentativa de adulteração',
+          actor: 'Ian',
+        })
+      ),
+    });
+    assert.equal(auditUpdateBlocked.status, 403);
+
+    const shadowEntryBlocked = await fetch(docUrl(WORKSPACE_ID, 'financialEntries', 'fin-shadow-bad'), {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminUser.idToken}`,
+      },
+      body: JSON.stringify(
+        toFirestoreDoc({
+          id: 'fin-shadow-bad',
+          kind: 'receita',
+          description: 'Lançamento Shadow',
+          categoryId: 'fcat-rec-mrr',
+          amountCents: 10000,
+          settledCents: 0,
+          competenceDate: '2026-11-01',
+          dueDate: '2026-11-10',
+          paymentMethod: 'pix',
+          status: 'pendente',
+          extraFieldBlocked: true,
+        })
+      ),
+    });
+    assert.equal(shadowEntryBlocked.status, 403);
+  });
 });
+

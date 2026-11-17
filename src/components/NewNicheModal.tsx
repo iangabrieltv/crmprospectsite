@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { NicheCampaign } from '../types/crm';
-import { DEFAULT_SCRIPTS, SCRIPT_NUTRICIONISTA, SCRIPT_NUTRICIONISTA_MENSAGENS } from '../utils/initialData';
-import { X, Sparkles, BookOpen } from 'lucide-react';
+import { DEFAULT_SCRIPTS } from '../utils/initialData';
+import { BookOpen } from 'lucide-react';
+import { Modal, Input, Button } from './ui';
 
 interface NewNicheModalProps {
   onClose: () => void;
@@ -11,14 +12,18 @@ interface NewNicheModalProps {
 const EMOJI_SUGGESTIONS = ['🥗', '🥑', '🩺', '🦷', '🔑', '💅', '⚖️', '🍕', '🚗', '🏗️', '🐾', '💈'];
 
 export const NewNicheModal: React.FC<NewNicheModalProps> = ({ onClose, onCreateNiche }) => {
-  const [templateType, setTemplateType] = useState<'estetica' | 'odonto' | 'nutri' | 'clinicas' | 'custom'>('estetica');
+  const [templateType, setTemplateType] = useState<
+    'estetica' | 'odonto' | 'nutri' | 'clinicas' | 'custom'
+  >('estetica');
   const [name, setName] = useState('Estética Automotiva');
   const [segment, setSegment] = useState('Estética Automotiva & Polimento');
   const [city, setCity] = useState('');
   const [emoji, setEmoji] = useState('🚗');
   const [targetMrr, setTargetMrr] = useState('6000');
 
-  const handleSelectTemplate = (type: 'estetica' | 'odonto' | 'nutri' | 'clinicas' | 'custom') => {
+  const handleSelectTemplate = (
+    type: 'estetica' | 'odonto' | 'nutri' | 'clinicas' | 'custom'
+  ) => {
     setTemplateType(type);
     if (type === 'estetica') {
       setName('Estética Automotiva');
@@ -49,7 +54,8 @@ export const NewNicheModal: React.FC<NewNicheModalProps> = ({ onClose, onCreateN
 
     const nicheScripts = { ...DEFAULT_SCRIPTS };
 
-    const isNutri = name.toLowerCase().includes('nutri') || segment.toLowerCase().includes('nutri');
+    const isNutri =
+      name.toLowerCase().includes('nutri') || segment.toLowerCase().includes('nutri');
     const newNiche: NicheCampaign = {
       id: 'niche-' + Date.now(),
       name: name.trim(),
@@ -66,203 +72,140 @@ export const NewNicheModal: React.FC<NewNicheModalProps> = ({ onClose, onCreateN
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-xl max-w-md w-full border border-slate-200 overflow-hidden my-auto max-h-[92dvh] flex flex-col">
-        <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
-          <h3 className="text-sm font-bold text-slate-900">
-            + Novo Nicho / Campanha de Venda
-          </h3>
-          <button
-            onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg cursor-pointer"
-          >
-            <X className="w-4 h-4" />
-          </button>
+    <Modal
+      isOpen
+      onClose={onClose}
+      size="md"
+      title="Novo Nicho / Campanha de Venda"
+      subtitle="Configure segmento, roteiro inicial e meta de recorrência"
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button type="submit" form="kaizen-new-niche-form" variant="primary">
+            Criar Campanha
+          </Button>
+        </>
+      }
+    >
+      <form id="kaizen-new-niche-form" onSubmit={handleSubmit} className="space-y-4">
+        {/* Preset Template Selector */}
+        <div>
+          <label className="kz-label mb-1.5 flex items-center gap-1.5">
+            <BookOpen className="w-3.5 h-3.5 text-[var(--kz-accent)]" />
+            <span>Modelo de Scripts & Roteiro</span>
+          </label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {[
+              {
+                key: 'estetica' as const,
+                icon: '🚗',
+                title: 'Estética Automotiva',
+                desc: '10 Etapas: Ancoragem R$ 697, Plano B R$ 397 + Upsell GMB',
+              },
+              {
+                key: 'odonto' as const,
+                icon: '🦷',
+                title: 'Dentistas / Odonto',
+                desc: '10 Etapas: Ancoragem R$ 697, Plano B R$ 397 + Upsell GMB',
+              },
+              {
+                key: 'nutri' as const,
+                icon: '🥗',
+                title: 'Nutricionistas',
+                desc: '16 Etapas com Áudios, Diagnóstico e Roteiro Texto',
+              },
+              {
+                key: 'clinicas' as const,
+                icon: '🩺',
+                title: 'Clínicas Médicas',
+                desc: 'Estrutura Validada, Mockup e Cold Call',
+              },
+            ].map((preset) => (
+              <button
+                key={preset.key}
+                type="button"
+                onClick={() => handleSelectTemplate(preset.key)}
+                className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                  templateType === preset.key
+                    ? 'border-[var(--kz-accent)] bg-[var(--kz-accent-soft)] ring-1 ring-[var(--kz-accent)]'
+                    : 'border-[var(--kz-border-subtle)] hover:bg-[var(--kz-bg-subtle)]'
+                }`}
+              >
+                <div className="flex items-center gap-1.5 font-bold text-xs text-[var(--kz-text-primary)]">
+                  <span>{preset.icon}</span>
+                  <span>{preset.title}</span>
+                </div>
+                <div className="text-[10px] text-[var(--kz-text-muted)] mt-0.5 leading-tight">
+                  {preset.desc}
+                </div>
+              </button>
+            ))}
+          </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4 flex-1 overflow-y-auto">
-          {/* Preset Template Selector */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-              <BookOpen className="w-3.5 h-3.5 text-blue-600" />
-              Modelo de Scripts & Roteiro
-            </label>
-            <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className="block kz-label mb-1.5">Emoji do Nicho</label>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {EMOJI_SUGGESTIONS.map((em) => (
               <button
                 type="button"
-                onClick={() => handleSelectTemplate('estetica')}
-                className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
-                  templateType === 'estetica'
-                    ? 'border-blue-600 bg-blue-50/70 ring-1 ring-blue-500'
-                    : 'border-slate-200 hover:bg-slate-50'
+                key={em}
+                onClick={() => setEmoji(em)}
+                className={`w-8 h-8 rounded-lg text-base flex items-center justify-center border transition-all cursor-pointer ${
+                  emoji === em
+                    ? 'border-[var(--kz-accent)] bg-[var(--kz-accent-soft)] ring-1 ring-[var(--kz-accent-border)]'
+                    : 'border-[var(--kz-border-subtle)] hover:bg-[var(--kz-bg-subtle)]'
                 }`}
               >
-                <div className="flex items-center gap-1.5 font-bold text-xs text-slate-900">
-                  <span>🚗</span> Estética Automotiva
-                </div>
-                <div className="text-[10px] text-slate-500 mt-0.5 leading-tight">
-                  10 Etapas: Ancoragem R$ 697, Plano B R$ 397 + Upsell GMB
-                </div>
+                {em}
               </button>
-
-              <button
-                type="button"
-                onClick={() => handleSelectTemplate('odonto')}
-                className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
-                  templateType === 'odonto'
-                    ? 'border-blue-600 bg-blue-50/70 ring-1 ring-blue-500'
-                    : 'border-slate-200 hover:bg-slate-50'
-                }`}
-              >
-                <div className="flex items-center gap-1.5 font-bold text-xs text-slate-900">
-                  <span>🦷</span> Dentistas / Odonto
-                </div>
-                <div className="text-[10px] text-slate-500 mt-0.5 leading-tight">
-                  10 Etapas: Ancoragem R$ 697, Plano B R$ 397 + Upsell GMB
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleSelectTemplate('nutri')}
-                className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
-                  templateType === 'nutri'
-                    ? 'border-blue-600 bg-blue-50/70 ring-1 ring-blue-500'
-                    : 'border-slate-200 hover:bg-slate-50'
-                }`}
-              >
-                <div className="flex items-center gap-1.5 font-bold text-xs text-slate-900">
-                  <span>🥗</span> Nutricionistas
-                </div>
-                <div className="text-[10px] text-slate-500 mt-0.5 leading-tight">
-                  16 Etapas com Áudios, Diagnóstico e Roteiro Texto
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleSelectTemplate('clinicas')}
-                className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
-                  templateType === 'clinicas'
-                    ? 'border-blue-600 bg-blue-50/70 ring-1 ring-blue-500'
-                    : 'border-slate-200 hover:bg-slate-50'
-                }`}
-              >
-                <div className="flex items-center gap-1.5 font-bold text-xs text-slate-900">
-                  <span>🩺</span> Clínicas Médicas
-                </div>
-                <div className="text-[10px] text-slate-500 mt-0.5 leading-tight">
-                  Estrutura Validada, Mockup e Cold Call
-                </div>
-              </button>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Emoji do Nicho
-            </label>
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {EMOJI_SUGGESTIONS.map((em) => (
-                <button
-                  type="button"
-                  key={em}
-                  onClick={() => setEmoji(em)}
-                  className={`w-8 h-8 rounded-lg text-base flex items-center justify-center border transition-all cursor-pointer ${
-                    emoji === em
-                      ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-300'
-                      : 'border-slate-200 hover:bg-slate-50'
-                  }`}
-                >
-                  {em}
-                </button>
-              ))}
-              <input
-                type="text"
-                value={emoji}
-                onChange={(e) => setEmoji(e.target.value)}
-                maxLength={2}
-                className="w-9 h-8 text-center text-sm border border-slate-300 rounded-lg"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Nome da Campanha *
-            </label>
+            ))}
             <input
               type="text"
-              required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Ex: 🥗 Nutricionistas - Arapiraca"
-              className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900"
-              autoFocus
+              value={emoji}
+              onChange={(e) => setEmoji(e.target.value)}
+              maxLength={2}
+              className="w-9 h-8 text-center text-sm border border-[var(--kz-border-default)] rounded-lg bg-[var(--kz-bg-surface)]"
             />
           </div>
+        </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Segmento de Atuação
-            </label>
-            <input
-              type="text"
-              value={segment}
-              onChange={(e) => setSegment(e.target.value)}
-              placeholder="Ex: Nutricionistas & Nutrologia"
-              className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900"
-            />
-          </div>
+        <Input
+          label="Nome da Campanha"
+          required
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Ex: Nutricionistas - Arapiraca"
+          autoFocus
+        />
 
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Cidade / Região Padrão
-            </label>
-            <input
-              type="text"
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
-              placeholder="Ex: Arapiraca - AL"
-              className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900"
-            />
-          </div>
+        <Input
+          label="Segmento de Atuação"
+          value={segment}
+          onChange={(e) => setSegment(e.target.value)}
+          placeholder="Ex: Nutricionistas & Nutrologia"
+        />
 
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Meta de Faturamento MRR (R$/mês)
-            </label>
-            <div className="relative">
-              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-mono">
-                R$
-              </span>
-              <input
-                type="number"
-                value={targetMrr}
-                onChange={(e) => setTargetMrr(e.target.value)}
-                placeholder="5000"
-                className="w-full text-xs pl-8 pr-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono tabular-nums text-slate-900"
-              />
-            </div>
-          </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Input
+            label="Cidade / Região Padrão"
+            value={city}
+            onChange={(e) => setCity(e.target.value)}
+            placeholder="Ex: Arapiraca - AL"
+          />
 
-          <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-3.5 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-xs cursor-pointer"
-            >
-              Criar Campanha
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+          <Input
+            label="Meta de MRR (R$/mês)"
+            type="number"
+            value={targetMrr}
+            onChange={(e) => setTargetMrr(e.target.value)}
+            placeholder="5000"
+            className="font-mono tabular-nums"
+          />
+        </div>
+      </form>
+    </Modal>
   );
 };
