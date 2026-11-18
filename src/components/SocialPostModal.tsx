@@ -24,7 +24,9 @@ import {
   Select,
   Textarea,
 } from './ui';
-import { Share2 } from 'lucide-react';
+import { Paperclip, Search, Share2 } from 'lucide-react';
+import { ResourceFile } from '../types/resources';
+import { getFilesForSocialPostContext } from '../services/resources';
 
 interface SocialPostModalProps {
   isOpen: boolean;
@@ -32,11 +34,17 @@ interface SocialPostModalProps {
   clients: Client[];
   proposals: ProposalContract[];
   channels: SocialChannel[];
+  resourceFiles?: ResourceFile[];
   userName: string;
   editingPost?: SocialPost | null;
   defaultClientId?: string;
   defaultDate?: string;
   onSavePost: (post: SocialPost, mode: 'create' | 'edit') => Promise<void> | void;
+  onSyncSocialPostFiles?: (
+    postId: string,
+    clientId: string,
+    selectedFileIds: string[]
+  ) => Promise<void> | void;
 }
 
 export const SocialPostModal: React.FC<SocialPostModalProps> = ({
@@ -45,11 +53,13 @@ export const SocialPostModal: React.FC<SocialPostModalProps> = ({
   clients,
   proposals,
   channels,
+  resourceFiles = [],
   userName,
   editingPost,
   defaultClientId,
   defaultDate,
   onSavePost,
+  onSyncSocialPostFiles,
 }) => {
   const [title, setTitle] = useState('');
   const [ownerType, setOwnerType] = useState<SocialOwnerType>('kaizen');
@@ -66,6 +76,8 @@ export const SocialPostModal: React.FC<SocialPostModalProps> = ({
   const [assignee, setAssignee] = useState(userName || 'Ian');
   const [status, setStatus] = useState<SocialPostStatus>('ideias');
   const [notes, setNotes] = useState('');
+  const [selectedFileIds, setSelectedFileIds] = useState<string[]>([]);
+  const [assetSearchQuery, setAssetSearchQuery] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
   const eligibleClients = useMemo(
@@ -108,7 +120,21 @@ export const SocialPostModal: React.FC<SocialPostModalProps> = ({
       setStatus('ideias');
       setNotes('');
     }
-  }, [isOpen, editingPost, defaultClientId, defaultDate, userName, eligibleClients.length]);
+    setSelectedFileIds(
+      editingPost
+        ? getFilesForSocialPostContext(resourceFiles, editingPost.id).map((f) => f.id)
+        : []
+    );
+    setAssetSearchQuery('');
+  }, [
+    isOpen,
+    editingPost,
+    defaultClientId,
+    defaultDate,
+    userName,
+    eligibleClients.length,
+    resourceFiles,
+  ]);
 
   const matchingChannels = useMemo(
     () =>
@@ -179,10 +205,47 @@ export const SocialPostModal: React.FC<SocialPostModalProps> = ({
         updatedAt: nowIso,
       };
       await onSavePost(payload, editingPost ? 'edit' : 'create');
+      if (onSyncSocialPostFiles) {
+        await onSyncSocialPostFiles(
+          payload.id,
+          payload.clientId || '',
+          selectedFileIds
+        );
+      }
       onClose();
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const activeAssetsForPicker = useMemo(() => {
+    const q = assetSearchQuery.trim().toLowerCase();
+    const targetClientId = ownerType === 'client' ? clientId : '';
+    return resourceFiles
+      .filter((f) => f.status === 'ativo' || selectedFileIds.includes(f.id))
+      .filter((f) => {
+        if (!q) return true;
+        return (
+          f.name.toLowerCase().includes(q) ||
+          f.originalName.toLowerCase().includes(q) ||
+          (f.tags || []).some((t) => t.toLowerCase().includes(q))
+        );
+      })
+      .sort((a, b) => {
+        const aSel = selectedFileIds.includes(a.id) ? 1 : 0;
+        const bSel = selectedFileIds.includes(b.id) ? 1 : 0;
+        if (aSel !== bSel) return bSel - aSel;
+        const aClient = targetClientId && a.clientId === targetClientId ? 1 : 0;
+        const bClient = targetClientId && b.clientId === targetClientId ? 1 : 0;
+        if (aClient !== bClient) return bClient - aClient;
+        return b.uploadedAt.localeCompare(a.uploadedAt);
+      });
+  }, [resourceFiles, assetSearchQuery, selectedFileIds, ownerType, clientId]);
+
+  const toggleAssetSelection = (fileId: string) => {
+    setSelectedFileIds((prev) =>
+      prev.includes(fileId) ? prev.filter((id) => id !== fileId) : [...prev, fileId]
+    );
   };
 
   return (
@@ -393,6 +456,75 @@ export const SocialPostModal: React.FC<SocialPostModalProps> = ({
           rows={2}
           placeholder="Feedback de revisão, referências visuais ou observações internas..."
         />
+
+        {(resourceFiles.length > 0 || selectedFileIds.length > 0) && (
+          <div className="p-3.5 rounded-xl bg-[var(--kz-bg-subtle)]/50 border border-[var(--kz-border-subtle)] space-y-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-bold text-[var(--kz-text-primary)] inline-flex items-center gap-1.5">
+                <Paperclip className="w-3.5 h-3.5 text-[var(--kz-accent)]" />
+                <span>Materiais / Artes da Central ({selectedFileIds.length})</span>
+              </span>
+              {selectedFileIds.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedFileIds([])}
+                  className="text-[11px] text-[var(--kz-text-muted)] hover:text-[var(--kz-danger-text)] cursor-pointer"
+                >
+                  Limpar seleção
+                </button>
+              )}
+            </div>
+
+            <Input
+              value={assetSearchQuery}
+              onChange={(e) => setAssetSearchQuery(e.target.value)}
+              placeholder="Buscar arte, vídeo ou briefing na central..."
+              leftIcon={<Search className="w-3.5 h-3.5" />}
+            />
+
+            {activeAssetsForPicker.length === 0 ? (
+              <p className="text-[11px] text-[var(--kz-text-muted)] py-1">
+                Nenhum material encontrado com este termo.
+              </p>
+            ) : (
+              <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
+                {activeAssetsForPicker.slice(0, 30).map((file) => {
+                  const checked = selectedFileIds.includes(file.id);
+                  const matchesClient =
+                    ownerType === 'client' && clientId && file.clientId === clientId;
+                  return (
+                    <label
+                      key={file.id}
+                      className={`flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg border text-xs cursor-pointer transition-colors ${
+                        checked
+                          ? 'bg-[var(--kz-accent-soft)] border-[var(--kz-accent-border)] text-[var(--kz-text-primary)]'
+                          : 'bg-[var(--kz-bg-surface)] border-[var(--kz-border-subtle)] text-[var(--kz-text-secondary)] hover:border-[var(--kz-border-default)]'
+                      }`}
+                    >
+                      <span className="flex items-center gap-2 min-w-0 flex-1">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleAssetSelection(file.id)}
+                          className="rounded accent-[var(--kz-accent)]"
+                        />
+                        <span className="truncate font-medium">{file.name}</span>
+                      </span>
+                      <span className="flex items-center gap-1.5 shrink-0 text-[10px] font-mono text-[var(--kz-text-muted)]">
+                        {matchesClient && (
+                          <span className="px-1.5 py-0.5 rounded bg-[var(--kz-bg-subtle)] text-[var(--kz-accent-text)] font-sans font-semibold">
+                            Cliente
+                          </span>
+                        )}
+                        <span>.{file.extension}</span>
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         <Alert variant="info">
           Publicações em status <strong>Aprovado</strong> exigem confirmação manual do administrador no painel de Redes Sociais para serem marcadas como <strong>Publicado</strong>.

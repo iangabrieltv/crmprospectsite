@@ -14,6 +14,8 @@ import {
 import { findDuplicateClient } from '../services/clientService';
 import { buildProposalWhatsAppMessage } from '../services/proposalService';
 import { downloadProposalPdf } from '../services/pdfService';
+import { SystemSettings } from '../types/system';
+import { getIssuerBrandingFromSettings } from '../services/system/settingsService';
 import {
   BuildProposalFinancialInput,
   KAIZEN_TIMEZONE,
@@ -50,6 +52,7 @@ interface ProposalPreviewModalProps {
   clients: Client[];
   financialEntries?: FinancialEntry[];
   financialRecurrences?: FinancialRecurrence[];
+  systemSettings?: SystemSettings | null;
   onClose: () => void;
   onEdit: (proposal: ProposalContract) => void;
   onDelete: (proposalId: string) => Promise<void>;
@@ -71,6 +74,7 @@ export const ProposalPreviewModal: React.FC<ProposalPreviewModalProps> = ({
   clients,
   financialEntries = [],
   financialRecurrences = [],
+  systemSettings = null,
   onClose,
   onEdit,
   onDelete,
@@ -115,8 +119,13 @@ export const ProposalPreviewModal: React.FC<ProposalPreviewModalProps> = ({
     return match?.existingClient || null;
   }, [clients, proposal]);
 
+  const issuerBranding = useMemo(
+    () => getIssuerBrandingFromSettings(systemSettings),
+    [systemSettings]
+  );
+
   const handleDownloadPdf = () => {
-    const filename = downloadProposalPdf(proposal);
+    const filename = downloadProposalPdf(proposal, issuerBranding);
     setPdfFeedback(`PDF gerado e baixado: ${filename}`);
     setTimeout(() => setPdfFeedback(null), 4000);
   };

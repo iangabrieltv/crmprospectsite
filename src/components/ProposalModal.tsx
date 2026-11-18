@@ -8,6 +8,8 @@ import {
   ProposalLineItem,
   ProposalStatus,
 } from '../types/kaizen';
+import { ModelTemplate } from '../types/resources';
+import { SystemSettings } from '../types/system';
 import {
   DEFAULT_CONTRACT_CLAUSES,
   buildProposalFromSource,
@@ -16,6 +18,8 @@ import {
   generateProposalId,
   generateProposalItemId,
 } from '../services/proposalService';
+import { buildIndependentProposalFromTemplate } from '../services/resources';
+import { getIssuerBrandingFromSettings } from '../services/system/settingsService';
 import { cleanPhoneForWhatsApp } from '../utils/phone';
 import {
   Modal,
@@ -34,6 +38,8 @@ interface ProposalModalProps {
   clients: Client[];
   leads: Lead[];
   niches: NicheCampaign[];
+  modelTemplates?: ModelTemplate[];
+  systemSettings?: SystemSettings | null;
   userName: string;
   initialProposal?: ProposalContract | null;
   initialClient?: Client | null;
@@ -49,6 +55,8 @@ export const ProposalModal: React.FC<ProposalModalProps> = ({
   clients,
   leads,
   niches,
+  modelTemplates = [],
+  systemSettings = null,
   userName,
   initialProposal = null,
   initialClient = null,
@@ -58,24 +66,33 @@ export const ProposalModal: React.FC<ProposalModalProps> = ({
 }) => {
   const isEditing = Boolean(initialProposal);
 
+  const issuerBranding = useMemo(
+    () => getIssuerBrandingFromSettings(systemSettings, userName),
+    [systemSettings, userName]
+  );
+
   const initialDraft = useMemo(() => {
     if (initialProposal) return initialProposal;
     const nicheMatch = initialLead
       ? niches.find((n) => n.id === initialLead.nicheId) || null
       : null;
-    return buildProposalFromSource({
+    const built = buildProposalFromSource({
       kind: initialKind,
       existingProposals,
-      issuerName: userName ? `Agência Kaizen — ${userName}` : 'Agência Kaizen',
+      issuerName: issuerBranding.issuerName,
       client: initialClient,
       lead: initialLead,
       niche: nicheMatch,
     });
+    return {
+      ...built,
+      issuerDocument: issuerBranding.issuerDocument || built.issuerDocument,
+    };
   }, [
     initialProposal,
     initialKind,
     existingProposals,
-    userName,
+    issuerBranding,
     initialClient,
     initialLead,
     niches,
@@ -129,9 +146,51 @@ export const ProposalModal: React.FC<ProposalModalProps> = ({
     initialDraft.clausesText || ''
   );
   const [notes, setNotes] = useState<string>(initialDraft.notes || '');
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
 
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState<boolean>(false);
+
+  const proposalModelTemplates = useMemo(
+    () =>
+      modelTemplates.filter(
+        (t) => t.status === 'ativo' && (t.kind === 'proposta' || t.kind === 'contrato')
+      ),
+    [modelTemplates]
+  );
+
+  const handleApplyModelTemplate = (templateId: string) => {
+    setSelectedTemplateId(templateId);
+    const tmpl = proposalModelTemplates.find((t) => t.id === templateId);
+    if (!tmpl) return;
+
+    const currentClient = clients.find((c) => c.id === selectedClientId) || null;
+    const currentLead = leads.find((l) => l.id === selectedLeadId) || null;
+    const nicheMatch = currentLead
+      ? niches.find((n) => n.id === currentLead.nicheId) || null
+      : null;
+
+    const draft = buildIndependentProposalFromTemplate({
+      template: tmpl,
+      existingProposals,
+      issuerName: issuerName.trim() || issuerBranding.issuerName,
+      client: currentClient,
+      lead: currentLead,
+      niche: nicheMatch,
+    });
+
+    setKind(draft.kind);
+    setCode(draft.code);
+    setTitle(draft.title);
+    setSummary(draft.summary || '');
+    setItems(draft.items || []);
+    setDeliveryDeadlineDays(
+      draft.deliveryDeadlineDays ? String(draft.deliveryDeadlineDays) : '14'
+    );
+    setPaymentTerms(draft.paymentTerms || '');
+    setClausesText(draft.clausesText || '');
+    if (draft.notes) setNotes(draft.notes);
+  };
 
   const computedTotals = useMemo(
     () => calculateProposalTotals(items, parseFloat(discountValue) || 0),
@@ -384,8 +443,29 @@ export const ProposalModal: React.FC<ProposalModalProps> = ({
       >
         {error && <Alert variant="danger">{error}</Alert>}
 
-        {/* Vinculo opcional com Cliente ou Lead */}
-        <div className="p-3.5 rounded-xl bg-[var(--kz-bg-subtle)]/70 border border-[var(--kz-border-subtle)] grid grid-cols-1 md:grid-cols-2 gap-3">
+        {/* Vinculo opcional com Cliente ou Lead e Modelo Independente */}
+        <div
+          className={`p-3.5 rounded-xl bg-[var(--kz-bg-subtle)]/70 border border-[var(--kz-border-subtle)] grid grid-cols-1 ${
+            !isEditing && proposalModelTemplates.length > 0
+              ? 'md:grid-cols-3'
+              : 'md:grid-cols-2'
+          } gap-3`}
+        >
+          {!isEditing && proposalModelTemplates.length > 0 && (
+            <Select
+              label="Modelo da Biblioteca (opcional)"
+              value={selectedTemplateId}
+              onChange={(e) => handleApplyModelTemplate(e.target.value)}
+            >
+              <option value="">Preencher manualmente</option>
+              {proposalModelTemplates.map((tmpl) => (
+                <option key={tmpl.id} value={tmpl.id}>
+                  {tmpl.title}
+                </option>
+              ))}
+            </Select>
+          )}
+
           <Select
             label="Vincular Cliente Existente (opcional)"
             value={selectedClientId}

@@ -6,6 +6,7 @@ import {
 } from '../types/crm';
 import { AgendaEvent, Task } from '../types/kaizen';
 import { FinancialEntry } from '../types/finance';
+import { SystemNotification } from '../types/system';
 import { getRouteMeta } from '../config/navigation';
 import { auth } from '../utils/firebase';
 import {
@@ -60,6 +61,11 @@ interface HeaderProps {
   agendaEvents?: AgendaEvent[];
   financialEntries?: FinancialEntry[];
   financialAlertDaysAhead?: number;
+  notifications?: SystemNotification[];
+  onMarkNotificationRead?: (id: string) => void;
+  onMarkAllNotificationsRead?: () => void;
+  photoUrl?: string;
+  agencyName?: string;
   totalLeadsCount: number;
   allLeadsCount?: number;
   allNichesCount?: number;
@@ -87,6 +93,11 @@ export const Header: React.FC<HeaderProps> = ({
   agendaEvents = [],
   financialEntries = [],
   financialAlertDaysAhead = 5,
+  notifications,
+  onMarkNotificationRead,
+  onMarkAllNotificationsRead,
+  photoUrl,
+  agencyName,
   totalLeadsCount,
   allLeadsCount,
   allNichesCount,
@@ -231,6 +242,37 @@ export const Header: React.FC<HeaderProps> = ({
 
     return items.sort((a, b) => Number(b.urgent) - Number(a.urgent));
   }, [leads, tasks, agendaEvents, financialEntries, financialAlertDaysAhead]);
+
+  const bellNotifications = useMemo(() => {
+    if (notifications !== undefined) {
+      return notifications
+        .filter((n) => !n.dismissed)
+        .map((n) => ({
+          id: n.id,
+          kind: (
+            n.category === 'financeiro'
+              ? 'finance'
+              : n.category === 'operacional'
+              ? 'task'
+              : n.entityType === 'lead' && n.title.toLowerCase().includes('retorno')
+              ? 'callback'
+              : 'event'
+          ) as 'callback' | 'meeting' | 'task' | 'event' | 'finance',
+          targetTab: n.targetTab,
+          title: n.title,
+          subtitle: n.message,
+          timeLabel: n.dueLabel || '',
+          urgent: n.severity === 'danger',
+          read: n.read,
+        }));
+    }
+    return realAlerts.map((a) => ({ ...a, read: false }));
+  }, [notifications, realAlerts]);
+
+  const unreadBellCount = useMemo(
+    () => bellNotifications.filter((b) => !b.read).length,
+    [bellNotifications]
+  );
 
   const handleSaveUserName = (e: React.FormEvent) => {
     e.preventDefault();
@@ -418,7 +460,7 @@ export const Header: React.FC<HeaderProps> = ({
             </span>
           </div>
 
-          {/* Real Notifications Bell (shows ONLY real callbacks/meetings due today or overdue) */}
+          {/* Persisted Notifications Bell */}
           <Dropdown
             align="right"
             menuClassName="w-80"
@@ -426,13 +468,13 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 type="button"
                 className="relative h-8 w-8 rounded-lg border border-[var(--kz-border-default)] bg-[var(--kz-bg-subtle)] hover:bg-[var(--kz-bg-muted)] text-[var(--kz-text-secondary)] flex items-center justify-center transition-colors cursor-pointer"
-                title="Alertas reais da Agenda (reuniões e retornos de hoje)"
-                aria-label="Notificações da Agenda"
+                title="Central de Notificações e Alertas"
+                aria-label="Central de Notificações"
               >
                 <Bell className="w-4 h-4" />
-                {realAlerts.length > 0 && (
+                {unreadBellCount > 0 && (
                   <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-[var(--kz-accent)] text-[var(--kz-accent-fg)] text-[9px] font-mono font-bold flex items-center justify-center">
-                    {realAlerts.length}
+                    {unreadBellCount}
                   </span>
                 )}
               </button>
@@ -440,30 +482,41 @@ export const Header: React.FC<HeaderProps> = ({
           >
             {(close) => (
               <>
-                <div className="px-3 py-2 border-b border-[var(--kz-border-subtle)] flex items-center justify-between">
+                <div className="px-3 py-2 border-b border-[var(--kz-border-subtle)] flex items-center justify-between gap-2">
                   <span className="text-xs font-bold text-[var(--kz-text-primary)]">
-                    Alertas da Agenda
+                    Notificações ({unreadBellCount} não lidas)
                   </span>
-                  <span className="text-[10px] font-mono text-[var(--kz-text-muted)]">
-                    {realAlerts.length} {realAlerts.length === 1 ? 'item' : 'itens'}
-                  </span>
+                  {onMarkAllNotificationsRead && unreadBellCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => onMarkAllNotificationsRead()}
+                      className="text-[10px] font-semibold text-[var(--kz-accent-text)] hover:underline cursor-pointer"
+                    >
+                      Marcar todas
+                    </button>
+                  )}
                 </div>
 
                 <div className="max-h-72 overflow-y-auto divide-y divide-[var(--kz-border-subtle)]">
-                  {realAlerts.length === 0 ? (
+                  {bellNotifications.length === 0 ? (
                     <div className="px-4 py-6 text-center text-xs text-[var(--kz-text-muted)]">
-                      Nenhuma reunião ou retorno pendente para hoje.
+                      Nenhuma notificação pendente no momento.
                     </div>
                   ) : (
-                    realAlerts.map((alert) => (
+                    bellNotifications.slice(0, 12).map((alert) => (
                       <button
                         key={alert.id}
                         type="button"
                         onClick={() => {
                           close();
+                          if (notifications !== undefined && !alert.read) {
+                            onMarkNotificationRead?.(alert.id);
+                          }
                           onSelectTab(alert.targetTab);
                         }}
-                        className="w-full text-left px-3 py-2.5 hover:bg-[var(--kz-bg-muted)] transition-colors flex items-start gap-2.5 cursor-pointer"
+                        className={`w-full text-left px-3 py-2.5 hover:bg-[var(--kz-bg-muted)] transition-colors flex items-start gap-2.5 cursor-pointer ${
+                          alert.read ? 'opacity-65' : ''
+                        }`}
                       >
                         <div
                           className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
@@ -489,37 +542,52 @@ export const Header: React.FC<HeaderProps> = ({
                           )}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="text-xs font-semibold text-[var(--kz-text-primary)] truncate">
-                            {alert.title}
+                          <div className="text-xs font-semibold text-[var(--kz-text-primary)] truncate flex items-center gap-1.5">
+                            {!alert.read && (
+                              <span className="w-1.5 h-1.5 rounded-full bg-[var(--kz-accent)] shrink-0" />
+                            )}
+                            <span className="truncate">{alert.title}</span>
                           </div>
                           <div className="text-[11px] text-[var(--kz-text-muted)] truncate">
                             {alert.subtitle}
                           </div>
-                          <div
-                            className={`text-[10px] font-mono mt-0.5 ${
-                              alert.urgent
-                                ? 'text-[var(--kz-danger-text)] font-bold'
-                                : 'text-[var(--kz-text-secondary)]'
-                            }`}
-                          >
-                            {alert.timeLabel}
-                          </div>
+                          {alert.timeLabel && (
+                            <div
+                              className={`text-[10px] font-mono mt-0.5 ${
+                                alert.urgent
+                                  ? 'text-[var(--kz-danger-text)] font-bold'
+                                  : 'text-[var(--kz-text-secondary)]'
+                              }`}
+                            >
+                              {alert.timeLabel}
+                            </div>
+                          )}
                         </div>
                       </button>
                     ))
                   )}
                 </div>
 
-                <div className="p-1.5 border-t border-[var(--kz-border-subtle)]">
+                <div className="p-1.5 border-t border-[var(--kz-border-subtle)] grid grid-cols-2 gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      close();
+                      onSelectTab('notifications');
+                    }}
+                    className="w-full text-center py-1.5 text-xs font-semibold text-[var(--kz-accent-text)] hover:bg-[var(--kz-accent-soft)] rounded-lg transition-colors cursor-pointer"
+                  >
+                    Central de Alertas
+                  </button>
                   <button
                     type="button"
                     onClick={() => {
                       close();
                       onSelectTab('agenda');
                     }}
-                    className="w-full text-center py-1.5 text-xs font-semibold text-[var(--kz-accent-text)] hover:bg-[var(--kz-accent-soft)] rounded-lg transition-colors cursor-pointer"
+                    className="w-full text-center py-1.5 text-xs font-semibold text-[var(--kz-text-secondary)] hover:bg-[var(--kz-bg-subtle)] rounded-lg transition-colors cursor-pointer"
                   >
-                    Abrir Agenda Completa
+                    Abrir Agenda
                   </button>
                 </div>
               </>
@@ -534,11 +602,19 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 type="button"
                 className="flex items-center gap-1.5 px-2 h-8 rounded-lg border border-[var(--kz-border-default)] bg-[var(--kz-bg-subtle)] hover:bg-[var(--kz-bg-muted)] text-[var(--kz-text-primary)] text-xs font-medium transition-colors cursor-pointer"
-                title="Perfil do administrador e opções da conta"
+                title={agencyName ? `${agencyName} — ${userName}` : 'Perfil do administrador e opções da conta'}
               >
-                <div className="w-5 h-5 rounded-md bg-[var(--kz-accent-soft)] text-[var(--kz-accent-text)] font-bold text-[11px] flex items-center justify-center shrink-0">
-                  {userName?.charAt(0)?.toUpperCase() || 'K'}
-                </div>
+                {photoUrl && photoUrl.startsWith('https://') ? (
+                  <img
+                    src={photoUrl}
+                    alt={userName}
+                    className="w-5 h-5 rounded-md object-cover shrink-0"
+                  />
+                ) : (
+                  <div className="w-5 h-5 rounded-md bg-[var(--kz-accent-soft)] text-[var(--kz-accent-text)] font-bold text-[11px] flex items-center justify-center shrink-0">
+                    {userName?.charAt(0)?.toUpperCase() || 'K'}
+                  </div>
+                )}
                 <span className="hidden md:inline max-w-[90px] truncate font-semibold">
                   {userName}
                 </span>

@@ -30,7 +30,9 @@ export interface NavigationItem {
     | 'BarChart3'
     | 'Gauge'
     | 'Settings'
-    | 'Bot';
+    | 'Bot'
+    | 'Zap'
+    | 'Bell';
   implemented: boolean;
   description: string;
   plannedFeatures?: string[];
@@ -176,17 +178,13 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
   },
   {
     id: 'productivity',
-    label: 'Produtividade',
+    label: 'Relatórios e Produtividade',
     group: 'gestao',
     iconName: 'Gauge',
-    implemented: false,
-    targetStageLabel: 'Etapa 5 — Gestão & Eficiência',
-    description: 'Acompanhamento de metas diárias de prospecção, foco operacional e ritmo de execução.',
-    plannedFeatures: [
-      'Metas diárias e semanais de contatos e reuniões agendadas',
-      'Resumo de cadência comercial e taxa de conclusão de tarefas',
-      'Indicadores pessoais de consistência sem microgerenciamento',
-    ],
+    implemented: true,
+    targetStageLabel: 'Etapa 6 — Inteligência & Produtividade',
+    description:
+      'Central gerencial consolidada com análises comerciais, financeiras, operacionais, carteira de clientes, projetos, redes sociais, produtividade e construtor personalizado.',
   },
 
   // SISTEMA
@@ -196,21 +194,39 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     group: 'sistema',
     iconName: 'Settings',
     implemented: true,
-    description: 'Preferências do operador, workspace ativo, backup completo JSON v3.0 e governança da base.',
+    targetStageLabel: 'Etapa 7 — Governança & Sistema',
+    description:
+      'Perfil do administrador, identidade visual Premium Dark, preferências regionais, integrações, logs e backup.',
   },
   {
     id: 'ai_assistant',
     label: 'Assistente IA',
     group: 'sistema',
     iconName: 'Bot',
-    implemented: false,
-    targetStageLabel: 'Etapa 6 — Automações & IA',
-    description: 'Assistente contextual da agência conectado aos dados reais de CRM, projetos e rotina.',
-    plannedFeatures: [
-      'Resumo diário inteligente de pendências e próximos passos comerciais',
-      'Apoio contextual na preparação de reuniões e propostas',
-      'Expansão dos recursos de IA hoje ativos apenas dentro de Leads e Scripts',
-    ],
+    implemented: true,
+    targetStageLabel: 'Etapa 7 — Assistente IA Contextual',
+    description:
+      'Assistente conectado aos dados reais do Kaizen, sugestões inteligentes e ações assistidas com confirmação obrigatória.',
+  },
+  {
+    id: 'automations',
+    label: 'Automações',
+    group: 'sistema',
+    iconName: 'Zap',
+    implemented: true,
+    targetStageLabel: 'Etapa 7 — Regras & Automações',
+    description:
+      'Regras comerciais, operacionais e financeiras de monitoramento, alertas e rascunhos sob execução manual ou na abertura.',
+  },
+  {
+    id: 'notifications',
+    label: 'Notificações',
+    group: 'sistema',
+    iconName: 'Bell',
+    implemented: true,
+    targetStageLabel: 'Etapa 7 — Central de Notificações',
+    description:
+      'Alertas reais de leads, reuniões, tarefas, projetos e vencimentos financeiros com leitura controlada e deep links.',
   },
 ];
 

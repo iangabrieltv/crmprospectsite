@@ -23,6 +23,8 @@ import {
   ResourceFile,
   ResourceFolder,
 } from '../types/resources';
+import { AnalyticsPreferences, SavedCustomReport } from '../types/analytics';
+import { AutomationRuleSetting, SystemNotification, SystemSettings } from '../types/system';
 import { APP_ENV, WORKSPACE_ID, firebaseConfig } from '../config/env';
 import { cleanPhoneForWhatsApp } from '../utils/phone';
 
@@ -56,6 +58,9 @@ export interface BackupCounts {
   resourceCategories?: number;
   commercialScripts?: number;
   modelTemplates?: number;
+  savedReports?: number;
+  notifications?: number;
+  automationSettings?: number;
 }
 
 export interface CompleteBackupData {
@@ -86,6 +91,11 @@ export interface CompleteBackupData {
   resourceCategories?: ResourceCategory[];
   commercialScripts?: CommercialScript[];
   modelTemplates?: ModelTemplate[];
+  savedReports?: SavedCustomReport[];
+  analyticsSettings?: AnalyticsPreferences;
+  systemSettings?: SystemSettings;
+  automationSettings?: AutomationRuleSetting[];
+  notifications?: SystemNotification[];
 }
 
 export interface BackupValidationResult {
@@ -146,6 +156,11 @@ export function computeBackupIntegrityHash(payload: {
   resourceCategories?: ResourceCategory[];
   commercialScripts?: CommercialScript[];
   modelTemplates?: ModelTemplate[];
+  savedReports?: SavedCustomReport[];
+  analyticsSettings?: AnalyticsPreferences;
+  systemSettings?: SystemSettings;
+  automationSettings?: AutomationRuleSetting[];
+  notifications?: SystemNotification[];
 }): string {
   const canonical = JSON.stringify({
     version: payload.version,
@@ -194,6 +209,15 @@ export function computeBackupIntegrityHash(payload: {
       ? { commercialScripts: payload.commercialScripts }
       : {}),
     ...(payload.modelTemplates !== undefined ? { modelTemplates: payload.modelTemplates } : {}),
+    ...(payload.savedReports !== undefined ? { savedReports: payload.savedReports } : {}),
+    ...(payload.analyticsSettings !== undefined
+      ? { analyticsSettings: payload.analyticsSettings }
+      : {}),
+    ...(payload.systemSettings !== undefined ? { systemSettings: payload.systemSettings } : {}),
+    ...(payload.automationSettings !== undefined
+      ? { automationSettings: payload.automationSettings }
+      : {}),
+    ...(payload.notifications !== undefined ? { notifications: payload.notifications } : {}),
   });
 
   let h1 = 0x811c9dc5;
@@ -236,6 +260,11 @@ export function buildCompleteBackupData(params: {
   resourceCategories?: ResourceCategory[];
   commercialScripts?: CommercialScript[];
   modelTemplates?: ModelTemplate[];
+  savedReports?: SavedCustomReport[];
+  analyticsSettings?: AnalyticsPreferences;
+  systemSettings?: SystemSettings;
+  automationSettings?: AutomationRuleSetting[];
+  notifications?: SystemNotification[];
   userName: string;
   exportedAt?: string;
 }): CompleteBackupData {
@@ -293,6 +322,15 @@ export function buildCompleteBackupData(params: {
     ...(params.modelTemplates !== undefined
       ? { modelTemplates: params.modelTemplates.length }
       : {}),
+    ...(params.savedReports !== undefined
+      ? { savedReports: params.savedReports.length }
+      : {}),
+    ...(params.notifications !== undefined
+      ? { notifications: params.notifications.length }
+      : {}),
+    ...(params.automationSettings !== undefined
+      ? { automationSettings: params.automationSettings.length }
+      : {}),
   };
 
   const basePayload = {
@@ -342,6 +380,15 @@ export function buildCompleteBackupData(params: {
       ? { commercialScripts: params.commercialScripts }
       : {}),
     ...(params.modelTemplates !== undefined ? { modelTemplates: params.modelTemplates } : {}),
+    ...(params.savedReports !== undefined ? { savedReports: params.savedReports } : {}),
+    ...(params.analyticsSettings !== undefined
+      ? { analyticsSettings: params.analyticsSettings }
+      : {}),
+    ...(params.systemSettings !== undefined ? { systemSettings: params.systemSettings } : {}),
+    ...(params.automationSettings !== undefined
+      ? { automationSettings: params.automationSettings }
+      : {}),
+    ...(params.notifications !== undefined ? { notifications: params.notifications } : {}),
   };
 
   return {
@@ -372,6 +419,11 @@ export function serializeCompleteBackupJson(params: {
   resourceCategories?: ResourceCategory[];
   commercialScripts?: CommercialScript[];
   modelTemplates?: ModelTemplate[];
+  savedReports?: SavedCustomReport[];
+  analyticsSettings?: AnalyticsPreferences;
+  systemSettings?: SystemSettings;
+  automationSettings?: AutomationRuleSetting[];
+  notifications?: SystemNotification[];
   userName: string;
 }): string {
   return JSON.stringify(buildCompleteBackupData(params), null, 2);
@@ -477,6 +529,15 @@ export function parseAndValidateBackup(jsonString: string): BackupValidationResu
   const hasResourceCategoriesField = Array.isArray(obj.resourceCategories);
   const hasCommercialScriptsField = Array.isArray(obj.commercialScripts);
   const hasModelTemplatesField = Array.isArray(obj.modelTemplates);
+  const hasSavedReportsField = Array.isArray(obj.savedReports);
+  const hasAnalyticsSettingsField = Boolean(
+    obj.analyticsSettings && typeof obj.analyticsSettings === 'object'
+  );
+  const hasSystemSettingsField = Boolean(
+    obj.systemSettings && typeof obj.systemSettings === 'object'
+  );
+  const hasAutomationSettingsField = Array.isArray(obj.automationSettings);
+  const hasNotificationsField = Array.isArray(obj.notifications);
 
   const normalizedData: CompleteBackupData = {
     version,
@@ -568,6 +629,19 @@ export function parseAndValidateBackup(jsonString: string): BackupValidationResu
     ...(hasModelTemplatesField
       ? { modelTemplates: obj.modelTemplates as ModelTemplate[] }
       : {}),
+    ...(hasSavedReportsField
+      ? { savedReports: obj.savedReports as SavedCustomReport[] }
+      : {}),
+    ...(hasAnalyticsSettingsField
+      ? { analyticsSettings: obj.analyticsSettings as AnalyticsPreferences }
+      : {}),
+    ...(hasSystemSettingsField ? { systemSettings: obj.systemSettings as SystemSettings } : {}),
+    ...(hasAutomationSettingsField
+      ? { automationSettings: obj.automationSettings as AutomationRuleSetting[] }
+      : {}),
+    ...(hasNotificationsField
+      ? { notifications: obj.notifications as SystemNotification[] }
+      : {}),
   };
 
   if (version === '3.0' && normalizedData.integrityHash) {
@@ -612,6 +686,15 @@ export function parseAndValidateBackup(jsonString: string): BackupValidationResu
         ? { commercialScripts: normalizedData.commercialScripts }
         : {}),
       ...(hasModelTemplatesField ? { modelTemplates: normalizedData.modelTemplates } : {}),
+      ...(hasSavedReportsField ? { savedReports: normalizedData.savedReports } : {}),
+      ...(hasAnalyticsSettingsField
+        ? { analyticsSettings: normalizedData.analyticsSettings }
+        : {}),
+      ...(hasSystemSettingsField ? { systemSettings: normalizedData.systemSettings } : {}),
+      ...(hasAutomationSettingsField
+        ? { automationSettings: normalizedData.automationSettings }
+        : {}),
+      ...(hasNotificationsField ? { notifications: normalizedData.notifications } : {}),
     });
     if (expectedHash !== normalizedData.integrityHash) {
       return {
@@ -671,7 +754,16 @@ export function parseAndValidateBackup(jsonString: string): BackupValidationResu
           (normalizedData.commercialScripts?.length ?? 0)) ||
       (normalizedData.counts.modelTemplates !== undefined &&
         normalizedData.counts.modelTemplates !==
-          (normalizedData.modelTemplates?.length ?? 0)))
+          (normalizedData.modelTemplates?.length ?? 0)) ||
+      (normalizedData.counts.savedReports !== undefined &&
+        normalizedData.counts.savedReports !==
+          (normalizedData.savedReports?.length ?? 0)) ||
+      (normalizedData.counts.notifications !== undefined &&
+        normalizedData.counts.notifications !==
+          (normalizedData.notifications?.length ?? 0)) ||
+      (normalizedData.counts.automationSettings !== undefined &&
+        normalizedData.counts.automationSettings !==
+          (normalizedData.automationSettings?.length ?? 0)))
   ) {
     return {
       ok: false,
@@ -799,6 +891,11 @@ export function prepareBackupRestorePayload(
   resourceCategoriesToWrite: ResourceCategory[];
   commercialScriptsToWrite: CommercialScript[];
   modelTemplatesToWrite: ModelTemplate[];
+  savedReportsToWrite: SavedCustomReport[];
+  analyticsSettingsToWrite?: AnalyticsPreferences;
+  systemSettingsToWrite?: SystemSettings;
+  automationSettingsToWrite: AutomationRuleSetting[];
+  notificationsToWrite: SystemNotification[];
   skippedDuplicates: number;
 } {
   const existingLeadIds = new Set(current.leads.map((l) => l.id));
@@ -966,6 +1063,43 @@ export function prepareBackupRestorePayload(
     schemaVersion: t.schemaVersion ?? 1,
   }));
 
+  const savedReportsToWrite: SavedCustomReport[] = (backup.savedReports || []).map((r) => ({
+    ...r,
+    schemaVersion: r.schemaVersion ?? 1,
+  }));
+
+  const analyticsSettingsToWrite: AnalyticsPreferences | undefined =
+    backup.analyticsSettings
+      ? {
+          ...backup.analyticsSettings,
+          id: backup.analyticsSettings.id || 'default',
+          favoriteKpis: Array.isArray(backup.analyticsSettings.favoriteKpis)
+            ? backup.analyticsSettings.favoriteKpis
+            : [],
+          schemaVersion: backup.analyticsSettings.schemaVersion ?? 1,
+        }
+      : undefined;
+
+  const systemSettingsToWrite: SystemSettings | undefined = backup.systemSettings
+    ? {
+        ...backup.systemSettings,
+        id: backup.systemSettings.id || 'default',
+        schemaVersion: backup.systemSettings.schemaVersion ?? 1,
+      }
+    : undefined;
+
+  const automationSettingsToWrite: AutomationRuleSetting[] = (
+    backup.automationSettings || []
+  ).map((rule) => ({
+    ...rule,
+    schemaVersion: rule.schemaVersion ?? 1,
+  }));
+
+  const notificationsToWrite: SystemNotification[] = (backup.notifications || []).map((n) => ({
+    ...n,
+    schemaVersion: n.schemaVersion ?? 1,
+  }));
+
   return {
     nichesToWrite,
     leadsToWrite,
@@ -988,6 +1122,11 @@ export function prepareBackupRestorePayload(
     resourceCategoriesToWrite,
     commercialScriptsToWrite,
     modelTemplatesToWrite,
+    savedReportsToWrite,
+    analyticsSettingsToWrite,
+    systemSettingsToWrite,
+    automationSettingsToWrite,
+    notificationsToWrite,
     skippedDuplicates,
   };
 }

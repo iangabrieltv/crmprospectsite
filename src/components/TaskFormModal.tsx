@@ -20,17 +20,21 @@ import {
   Select,
   Textarea,
 } from './ui';
-import { CheckSquare, Plus, Trash2 } from 'lucide-react';
+import { CheckSquare, Paperclip, Plus, Search, Trash2 } from 'lucide-react';
+import { ResourceFile } from '../types/resources';
+import { getFilesForTaskContext } from '../services/resources';
 
 interface TaskFormModalProps {
   isOpen: boolean;
   onClose: () => void;
   projects: Project[];
   clients: Client[];
+  resourceFiles?: ResourceFile[];
   editingTask?: Task | null;
   defaultProjectId?: string;
   defaultClientId?: string;
   onSave: (task: Task, mode: 'create' | 'edit') => Promise<void> | void;
+  onSyncTaskFiles?: (taskId: string, selectedFileIds: string[]) => Promise<void> | void;
 }
 
 export const TaskFormModal: React.FC<TaskFormModalProps> = ({
@@ -38,10 +42,12 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
   onClose,
   projects,
   clients,
+  resourceFiles = [],
   editingTask,
   defaultProjectId,
   defaultClientId,
   onSave,
+  onSyncTaskFiles,
 }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -55,6 +61,8 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
   const [notes, setNotes] = useState('');
   const [checklist, setChecklist] = useState<TaskChecklistItem[]>([]);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
+  const [selectedFileIds, setSelectedFileIds] = useState<string[]>([]);
+  const [fileSearchQuery, setFileSearchQuery] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -89,8 +97,14 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
       setNotes('');
       setChecklist([]);
     }
+    setSelectedFileIds(
+      editingTask
+        ? getFilesForTaskContext(resourceFiles, editingTask.id).map((f) => f.id)
+        : []
+    );
+    setFileSearchQuery('');
     setNewSubtaskTitle('');
-  }, [isOpen, editingTask, defaultProjectId, defaultClientId, projects]);
+  }, [isOpen, editingTask, defaultProjectId, defaultClientId, projects, resourceFiles]);
 
   const selectedProject = projects.find((p) => p.id === projectId);
 
@@ -157,10 +171,51 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
       };
 
       await onSave(payload, editingTask ? 'edit' : 'create');
+      if (onSyncTaskFiles) {
+        await onSyncTaskFiles(payload.id, selectedFileIds);
+      }
       onClose();
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const activeFilesForPicker = React.useMemo(() => {
+    const q = fileSearchQuery.trim().toLowerCase();
+    const resolvedClient = clientId || selectedProject?.clientId;
+    return resourceFiles
+      .filter((f) => f.status === 'ativo' || selectedFileIds.includes(f.id))
+      .filter((f) => {
+        if (!q) return true;
+        return (
+          f.name.toLowerCase().includes(q) ||
+          f.originalName.toLowerCase().includes(q) ||
+          (f.tags || []).some((t) => t.toLowerCase().includes(q))
+        );
+      })
+      .sort((a, b) => {
+        const aSelected = selectedFileIds.includes(a.id) ? 1 : 0;
+        const bSelected = selectedFileIds.includes(b.id) ? 1 : 0;
+        if (aSelected !== bSelected) return bSelected - aSelected;
+        const aCtx =
+          (projectId && a.projectId === projectId) ||
+          (resolvedClient && a.clientId === resolvedClient)
+            ? 1
+            : 0;
+        const bCtx =
+          (projectId && b.projectId === projectId) ||
+          (resolvedClient && b.clientId === resolvedClient)
+            ? 1
+            : 0;
+        if (aCtx !== bCtx) return bCtx - aCtx;
+        return b.uploadedAt.localeCompare(a.uploadedAt);
+      });
+  }, [resourceFiles, fileSearchQuery, selectedFileIds, projectId, clientId, selectedProject]);
+
+  const toggleFileSelection = (fileId: string) => {
+    setSelectedFileIds((prev) =>
+      prev.includes(fileId) ? prev.filter((id) => id !== fileId) : [...prev, fileId]
+    );
   };
 
   return (
@@ -383,6 +438,77 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
           rows={2}
           placeholder="Notas de execução, bloqueios ou links auxiliares..."
         />
+
+        {(resourceFiles.length > 0 || selectedFileIds.length > 0) && (
+          <div className="p-3.5 rounded-xl bg-[var(--kz-bg-subtle)]/50 border border-[var(--kz-border-subtle)] space-y-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-bold text-[var(--kz-text-primary)] inline-flex items-center gap-1.5">
+                <Paperclip className="w-3.5 h-3.5 text-[var(--kz-accent)]" />
+                <span>Materiais & Documentos Vinculados ({selectedFileIds.length})</span>
+              </span>
+              {selectedFileIds.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedFileIds([])}
+                  className="text-[11px] text-[var(--kz-text-muted)] hover:text-[var(--kz-danger-text)] cursor-pointer"
+                >
+                  Limpar seleção
+                </button>
+              )}
+            </div>
+
+            <Input
+              value={fileSearchQuery}
+              onChange={(e) => setFileSearchQuery(e.target.value)}
+              placeholder="Filtrar arquivos da central para anexar..."
+              leftIcon={<Search className="w-3.5 h-3.5" />}
+            />
+
+            {activeFilesForPicker.length === 0 ? (
+              <p className="text-[11px] text-[var(--kz-text-muted)] py-1">
+                Nenhum arquivo ativo encontrado com este filtro.
+              </p>
+            ) : (
+              <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
+                {activeFilesForPicker.slice(0, 30).map((file) => {
+                  const checked = selectedFileIds.includes(file.id);
+                  const matchesContext =
+                    (projectId && file.projectId === projectId) ||
+                    ((clientId || selectedProject?.clientId) &&
+                      file.clientId === (clientId || selectedProject?.clientId));
+                  return (
+                    <label
+                      key={file.id}
+                      className={`flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg border text-xs cursor-pointer transition-colors ${
+                        checked
+                          ? 'bg-[var(--kz-accent-soft)] border-[var(--kz-accent-border)] text-[var(--kz-text-primary)]'
+                          : 'bg-[var(--kz-bg-surface)] border-[var(--kz-border-subtle)] text-[var(--kz-text-secondary)] hover:border-[var(--kz-border-default)]'
+                      }`}
+                    >
+                      <span className="flex items-center gap-2 min-w-0 flex-1">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleFileSelection(file.id)}
+                          className="rounded accent-[var(--kz-accent)]"
+                        />
+                        <span className="truncate font-medium">{file.name}</span>
+                      </span>
+                      <span className="flex items-center gap-1.5 shrink-0 text-[10px] font-mono text-[var(--kz-text-muted)]">
+                        {matchesContext && (
+                          <span className="px-1.5 py-0.5 rounded bg-[var(--kz-bg-subtle)] text-[var(--kz-accent-text)] font-sans font-semibold">
+                            Mesmo contexto
+                          </span>
+                        )}
+                        <span>.{file.extension}</span>
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </form>
     </Modal>
   );

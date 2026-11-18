@@ -3,7 +3,7 @@ import {
   AllowedFileExtension,
   DANGEROUS_FILE_EXTENSIONS,
   MAX_UPLOAD_FILE_BYTES,
-} from '../types/resources';
+} from '../../types/resources';
 
 export type FilePreviewMode =
   | 'image'

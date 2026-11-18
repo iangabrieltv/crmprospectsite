@@ -18,6 +18,12 @@ import {
   FinancialEntry,
 } from '../types/finance';
 import {
+  RESOURCE_PROJECT_SECTIONS,
+  ResourceCategory,
+  ResourceFile,
+  ResourceFolder,
+} from '../types/resources';
+import {
   PROJECT_TEMPLATES,
   appendProjectHistory,
   calculateProjectProgress,
@@ -27,6 +33,16 @@ import {
 } from '../services/projectService';
 import { isTaskOverdue, transitionTaskStatus } from '../services/taskService';
 import {
+  archiveResourceFile,
+  formatFileSize,
+  getFilesForProjectContext,
+  getFilesForTaskContext,
+  inferProjectSectionForFile,
+  renameResourceFile,
+  restoreResourceFile,
+  toggleResourceFileFavorite,
+} from '../services/resources';
+import {
   computeProjectFinancialSummary,
   formatBrlFromCents,
   formatDateBr,
@@ -34,6 +50,8 @@ import {
   getEntryAllowedTotalCents,
 } from '../services/finance';
 import { TaskFormModal } from './TaskFormModal';
+import { FileUploadModal } from './resources/FileUploadModal';
+import { FilePreviewModal } from './resources/FilePreviewModal';
 import {
   Alert,
   Badge,
@@ -50,9 +68,12 @@ import {
   CheckCircle2,
   Edit3,
   ExternalLink,
+  Eye,
   FileText,
   FolderKanban,
+  FolderOpen,
   Layers,
+  Paperclip,
   Plus,
   Trash2,
   Users,
@@ -65,6 +86,9 @@ interface ProjectDetailModalProps {
   proposals: ProposalContract[];
   tasks: Task[];
   financialEntries?: FinancialEntry[];
+  resourceFiles?: ResourceFile[];
+  resourceFolders?: ResourceFolder[];
+  resourceCategories?: ResourceCategory[];
   userName: string;
   onClose: () => void;
   onEditProject: (project: Project) => void;
@@ -72,8 +96,14 @@ interface ProjectDetailModalProps {
   onDeleteProject: (projectId: string) => Promise<void> | void;
   onSaveTask: (task: Task, mode: 'create' | 'edit') => Promise<void> | void;
   onDeleteTask: (taskId: string) => Promise<void> | void;
+  onSaveResourceFile?: (
+    file: ResourceFile,
+    mode: 'create' | 'edit'
+  ) => Promise<void> | void;
+  onSyncTaskFiles?: (taskId: string, selectedFileIds: string[]) => Promise<void> | void;
   onOpenClient?: (clientId: string) => void;
   onOpenFinance?: () => void;
+  onOpenDocumentsCenter?: () => void;
 }
 
 export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
@@ -82,6 +112,9 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
   proposals,
   tasks,
   financialEntries = [],
+  resourceFiles = [],
+  resourceFolders = [],
+  resourceCategories = [],
   userName,
   onClose,
   onEditProject,
@@ -89,8 +122,11 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
   onDeleteProject,
   onSaveTask,
   onDeleteTask,
+  onSaveResourceFile,
+  onSyncTaskFiles,
   onOpenClient,
   onOpenFinance,
+  onOpenDocumentsCenter,
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<
     'overview' | 'tasks' | 'documents' | 'finance' | 'history'
@@ -103,6 +139,9 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
     useState(false);
   const [pendingStatusChange, setPendingStatusChange] =
     useState<ProjectStatus | null>(null);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [editingResourceFile, setEditingResourceFile] = useState<ResourceFile | null>(null);
+  const [previewResourceFile, setPreviewResourceFile] = useState<ResourceFile | null>(null);
 
   // Document link state
   const [docTitle, setDocTitle] = useState('');
@@ -150,6 +189,25 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
       }),
     [project, proposals, financialEntries]
   );
+
+  const projectResourceFiles = useMemo(
+    () => getFilesForProjectContext(resourceFiles, project.id, false),
+    [resourceFiles, project.id]
+  );
+
+  const projectFilesBySection = useMemo(() => {
+    const groups = new Map<string, ResourceFile[]>();
+    for (const sec of RESOURCE_PROJECT_SECTIONS) {
+      groups.set(sec.id, []);
+    }
+    for (const file of projectResourceFiles) {
+      const secId = inferProjectSectionForFile(file);
+      const list = groups.get(secId) || [];
+      list.push(file);
+      groups.set(secId, list);
+    }
+    return groups;
+  }, [projectResourceFiles]);
 
   const handleStatusDropdownChange = async (nextStatus: ProjectStatus) => {
     if (nextStatus === project.status) return;
@@ -423,8 +481,8 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
                 { id: 'tasks', label: 'Tarefas', badge: projectTasks.length },
                 {
                   id: 'documents',
-                  label: 'Documentos & Links',
-                  badge: project.documents?.length || 0,
+                  label: 'Documentos & Materiais',
+                  badge: (project.documents?.length || 0) + projectResourceFiles.length,
                 },
                 {
                   id: 'finance',
@@ -618,6 +676,19 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
                                   Atrasada
                                 </Badge>
                               )}
+                              {(() => {
+                                const attachedCount = getFilesForTaskContext(
+                                  resourceFiles,
+                                  task.id
+                                ).length;
+                                if (attachedCount === 0) return null;
+                                return (
+                                  <Badge variant="neutral" size="sm">
+                                    <Paperclip className="w-3 h-3" />
+                                    {attachedCount} anexo(s)
+                                  </Badge>
+                                );
+                              })()}
                             </div>
                           </div>
                         </div>
@@ -669,16 +740,102 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
 
           {activeSubTab === 'documents' && (
             <div className="space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-[var(--kz-border-subtle)]">
+                <span className="text-xs text-[var(--kz-text-muted)]">
+                  Arquivos da Central vinculados ao projeto e links externos rápidos.
+                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  {onOpenDocumentsCenter && (
+                    <Button
+                      variant="outline"
+                      size="xs"
+                      leftIcon={<FolderOpen className="w-3.5 h-3.5" />}
+                      onClick={() => {
+                        onClose();
+                        onOpenDocumentsCenter();
+                      }}
+                    >
+                      Abrir Central
+                    </Button>
+                  )}
+                  {onSaveResourceFile && (
+                    <Button
+                      variant="primary"
+                      size="xs"
+                      leftIcon={<Plus className="w-3.5 h-3.5" />}
+                      onClick={() => {
+                        setEditingResourceFile(null);
+                        setIsUploadModalOpen(true);
+                      }}
+                    >
+                      Enviar Arquivo
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {projectResourceFiles.length > 0 && (
+                <div className="space-y-2.5">
+                  {RESOURCE_PROJECT_SECTIONS.map((sec) => {
+                    const secFiles = projectFilesBySection.get(sec.id) || [];
+                    if (secFiles.length === 0) return null;
+                    return (
+                      <div
+                        key={sec.id}
+                        className="p-3 rounded-xl bg-[var(--kz-bg-subtle)]/50 border border-[var(--kz-border-subtle)] space-y-2"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-[var(--kz-text-primary)]">
+                            {sec.label} ({secFiles.length})
+                          </span>
+                          <span className="text-[10px] text-[var(--kz-text-muted)]">
+                            {sec.description}
+                          </span>
+                        </div>
+                        <div className="space-y-1.5">
+                          {secFiles.map((file) => (
+                            <div
+                              key={file.id}
+                              className="p-2.5 rounded-lg bg-[var(--kz-bg-surface)] border border-[var(--kz-border-subtle)] flex items-center justify-between gap-2 text-xs"
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <FileText className="w-3.5 h-3.5 text-[var(--kz-accent)] shrink-0" />
+                                <div className="min-w-0">
+                                  <div className="font-semibold text-[var(--kz-text-primary)] truncate">
+                                    {file.name}
+                                  </div>
+                                  <div className="text-[10px] font-mono text-[var(--kz-text-muted)] truncate">
+                                    .{file.extension.toUpperCase()} · {formatFileSize(file.sizeBytes)}
+                                  </div>
+                                </div>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="xs"
+                                leftIcon={<Eye className="w-3.5 h-3.5" />}
+                                onClick={() => setPreviewResourceFile(file)}
+                              >
+                                Abrir
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
               <form
                 onSubmit={handleAddDocument}
                 className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end"
               >
                 <div className="sm:col-span-4">
                   <Input
-                    label="Título do Arquivo / Link"
+                    label="Título do Link Externo"
                     value={docTitle}
                     onChange={(e) => setDocTitle(e.target.value)}
-                    placeholder="Ex: Protótipo Figma ou Briefing"
+                    placeholder="Ex: Protótipo Figma ou Drive"
                   />
                 </div>
                 <div className="sm:col-span-4">
@@ -714,12 +871,12 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
                     className="w-full"
                     leftIcon={<Plus className="w-3.5 h-3.5" />}
                   >
-                    Vincular
+                    Vincular Link
                   </Button>
                 </div>
               </form>
 
-              {(project.documents || []).length === 0 ? (
+              {(project.documents || []).length === 0 && projectResourceFiles.length === 0 ? (
                 <div className="py-8 text-center text-xs text-[var(--kz-text-muted)] border border-dashed border-[var(--kz-border-default)] rounded-xl">
                   Nenhum arquivo, briefing ou link vinculado a este projeto.
                 </div>
@@ -950,10 +1107,73 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
         }}
         projects={[project]}
         clients={clients}
+        resourceFiles={resourceFiles}
         editingTask={editingTask}
         defaultProjectId={project.id}
         defaultClientId={project.clientId}
         onSave={onSaveTask}
+        onSyncTaskFiles={onSyncTaskFiles}
+      />
+
+      {onSaveResourceFile && (
+        <FileUploadModal
+          isOpen={isUploadModalOpen}
+          onClose={() => {
+            setIsUploadModalOpen(false);
+            setEditingResourceFile(null);
+          }}
+          categories={resourceCategories}
+          folders={resourceFolders}
+          clients={clients}
+          projects={[project]}
+          userName={userName}
+          editingFile={editingResourceFile}
+          defaultProjectId={project.id}
+          defaultClientId={project.clientId}
+          defaultProjectSection="documentos"
+          onSaveFile={onSaveResourceFile}
+        />
+      )}
+
+      <FilePreviewModal
+        file={previewResourceFile}
+        onClose={() => setPreviewResourceFile(null)}
+        categories={resourceCategories}
+        folders={resourceFolders}
+        clients={clients}
+        projects={[project]}
+        tasks={projectTasks}
+        socialPosts={[]}
+        onEditMetadata={(file) => {
+          setEditingResourceFile(file);
+          setIsUploadModalOpen(true);
+        }}
+        onRenameFile={async (file, nextName) => {
+          if (!onSaveResourceFile) return;
+          const updated = renameResourceFile(file, nextName);
+          await onSaveResourceFile(updated, 'edit');
+          setPreviewResourceFile(updated);
+        }}
+        onToggleFavorite={async (file) => {
+          if (!onSaveResourceFile) return;
+          const updated = toggleResourceFileFavorite(file);
+          await onSaveResourceFile(updated, 'edit');
+          setPreviewResourceFile(updated);
+        }}
+        onArchiveToggle={async (file) => {
+          if (!onSaveResourceFile) return;
+          const updated =
+            file.status === 'arquivado'
+              ? restoreResourceFile(file)
+              : archiveResourceFile(file);
+          await onSaveResourceFile(updated, 'edit');
+          setPreviewResourceFile(updated);
+        }}
+        onDeleteRequest={() => {
+          setPreviewResourceFile(null);
+          onClose();
+          onOpenDocumentsCenter?.();
+        }}
       />
 
       <ConfirmDialog

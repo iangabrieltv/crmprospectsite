@@ -24,12 +24,27 @@ import {
   FinancialTransaction,
 } from '../types/finance';
 import {
+  RESOURCE_CLIENT_SECTIONS,
+  ResourceCategory,
+  ResourceFile,
+  ResourceFolder,
+} from '../types/resources';
+import {
   appendClientTimelineEvents,
   generateTimelineEventId,
 } from '../services/clientService';
 import { calculateProjectProgress } from '../services/projectService';
 import { hasContractedSocialManagement } from '../services/socialService';
 import { isTaskOverdue } from '../services/taskService';
+import {
+  archiveResourceFile,
+  formatFileSize,
+  getFilesForClientContext,
+  inferClientSectionForFile,
+  renameResourceFile,
+  restoreResourceFile,
+  toggleResourceFileFavorite,
+} from '../services/resources';
 import {
   computeClientFinancialSummary,
   formatBrlFromCents,
@@ -40,6 +55,8 @@ import {
 } from '../services/finance';
 import { buildWhatsAppLink } from '../utils/phone';
 import { downloadProposalPdf } from '../services/pdfService';
+import { FileUploadModal } from './resources/FileUploadModal';
+import { FilePreviewModal } from './resources/FilePreviewModal';
 import {
   Alert,
   Badge,
@@ -60,7 +77,9 @@ import {
   ExternalLink,
   Eye,
   FileSignature,
+  FileText,
   FolderKanban,
+  FolderOpen,
   Globe,
   Link2,
   MessageCircle,
@@ -82,11 +101,18 @@ interface ClientDetailModalProps {
   socialPosts?: SocialPost[];
   financialEntries?: FinancialEntry[];
   financialTransactions?: FinancialTransaction[];
+  resourceFiles?: ResourceFile[];
+  resourceFolders?: ResourceFolder[];
+  resourceCategories?: ResourceCategory[];
   userName: string;
   onClose: () => void;
   onEditClient: (client: Client) => void;
   onUpdateClient: (updated: Client) => Promise<void> | void;
   onDeleteClient: (clientId: string) => Promise<void> | void;
+  onSaveResourceFile?: (
+    file: ResourceFile,
+    mode: 'create' | 'edit'
+  ) => Promise<void> | void;
   onOpenLeadModal?: (lead: Lead) => void;
   onCreateProposalForClient?: (client: Client) => void;
   onPreviewProposal?: (proposal: ProposalContract) => void;
@@ -109,11 +135,15 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
   socialPosts = [],
   financialEntries = [],
   financialTransactions = [],
+  resourceFiles = [],
+  resourceFolders = [],
+  resourceCategories = [],
   userName,
   onClose,
   onEditClient,
   onUpdateClient,
   onDeleteClient,
+  onSaveResourceFile,
   onOpenLeadModal,
   onCreateProposalForClient,
   onPreviewProposal,
@@ -124,13 +154,16 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
   onOpenFinance,
   onNavigate,
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState<'overview' | 'timeline' | 'relations'>(
-    'overview'
-  );
+  const [activeSubTab, setActiveSubTab] = useState<
+    'overview' | 'timeline' | 'relations' | 'materials'
+  >('overview');
   const [newNoteText, setNewNoteText] = useState('');
   const [isSavingNote, setIsSavingNote] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [editingResourceFile, setEditingResourceFile] = useState<ResourceFile | null>(null);
+  const [previewResourceFile, setPreviewResourceFile] = useState<ResourceFile | null>(null);
 
   const statusMeta = getClientStatusMeta(client.status);
 
@@ -213,6 +246,25 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
       }),
     [client, proposals, financialEntries, financialTransactions]
   );
+
+  const clientMaterials = useMemo(
+    () => getFilesForClientContext(resourceFiles, client.id, projects, socialPosts, false),
+    [resourceFiles, client.id, projects, socialPosts]
+  );
+
+  const clientMaterialsBySection = useMemo(() => {
+    const groups = new Map<string, ResourceFile[]>();
+    for (const sec of RESOURCE_CLIENT_SECTIONS) {
+      groups.set(sec.id, []);
+    }
+    for (const file of clientMaterials) {
+      const secId = inferClientSectionForFile(file);
+      const list = groups.get(secId) || [];
+      list.push(file);
+      groups.set(secId, list);
+    }
+    return groups;
+  }, [clientMaterials]);
 
   const handleStatusChange = async (nextStatus: ClientStatus) => {
     if (nextStatus === client.status) return;
@@ -375,6 +427,11 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                   id: 'relations',
                   label: 'Relacionamentos',
                   badge: relationsBadgeCount,
+                },
+                {
+                  id: 'materials',
+                  label: 'Materiais & Doc.',
+                  badge: clientMaterials.length,
                 },
               ]}
             />
@@ -1098,8 +1155,177 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
               </Alert>
             </div>
           )}
+
+          {activeSubTab === 'materials' && (
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="text-xs text-[var(--kz-text-muted)]">
+                  Materiais diretos do cliente e arquivos herdados automaticamente de projetos e publicações sociais (sem duplicação).
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {onNavigate && (
+                    <Button
+                      variant="outline"
+                      size="xs"
+                      leftIcon={<FolderOpen className="w-3.5 h-3.5" />}
+                      onClick={() => {
+                        onClose();
+                        onNavigate('documents');
+                      }}
+                    >
+                      Abrir Central Completa
+                    </Button>
+                  )}
+                  {onSaveResourceFile && (
+                    <Button
+                      variant="primary"
+                      size="xs"
+                      leftIcon={<Plus className="w-3.5 h-3.5" />}
+                      onClick={() => {
+                        setEditingResourceFile(null);
+                        setIsUploadModalOpen(true);
+                      }}
+                    >
+                      Enviar Material
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {clientMaterials.length === 0 ? (
+                <div className="py-8 text-center text-xs text-[var(--kz-text-muted)] border border-dashed border-[var(--kz-border-default)] rounded-xl">
+                  Nenhum arquivo vinculado a este cliente ou aos projetos dele até o momento.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {RESOURCE_CLIENT_SECTIONS.map((sec) => {
+                    const secFiles = clientMaterialsBySection.get(sec.id) || [];
+                    if (secFiles.length === 0) return null;
+                    return (
+                      <div
+                        key={sec.id}
+                        className="p-3.5 rounded-xl bg-[var(--kz-bg-subtle)]/50 border border-[var(--kz-border-subtle)] space-y-2"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-[var(--kz-text-primary)]">
+                            {sec.label} ({secFiles.length})
+                          </span>
+                          <span className="text-[10px] text-[var(--kz-text-muted)]">
+                            {sec.description}
+                          </span>
+                        </div>
+                        <div className="space-y-1.5">
+                          {secFiles.map((file) => {
+                            const projMatch = file.projectId
+                              ? projects.find((p) => p.id === file.projectId)
+                              : undefined;
+                            const isInherited =
+                              file.clientId !== client.id && Boolean(projMatch || file.linkedSocialPostIds?.length);
+                            return (
+                              <div
+                                key={file.id}
+                                className="p-2.5 rounded-lg bg-[var(--kz-bg-surface)] border border-[var(--kz-border-subtle)] flex items-center justify-between gap-2 text-xs"
+                              >
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <FileText className="w-3.5 h-3.5 text-[var(--kz-accent)] shrink-0" />
+                                  <div className="min-w-0">
+                                    <div className="font-semibold text-[var(--kz-text-primary)] truncate">
+                                      {file.name}
+                                    </div>
+                                    <div className="text-[10px] font-mono text-[var(--kz-text-muted)] truncate">
+                                      .{file.extension.toUpperCase()} · {formatFileSize(file.sizeBytes)}
+                                      {projMatch ? ` · Projeto: ${projMatch.name}` : ''}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  {isInherited && (
+                                    <Badge variant="info" size="sm">
+                                      Herdado
+                                    </Badge>
+                                  )}
+                                  <Button
+                                    variant="ghost"
+                                    size="xs"
+                                    leftIcon={<Eye className="w-3.5 h-3.5" />}
+                                    onClick={() => setPreviewResourceFile(file)}
+                                  >
+                                    Abrir
+                                  </Button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </Modal>
+
+      {onSaveResourceFile && (
+        <FileUploadModal
+          isOpen={isUploadModalOpen}
+          onClose={() => {
+            setIsUploadModalOpen(false);
+            setEditingResourceFile(null);
+          }}
+          categories={resourceCategories}
+          folders={resourceFolders}
+          clients={[client]}
+          projects={linkedProjects}
+          userName={userName}
+          editingFile={editingResourceFile}
+          defaultClientId={client.id}
+          defaultClientSection="materiais_cliente"
+          onSaveFile={onSaveResourceFile}
+        />
+      )}
+
+      <FilePreviewModal
+        file={previewResourceFile}
+        onClose={() => setPreviewResourceFile(null)}
+        categories={resourceCategories}
+        folders={resourceFolders}
+        clients={[client]}
+        projects={projects}
+        tasks={tasks}
+        socialPosts={socialPosts}
+        onEditMetadata={(file) => {
+          setEditingResourceFile(file);
+          setIsUploadModalOpen(true);
+        }}
+        onRenameFile={async (file, nextName) => {
+          if (!onSaveResourceFile) return;
+          const updated = renameResourceFile(file, nextName);
+          await onSaveResourceFile(updated, 'edit');
+          setPreviewResourceFile(updated);
+        }}
+        onToggleFavorite={async (file) => {
+          if (!onSaveResourceFile) return;
+          const updated = toggleResourceFileFavorite(file);
+          await onSaveResourceFile(updated, 'edit');
+          setPreviewResourceFile(updated);
+        }}
+        onArchiveToggle={async (file) => {
+          if (!onSaveResourceFile) return;
+          const updated =
+            file.status === 'arquivado'
+              ? restoreResourceFile(file)
+              : archiveResourceFile(file);
+          await onSaveResourceFile(updated, 'edit');
+          setPreviewResourceFile(updated);
+        }}
+        onDeleteRequest={() => {
+          setPreviewResourceFile(null);
+          onClose();
+          onNavigate?.('documents');
+        }}
+      />
 
       <ConfirmDialog
         isOpen={showDeleteConfirm}

@@ -16,8 +16,9 @@
 | **Etapa 2** | Módulo Comercial Avançado: **Clientes** e **Propostas & Contratos** | **CONCLUÍDA** |
 | **Etapa 3** | Módulo Operacional: **Projetos**, **Minhas Tarefas**, **Agenda Integrada** e **Redes Sociais** | **CONCLUÍDA** |
 | **Etapa 4** | **Sistema Financeiro Completo** (`/financeiro`): Receitas, Despesas, Baixas/Estornos, Fluxo de Caixa Real vs Projetado, Recorrências e 15 Relatórios PDF/CSV | **CONCLUÍDA** |
-| **Etapa 5** | Eficiência & Recursos: **Produtividade**, **Materiais e Documentos** e **Biblioteca de Modelos** | **PLANEJADA (Aguardando autorização)** |
-| **Etapa 6** | **Assistente IA & Automações** transversais com Gemini server-side | **PLANEJADA** |
+| **Etapa 5** | Eficiência & Recursos: **Central de Materiais, Documentos, Scripts e Biblioteca de Modelos** (`/materiais` e `/modelos`) | **CONCLUÍDA (Desenvolvimento)** |
+| **Etapa 6** | **Relatórios, Produtividade e Inteligência de Gestão** (`Relatórios e Produtividade`): 9 subáreas analíticas, Inteligência de Gestão, Construtor Personalizado, PDF/CSV e Preferências | **CONCLUÍDA (Desenvolvimento)** |
+| **Etapa 7** | **Configurações do Sistema, Assistente IA, Notificações e Automações** conectados ao workspace | **CONCLUÍDA (Desenvolvimento)** |
 
 ---
 
@@ -60,13 +61,32 @@
   - **15 Relatórios Gerenciais** completos com visualização executiva, exportação **CSV (UTF-8 BOM sanitizado)**, impressão **PDF A4 (`jsPDF`)** e modo impressão `@media print`.
   - **Integração transversal:** resumo financeiro dentro de **Clientes** (`ClientDetailModal`), rentabilidade dentro de **Projetos** (`ProjectDetailModal`), geração explícita de previsão financeira em **Propostas & Contratos** (`ProposalPreviewModal`), receita realizada e a receber no **Dashboard**, alertas no **Header** e suporte integral nas **6 coleções financeiras** em `localStorage`, Backup JSON v3.0, `firebase-blueprint.json` e `firestore.rules` locais (aguardando publicação remota pelo administrador).
 
-### Etapa 5 — Produtividade & Central de Recursos *(Planejada)*
-- **Produtividade (`/produtividade`):** metas diárias de prospecção, foco operacional e cadência semanal do administrador.
-- **Materiais e Documentos (`/materiais`):** repositório organizado de assets, briefings, apresentações institucionais e links úteis da agência.
-- **Biblioteca de Modelos (`/modelos`):** templates reutilizáveis de propostas, contratos, checklists de onboarding e estruturas de páginas para reutilização rápida.
+### Etapa 5 — Central de Materiais, Documentos, Scripts e Biblioteca de Modelos *(Concluída em Desenvolvimento)*
+- **Central de Recursos (`/materiais` e `/modelos`) com 6 áreas integradas:**
+  - **Visão Geral:** KPIs reais (arquivos cadastrados, favoritos, scripts ativos, modelos disponíveis, distribuição por categoria, arquivos vinculados a clientes e projetos) com atalhos diretos (sem lista genérica de movimentações).
+  - **Arquivos e Documentos:** upload com validação estrita de segurança (15 formatos permitidos: `.pdf`, `.doc`, `.docx`, `.xls`, `.xlsx`, `.ppt`, `.pptx`, `.png`, `.jpg`, `.jpeg`, `.svg`, `.mp4`, `.txt`, `.csv`, `.zip`, limite de 25 MB, bloqueio de executáveis/dupla extensão), armazenamento híbrido honesto (`Firebase Storage` quando publicado + cofre local `IndexedDB` fallback dev sem poluir Firestore), pré-visualização inline por tipo (`image`, `pdf`, `video`, `text`, `spreadsheet`), pastas hierárquicas, tags, favoritos, renomeio e arquivamento seguro para itens com vínculo histórico.
+  - **Clientes e Projetos:** visualização unificada agrupada por seções (Identidade Visual, Contratos, Propostas, Briefings, Imagens, Vídeos, Entregáveis, Outros / Documentos, Referência, Artes, Arquivos Finais, Entregáveis), com herança automática de arquivos de projetos para o cliente correspondente sem duplicação.
+  - **Scripts Comerciais:** acervo editável com 11 scripts iniciais e 14 categorias, interpolação real de variáveis (`{{nome}}`, `{{empresa}}`, `{{servico}}`, `{{cidade}}`, `{{link}}`, `{{nome_agencia}}`) sem invenção de dados faltantes (variáveis ausentes sinalizadas explicitamente), contador de uso, cópia e disparo via link WhatsApp.
+  - **Biblioteca de Modelos:** 7 modelos iniciais entre Propostas, Contratos, Projetos (`Kaizen Start`, `Kaizen Performance 90 dias`), Checklists, Planos Sociais e SOPs internos, com instanciação **100% independente** (editar o modelo depois nunca altera documentos/projetos/tarefas já criados).
+  - **Categorias e Organização:** gestão das categorias nos 3 domínios (Arquivos, Scripts, Modelos) com contagem de referências e bloqueio contra exclusão quando vinculadas.
+  - **Integrações transversais:** aba **Materiais & Doc.** em **Clientes**, aba **Documentos & Materiais** em **Projetos**, seletor de anexos em **Tarefas** (`TaskFormModal` / `TasksView`), seletor de artes/materiais em **Redes Sociais** (`SocialPostModal` / `SocialView`), seletor de modelos na criação de **Propostas & Contratos**, scripts comerciais no modal de **Leads** e atalho no módulo **Scripts**, além de suporte completo no Backup v3.0, `firebase-blueprint.json`, `firestore.rules` e `storage.rules` locais (aguardando publicação remota pelo administrador).
+- **Produtividade:** incorporada na Etapa 6 dentro do módulo consolidado **Relatórios e Produtividade**.
 
-### Etapa 6 — Assistente IA & Automações
-- **Assistente IA (`/ia`):** copiloto operacional conectado exclusivamente às rotas protegidas `/api/gemini/*` para diagnóstico comercial, geração de propostas, revisão de textos e resumos executivos baseados nos dados reais do workspace.
+### Etapa 6 — Relatórios, Produtividade e Inteligência de Gestão *(Concluída em Desenvolvimento)*
+- **Relatórios e Produtividade (`productivity` -> `AnalyticsHubView`):**
+  - Central executiva de **9 áreas** (`Visão Geral`, `Comercial`, `Financeiro`, `Operacional`, `Clientes`, `Projetos`, `Redes Sociais`, `Produtividade`, `Personalizados`) consumindo exclusivamente os dados reais dos módulos existentes (sem duplicar CRM, Financeiro ou Tarefas).
+  - **10 janelas de período** no fuso `America/Maceio` (`hoje`, `ontem`, `ultimos_7_dias`, `ultimos_30_dias`, `este_mes`, `mes_anterior`, `ultimos_90_dias`, `este_semestre`, `este_ano`, `personalizado`) com comparativos automáticos ao período equivalente anterior.
+  - **Paridade Financeira 100%:** delega diretamente para `computeFinanceDashboardSnapshot` e `computeCashFlow` de `src/services/finance/*`, separando **Realizado** de **Previsto/Projetado** e preservando saldo inicial isolado.
+  - **Inteligência de Gestão:** leituras automáticas verificáveis com citação explícita de evidência e amostra/denominador e links diretos de ação.
+  - **Construtor de Relatórios Personalizados:** seleção de 9 bases com guardrails contra combinações inválidas de filtros, persistência de modelos salvos/favoritos em `localStorage`, Firestore (`customReports`) e Backup JSON v3.0.
+  - **Exportação:** CSV UTF-8 BOM anti-injeção de fórmula e PDF A4 client-side (`jsPDF`, sem `window.open`), além de modal de preferências (`analyticsSettings`) com KPIs favoritos e modo compacto.
+  - **Transparência obrigatória:** sinaliza explicitamente ausência de canal de origem em Leads, ausência de apontamento de horas trabalhadas em Produtividade e ausência de conexão com APIs externas de redes sociais em Redes Sociais.
+
+### Etapa 7 — Configurações do Sistema, Assistente IA, Notificações e Automações *(Concluída em Desenvolvimento)*
+- **Configurações do Sistema (`settings` -> `SettingsView`):** 6 subáreas (`Visão Geral`, `Perfil e Marca`, `Preferências`, `Integrações`, `Logs do Sistema` e `Backup e Dados`), propagação de branding do emissor para Propostas & PDFs, trava do tema **Premium Dark** e padrões regionais (`BRL`, `DD/MM/YYYY`, `America/Maceio`), diagnóstico real de integrações (`checkSystemIntegrationsStatus`), logs operacionais sanitizados (`logSanitizerService`) e Backup JSON v3.0 + Reset seguro (`ZERAR`).
+- **Assistente IA (`ai_assistant` -> `AiAssistantView`):** conectado exclusivamente às rotas protegidas `/api/gemini/status` e `/api/gemini/assistant-chat` no backend Express, com histórico de conversas em `aiConversations`, sugestões inteligentes determinísticas (`computeSmartAiSuggestions`) mesmo sem `GEMINI_API_KEY`, e ações assistidas (`create_task`, `whatsapp_draft`, `meeting_brief`, `prioritize_note`) executadas **somente** após confirmação explícita em prévia editável.
+- **Notificações (`notifications` -> `NotificationsView` + `Header`):** motor deduplicado (`evaluateWorkspaceNotifications`) conectado a leads, propostas, agenda, tarefas, projetos e vencimentos financeiros com filtros, leitura persistida, dispensa e links diretos de módulo.
+- **Automações (`automations` -> `AutomationsView`):** 11 regras comerciais, operacionais e financeiras (`manual_ou_ao_abrir`) com histórico auditável em `automationLogs`, sem cron oculto, sem auto-baixa financeira, sem exclusões e sem envios automáticos externos.
 
 ---
 

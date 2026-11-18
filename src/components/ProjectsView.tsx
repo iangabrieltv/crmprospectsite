@@ -11,6 +11,7 @@ import {
   getProjectStatusMeta,
 } from '../types/kaizen';
 import { FinancialEntry } from '../types/finance';
+import { ResourceCategory, ResourceFile, ResourceFolder } from '../types/resources';
 import {
   PROJECT_TEMPLATES,
   calculateProjectProgress,
@@ -44,6 +45,9 @@ interface ProjectsViewProps {
   proposals: ProposalContract[];
   tasks: Task[];
   financialEntries?: FinancialEntry[];
+  resourceFiles?: ResourceFile[];
+  resourceFolders?: ResourceFolder[];
+  resourceCategories?: ResourceCategory[];
   userName: string;
   cloudPermissionBlocked?: boolean;
   externalSelectedProjectId?: string | null;
@@ -58,6 +62,11 @@ interface ProjectsViewProps {
   onDeleteProject: (projectId: string) => Promise<void> | void;
   onSaveTask: (task: Task, mode: 'create' | 'edit') => Promise<void> | void;
   onDeleteTask: (taskId: string) => Promise<void> | void;
+  onSaveResourceFile?: (
+    file: ResourceFile,
+    mode: 'create' | 'edit'
+  ) => Promise<void> | void;
+  onSyncTaskFiles?: (taskId: string, selectedFileIds: string[]) => Promise<void> | void;
   onOpenClient?: (clientId: string) => void;
   onNavigate?: (tab: AppTab) => void;
 }
@@ -68,6 +77,9 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
   proposals,
   tasks,
   financialEntries = [],
+  resourceFiles = [],
+  resourceFolders = [],
+  resourceCategories = [],
   userName,
   cloudPermissionBlocked = false,
   externalSelectedProjectId,
@@ -79,6 +91,8 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
   onDeleteProject,
   onSaveTask,
   onDeleteTask,
+  onSaveResourceFile,
+  onSyncTaskFiles,
   onOpenClient,
   onNavigate,
 }) => {
@@ -469,6 +483,9 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
           proposals={proposals}
           tasks={tasks}
           financialEntries={financialEntries}
+          resourceFiles={resourceFiles}
+          resourceFolders={resourceFolders}
+          resourceCategories={resourceCategories}
           userName={userName}
           onClose={() => setSelectedProjectId(null)}
           onEditProject={(proj) => {
@@ -479,8 +496,11 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
           onDeleteProject={onDeleteProject}
           onSaveTask={onSaveTask}
           onDeleteTask={onDeleteTask}
+          onSaveResourceFile={onSaveResourceFile}
+          onSyncTaskFiles={onSyncTaskFiles}
           onOpenClient={onOpenClient}
           onOpenFinance={onNavigate ? () => onNavigate('finance') : undefined}
+          onOpenDocumentsCenter={onNavigate ? () => onNavigate('documents') : undefined}
         />
       )}
     </div>

@@ -32,6 +32,17 @@ test('Todos os padrões de ID gerados pelo CRM respeitam ^[a-zA-Z0-9_\\-]+$ e ta
     `fcat-${Date.now()}-v7w8x`,
     `frec-${Date.now()}-y9z0a`,
     `faud-${Date.now()}-b1c2d`,
+    `rfile-${Date.now()}-e3f4g`,
+    `rfold-${Date.now()}-h5i6j`,
+    `rcat-doc-${Date.now()}-k7l8`,
+    `cscr-${Date.now()}-m9n0p`,
+    `tmpl-${Date.now()}-q1r2s`,
+    `creport-${Date.now()}-z4x8c`,
+    `syslog-${Date.now()}-a1b2c`,
+    `ntf-cb-lead-1-2026-11-18`,
+    `auto-comm-stale-leads`,
+    `autolog-auto-comm-stale-leads-${Date.now()}-xy12`,
+    `aiconv-${Date.now()}-m3n4p`,
     'default',
   ];
 
@@ -160,4 +171,126 @@ test('firebase-blueprint.json e firestore.rules declaram as 6 coleções finance
   assert.match(realRules, /match \/financialAuditLogs\/\{logId\}/);
   assert.match(realRules, /allow delete, update: if false;/);
 });
+
+test('firebase-blueprint.json, firestore.rules e storage.rules cobrem as 5 coleções e Storage da Etapa 5', () => {
+  const blueprintRaw = fs.readFileSync(
+    path.resolve(process.cwd(), 'firebase-blueprint.json'),
+    'utf-8'
+  );
+  const blueprint = JSON.parse(blueprintRaw) as {
+    firestore?: Record<string, unknown>;
+  };
+
+  const firestorePaths = Object.keys(blueprint.firestore || {});
+  const etapa5Paths = [
+    '/workspaces/{workspaceId}/resourceFiles/{fileId}',
+    '/workspaces/{workspaceId}/resourceFolders/{folderId}',
+    '/workspaces/{workspaceId}/resourceCategories/{categoryId}',
+    '/workspaces/{workspaceId}/commercialScripts/{scriptId}',
+    '/workspaces/{workspaceId}/modelTemplates/{templateId}',
+  ];
+
+  for (const reqPath of etapa5Paths) {
+    assert.ok(
+      firestorePaths.includes(reqPath),
+      `Caminho da Etapa 5 ausente em firebase-blueprint.json: ${reqPath}`
+    );
+  }
+
+  const realRules = fs.readFileSync(path.resolve(process.cwd(), 'firestore.rules'), 'utf-8');
+  assert.match(realRules, /match \/resourceFiles\/\{fileId\}/);
+  assert.match(realRules, /match \/resourceFolders\/\{folderId\}/);
+  assert.match(realRules, /match \/resourceCategories\/\{categoryId\}/);
+  assert.match(realRules, /match \/commercialScripts\/\{scriptId\}/);
+  assert.match(realRules, /match \/modelTemplates\/\{templateId\}/);
+
+  const storageRules = fs.readFileSync(path.resolve(process.cwd(), 'storage.rules'), 'utf-8');
+  assert.match(storageRules, /match \/workspaces\/\{workspaceId\}\/resources\/\{fileId\}\/\{fileName\}/);
+  assert.match(storageRules, /authorizedAdminUid\(\)/);
+  assert.match(storageRules, /26214400/);
+});
+
+test('firebase-blueprint.json e firestore.rules declaram as coleções da Etapa 6 (customReports e analyticsSettings)', () => {
+  const blueprintRaw = fs.readFileSync(
+    path.resolve(process.cwd(), 'firebase-blueprint.json'),
+    'utf-8'
+  );
+  const blueprint = JSON.parse(blueprintRaw) as {
+    firestore?: Record<string, unknown>;
+    entities?: Record<string, unknown>;
+  };
+
+  const firestorePaths = Object.keys(blueprint.firestore || {});
+  const etapa6Paths = [
+    '/workspaces/{workspaceId}/customReports/{reportId}',
+    '/workspaces/{workspaceId}/analyticsSettings/{settingId}',
+  ];
+
+  for (const reqPath of etapa6Paths) {
+    assert.ok(
+      firestorePaths.includes(reqPath),
+      `Caminho da Etapa 6 ausente em firebase-blueprint.json: ${reqPath}`
+    );
+  }
+
+  assert.ok(blueprint.entities?.SavedCustomReport);
+  assert.ok(blueprint.entities?.AnalyticsPreferences);
+
+  const realRules = fs.readFileSync(path.resolve(process.cwd(), 'firestore.rules'), 'utf-8');
+  assert.match(realRules, /function isValidCustomReport\(/);
+  assert.match(realRules, /function isValidAnalyticsPreferences\(/);
+  assert.match(realRules, /match \/customReports\/\{reportId\}/);
+  assert.match(realRules, /match \/analyticsSettings\/\{settingId\}/);
+});
+
+test('firebase-blueprint.json e firestore.rules declaram as 6 coleções da Etapa 7 com regras seguras', () => {
+  const blueprintRaw = fs.readFileSync(
+    path.resolve(process.cwd(), 'firebase-blueprint.json'),
+    'utf-8'
+  );
+  const blueprint = JSON.parse(blueprintRaw) as {
+    firestore?: Record<string, unknown>;
+    entities?: Record<string, unknown>;
+  };
+
+  const firestorePaths = Object.keys(blueprint.firestore || {});
+  const etapa7Paths = [
+    '/workspaces/{workspaceId}/systemSettings/{settingId}',
+    '/workspaces/{workspaceId}/notifications/{notificationId}',
+    '/workspaces/{workspaceId}/automationSettings/{ruleId}',
+    '/workspaces/{workspaceId}/automationLogs/{logId}',
+    '/workspaces/{workspaceId}/aiConversations/{conversationId}',
+    '/workspaces/{workspaceId}/systemLogs/{logId}',
+  ];
+
+  for (const reqPath of etapa7Paths) {
+    assert.ok(
+      firestorePaths.includes(reqPath),
+      `Caminho da Etapa 7 ausente em firebase-blueprint.json: ${reqPath}`
+    );
+  }
+
+  assert.ok(blueprint.entities?.SystemSettings);
+  assert.ok(blueprint.entities?.SystemNotification);
+  assert.ok(blueprint.entities?.AutomationRuleSetting);
+  assert.ok(blueprint.entities?.AutomationExecutionLog);
+  assert.ok(blueprint.entities?.AiConversation);
+  assert.ok(blueprint.entities?.SystemLogEntry);
+
+  const realRules = fs.readFileSync(path.resolve(process.cwd(), 'firestore.rules'), 'utf-8');
+  assert.match(realRules, /function isValidSystemSettings\(/);
+  assert.match(realRules, /function isValidSystemNotification\(/);
+  assert.match(realRules, /function isValidAutomationRule\(/);
+  assert.match(realRules, /function isValidAutomationLog\(/);
+  assert.match(realRules, /function isValidAiConversation\(/);
+  assert.match(realRules, /function isValidSystemLog\(/);
+  assert.match(realRules, /match \/systemSettings\/\{settingId\}/);
+  assert.match(realRules, /match \/notifications\/\{notificationId\}/);
+  assert.match(realRules, /match \/automationSettings\/\{ruleId\}/);
+  assert.match(realRules, /match \/automationLogs\/\{logId\}/);
+  assert.match(realRules, /match \/aiConversations\/\{conversationId\}/);
+  assert.match(realRules, /match \/systemLogs\/\{logId\}/);
+});
+
+
 

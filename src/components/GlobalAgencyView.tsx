@@ -18,6 +18,19 @@ import {
   FinancialTransaction,
 } from '../types/finance';
 import {
+  CommercialScript,
+  ModelTemplate,
+  ResourceCategory,
+  ResourceFile,
+  ResourceFolder,
+} from '../types/resources';
+import { AnalyticsPreferences, SavedCustomReport } from '../types/analytics';
+import {
+  AutomationRuleSetting,
+  SystemNotification,
+  SystemSettings,
+} from '../types/system';
+import {
   loadLastBackupTimestamp,
   recordLastBackupTimestamp,
 } from '../utils/storage';
@@ -85,6 +98,16 @@ interface GlobalAgencyViewProps {
   financialRecurrences?: FinancialRecurrence[];
   financialSettings?: FinancialSettings;
   financialAuditLogs?: FinancialAuditLog[];
+  resourceFiles?: ResourceFile[];
+  resourceFolders?: ResourceFolder[];
+  resourceCategories?: ResourceCategory[];
+  commercialScripts?: CommercialScript[];
+  modelTemplates?: ModelTemplate[];
+  savedReports?: SavedCustomReport[];
+  analyticsSettings?: AnalyticsPreferences;
+  systemSettings?: SystemSettings;
+  automationSettings?: AutomationRuleSetting[];
+  notifications?: SystemNotification[];
   userName: string;
   onSelectNiche: (nicheId: string) => void;
   onOpenNewNicheModal: () => void;
@@ -106,6 +129,16 @@ interface GlobalAgencyViewProps {
     financialRecurrences?: FinancialRecurrence[];
     financialSettings?: FinancialSettings;
     financialAuditLogs?: FinancialAuditLog[];
+    resourceFiles?: ResourceFile[];
+    resourceFolders?: ResourceFolder[];
+    resourceCategories?: ResourceCategory[];
+    commercialScripts?: CommercialScript[];
+    modelTemplates?: ModelTemplate[];
+    savedReports?: SavedCustomReport[];
+    analyticsSettings?: AnalyticsPreferences;
+    systemSettings?: SystemSettings;
+    automationSettings?: AutomationRuleSetting[];
+    notifications?: SystemNotification[];
     userName?: string;
   }) => Promise<void>;
   onResetToCleanBaseline?: () => Promise<void>;
@@ -138,6 +171,16 @@ export const GlobalAgencyView: React.FC<GlobalAgencyViewProps> = ({
   financialRecurrences = [],
   financialSettings,
   financialAuditLogs = [],
+  resourceFiles = [],
+  resourceFolders = [],
+  resourceCategories = [],
+  commercialScripts = [],
+  modelTemplates = [],
+  savedReports = [],
+  analyticsSettings,
+  systemSettings,
+  automationSettings = [],
+  notifications = [],
   userName,
   onSelectNiche,
   onOpenNewNicheModal,
@@ -241,6 +284,16 @@ export const GlobalAgencyView: React.FC<GlobalAgencyViewProps> = ({
       let exportFinancialRecurrences = financialRecurrences;
       let exportFinancialSettings = financialSettings;
       let exportFinancialAuditLogs = financialAuditLogs;
+      let exportResourceFiles = resourceFiles;
+      let exportResourceFolders = resourceFolders;
+      let exportResourceCategories = resourceCategories;
+      let exportCommercialScripts = commercialScripts;
+      let exportModelTemplates = modelTemplates;
+      let exportSavedReports = savedReports;
+      let exportAnalyticsSettings = analyticsSettings;
+      let exportSystemSettings = systemSettings;
+      let exportAutomationSettings = automationSettings;
+      let exportNotifications = notifications;
       let fromCloud = false;
 
       try {
@@ -261,7 +314,17 @@ export const GlobalAgencyView: React.FC<GlobalAgencyViewProps> = ({
           snapshot.financialCategories.length > 0 ||
           snapshot.financialRecurrences.length > 0 ||
           Boolean(snapshot.financialSettings) ||
-          snapshot.financialAuditLogs.length > 0
+          snapshot.financialAuditLogs.length > 0 ||
+          snapshot.resourceFiles.length > 0 ||
+          snapshot.resourceFolders.length > 0 ||
+          snapshot.resourceCategories.length > 0 ||
+          snapshot.commercialScripts.length > 0 ||
+          snapshot.modelTemplates.length > 0 ||
+          snapshot.savedReports.length > 0 ||
+          Boolean(snapshot.analyticsSettings) ||
+          Boolean(snapshot.systemSettings) ||
+          snapshot.automationSettings.length > 0 ||
+          snapshot.notifications.length > 0
         ) {
           exportNiches = snapshot.niches;
           exportLeads = snapshot.leads;
@@ -285,6 +348,23 @@ export const GlobalAgencyView: React.FC<GlobalAgencyViewProps> = ({
             exportFinancialSettings = snapshot.financialSettings;
           if (snapshot.financialAuditLogs.length > 0)
             exportFinancialAuditLogs = snapshot.financialAuditLogs;
+          if (snapshot.resourceFiles.length > 0) exportResourceFiles = snapshot.resourceFiles;
+          if (snapshot.resourceFolders.length > 0)
+            exportResourceFolders = snapshot.resourceFolders;
+          if (snapshot.resourceCategories.length > 0)
+            exportResourceCategories = snapshot.resourceCategories;
+          if (snapshot.commercialScripts.length > 0)
+            exportCommercialScripts = snapshot.commercialScripts;
+          if (snapshot.modelTemplates.length > 0) exportModelTemplates = snapshot.modelTemplates;
+          if (snapshot.savedReports.length > 0) exportSavedReports = snapshot.savedReports;
+          if (snapshot.analyticsSettings)
+            exportAnalyticsSettings = snapshot.analyticsSettings;
+          if (snapshot.systemSettings)
+            exportSystemSettings = snapshot.systemSettings;
+          if (snapshot.automationSettings.length > 0)
+            exportAutomationSettings = snapshot.automationSettings;
+          if (snapshot.notifications.length > 0)
+            exportNotifications = snapshot.notifications;
           fromCloud = true;
         }
       } catch {
@@ -308,6 +388,16 @@ export const GlobalAgencyView: React.FC<GlobalAgencyViewProps> = ({
         financialRecurrences: exportFinancialRecurrences,
         financialSettings: exportFinancialSettings,
         financialAuditLogs: exportFinancialAuditLogs,
+        resourceFiles: exportResourceFiles,
+        resourceFolders: exportResourceFolders,
+        resourceCategories: exportResourceCategories,
+        commercialScripts: exportCommercialScripts,
+        modelTemplates: exportModelTemplates,
+        savedReports: exportSavedReports,
+        analyticsSettings: exportAnalyticsSettings,
+        systemSettings: exportSystemSettings,
+        automationSettings: exportAutomationSettings,
+        notifications: exportNotifications,
         userName,
       });
 
@@ -316,7 +406,7 @@ export const GlobalAgencyView: React.FC<GlobalAgencyViewProps> = ({
       recordLastBackupTimestamp();
 
       setFeedbackMessage(
-        `Backup completo v3.0 exportado (${exportNiches.length} nichos, ${exportLeads.length} leads, ${exportClients.length} clientes, ${exportProposals.length} propostas, ${exportProjects.length} projetos, ${exportTasks.length} tarefas, ${exportFinancialEntries.length} lançamentos financeiros${
+        `Backup completo v3.0 exportado (${exportNiches.length} nichos, ${exportLeads.length} leads, ${exportClients.length} clientes, ${exportProposals.length} propostas, ${exportProjects.length} projetos, ${exportTasks.length} tarefas, ${exportFinancialEntries.length} lançamentos financeiros, ${exportResourceFiles.length} materiais, ${exportCommercialScripts.length} scripts, ${exportModelTemplates.length} modelos${
           fromCloud ? ' — validado direto do Firestore' : ' — a partir do estado local em memória'
         }).`
       );
@@ -393,6 +483,16 @@ export const GlobalAgencyView: React.FC<GlobalAgencyViewProps> = ({
           financialRecurrences,
           financialSettings,
           financialAuditLogs,
+          resourceFiles,
+          resourceFolders,
+          resourceCategories,
+          commercialScripts,
+          modelTemplates,
+          savedReports,
+          analyticsSettings,
+          systemSettings,
+          automationSettings,
+          notifications,
           userName,
         });
         const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
@@ -423,12 +523,22 @@ export const GlobalAgencyView: React.FC<GlobalAgencyViewProps> = ({
         financialRecurrences: prepared.financialRecurrencesToWrite,
         financialSettings: prepared.financialSettingsToWrite,
         financialAuditLogs: prepared.financialAuditLogsToWrite,
+        resourceFiles: prepared.resourceFilesToWrite,
+        resourceFolders: prepared.resourceFoldersToWrite,
+        resourceCategories: prepared.resourceCategoriesToWrite,
+        commercialScripts: prepared.commercialScriptsToWrite,
+        modelTemplates: prepared.modelTemplatesToWrite,
+        savedReports: prepared.savedReportsToWrite,
+        analyticsSettings: prepared.analyticsSettingsToWrite,
+        systemSettings: prepared.systemSettingsToWrite,
+        automationSettings: prepared.automationSettingsToWrite,
+        notifications: prepared.notificationsToWrite,
         userName: pendingRestore.backup.userName,
       });
 
       setPendingRestore(null);
       setFeedbackMessage(
-        `Backup restaurado e sincronizado: ${prepared.nichesToWrite.length} nichos, ${prepared.leadsToWrite.length} leads, ${prepared.clientsToWrite.length} clientes, ${prepared.proposalsToWrite.length} propostas, ${prepared.projectsToWrite.length} projetos, ${prepared.tasksToWrite.length} tarefas, ${prepared.financialEntriesToWrite.length} lançamentos financeiros` +
+        `Backup restaurado e sincronizado: ${prepared.nichesToWrite.length} nichos, ${prepared.leadsToWrite.length} leads, ${prepared.clientsToWrite.length} clientes, ${prepared.proposalsToWrite.length} propostas, ${prepared.projectsToWrite.length} projetos, ${prepared.tasksToWrite.length} tarefas, ${prepared.financialEntriesToWrite.length} lançamentos financeiros, ${prepared.resourceFilesToWrite.length} materiais, ${prepared.commercialScriptsToWrite.length} scripts, ${prepared.modelTemplatesToWrite.length} modelos` +
           (prepared.skippedDuplicates > 0
             ? ` (${prepared.skippedDuplicates} duplicados ignorados por telefone).`
             : '.')
@@ -874,6 +984,35 @@ export const GlobalAgencyView: React.FC<GlobalAgencyViewProps> = ({
                   {pendingRestore.backup.financialEntries?.length || 0} lançamentos,{' '}
                   {pendingRestore.backup.financialTransactions?.length || 0} movimentações e{' '}
                   {pendingRestore.backup.financialRecurrences?.length || 0} recorrências
+                </div>
+              )}
+              {((pendingRestore.backup.resourceFiles?.length || 0) > 0 ||
+                (pendingRestore.backup.commercialScripts?.length || 0) > 0 ||
+                (pendingRestore.backup.modelTemplates?.length || 0) > 0) && (
+                <div>
+                  • <strong>Central de Materiais & Modelos:</strong>{' '}
+                  {pendingRestore.backup.resourceFiles?.length || 0} arquivos,{' '}
+                  {pendingRestore.backup.resourceFolders?.length || 0} pastas,{' '}
+                  {pendingRestore.backup.commercialScripts?.length || 0} scripts e{' '}
+                  {pendingRestore.backup.modelTemplates?.length || 0} modelos
+                </div>
+              )}
+              {((pendingRestore.backup.savedReports?.length || 0) > 0 ||
+                Boolean(pendingRestore.backup.analyticsSettings)) && (
+                <div>
+                  • <strong>Relatórios & Inteligência:</strong>{' '}
+                  {pendingRestore.backup.savedReports?.length || 0} modelos salvos
+                  {pendingRestore.backup.analyticsSettings ? ' + preferências personalizadas' : ''}
+                </div>
+              )}
+              {(Boolean(pendingRestore.backup.systemSettings) ||
+                (pendingRestore.backup.automationSettings?.length || 0) > 0 ||
+                (pendingRestore.backup.notifications?.length || 0) > 0) && (
+                <div>
+                  • <strong>Sistema, Automações & Notificações:</strong>{' '}
+                  {pendingRestore.backup.systemSettings ? 'configurações do sistema, ' : ''}
+                  {pendingRestore.backup.automationSettings?.length || 0} regras de automação e{' '}
+                  {pendingRestore.backup.notifications?.length || 0} notificações
                 </div>
               )}
               {pendingRestore.analysis.leadsPotentialPhoneDuplicates > 0 && (

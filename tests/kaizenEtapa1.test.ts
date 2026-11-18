@@ -35,8 +35,8 @@ test('NAVIGATION_GROUPS define exatamente os 6 grupos estruturais do Kaizen', ()
   );
 });
 
-test('NAVIGATION_ITEMS separa com honestidade módulos reais e placeholders futuros (16 itens)', () => {
-  assert.equal(NAVIGATION_ITEMS.length, 16);
+test('NAVIGATION_ITEMS define todos os 18 módulos implementados até a Etapa 7', () => {
+  assert.equal(NAVIGATION_ITEMS.length, 18);
 
   const implementedIds = NAVIGATION_ITEMS.filter((i) => i.implemented).map((i) => i.id);
   assert.deepEqual(implementedIds, [
@@ -48,18 +48,20 @@ test('NAVIGATION_ITEMS separa com honestidade módulos reais e placeholders futu
     'tasks',
     'agenda',
     'social',
+    'documents',
     'scripts',
+    'templates',
     'finance',
     'global',
+    'productivity',
     'settings',
+    'ai_assistant',
+    'automations',
+    'notifications',
   ]);
 
   const unimplemented = NAVIGATION_ITEMS.filter((i) => !i.implemented);
-  assert.equal(unimplemented.length, 4);
-  for (const item of unimplemented) {
-    assert.ok(item.targetStageLabel && item.targetStageLabel.length > 0, `Falta targetStageLabel em ${item.id}`);
-    assert.ok(item.plannedFeatures && item.plannedFeatures.length >= 2, `Falta plannedFeatures em ${item.id}`);
-  }
+  assert.equal(unimplemented.length, 0);
 });
 
 test('getRouteMeta gera título, grupo e breadcrumbs corretos para CRM, Dashboard, Financeiro e módulos futuros', () => {
@@ -89,6 +91,16 @@ test('getRouteMeta gera título, grupo e breadcrumbs corretos para CRM, Dashboar
   assert.equal(projectsMeta.title, 'Projetos');
   assert.equal(projectsMeta.implemented, true);
   assert.equal(projectsMeta.groupLabel, 'OPERAÇÃO');
+
+  const documentsMeta = getRouteMeta('documents');
+  assert.equal(documentsMeta.title, 'Materiais e Documentos');
+  assert.equal(documentsMeta.implemented, true);
+  assert.equal(documentsMeta.groupLabel, 'RECURSOS');
+
+  const templatesMeta = getRouteMeta('templates');
+  assert.equal(templatesMeta.title, 'Biblioteca de Modelos');
+  assert.equal(templatesMeta.implemented, true);
+  assert.equal(templatesMeta.groupLabel, 'RECURSOS');
 
   const financeMeta = getRouteMeta('finance');
   assert.equal(financeMeta.title, 'Financeiro');

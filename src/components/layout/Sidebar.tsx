@@ -16,6 +16,8 @@ import {
   Gauge,
   Settings,
   Bot,
+  Zap,
+  Bell,
   PanelLeftClose,
   PanelLeftOpen,
   X,
@@ -36,6 +38,9 @@ interface SidebarProps {
   mobileOpen: boolean;
   onCloseMobile: () => void;
   agendaAlertsCount?: number;
+  unreadNotificationsCount?: number;
+  brandName?: string;
+  compactLogoUrl?: string;
 }
 
 const ICON_MAP: Record<NavigationItem['iconName'], React.FC<{ className?: string }>> = {
@@ -55,6 +60,8 @@ const ICON_MAP: Record<NavigationItem['iconName'], React.FC<{ className?: string
   Gauge,
   Settings,
   Bot,
+  Zap,
+  Bell,
 };
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -65,6 +72,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   mobileOpen,
   onCloseMobile,
   agendaAlertsCount = 0,
+  unreadNotificationsCount = 0,
+  brandName = 'Kaizen',
+  compactLogoUrl,
 }) => {
   const isItemActive = (item: NavigationItem) => {
     if (item.id === activeTab) return true;
@@ -90,15 +100,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
           className={`flex items-center gap-2.5 text-left cursor-pointer group focus:outline-none ${
             isCollapsedMode ? 'justify-center' : 'min-w-0'
           }`}
-          title="Kaizen — Sistema de Gestão Integrada"
+          title={`${brandName} — Sistema de Gestão Integrada`}
         >
-          <div className="w-8 h-8 rounded-lg bg-[#19191F] border border-[#C6A15B]/45 text-[#C6A15B] flex items-center justify-center font-extrabold text-sm tracking-tight shrink-0 shadow-[var(--kz-shadow-xs)] group-hover:border-[#C6A15B] group-hover:bg-[#C6A15B]/15 transition-colors">
-            K
-          </div>
+          {compactLogoUrl ? (
+            <img
+              src={compactLogoUrl}
+              alt={brandName}
+              className="w-8 h-8 rounded-lg object-cover border border-[#C6A15B]/45 shrink-0"
+            />
+          ) : (
+            <div className="w-8 h-8 rounded-lg bg-[#19191F] border border-[#C6A15B]/45 text-[#C6A15B] flex items-center justify-center font-extrabold text-sm tracking-tight shrink-0 shadow-[var(--kz-shadow-xs)] group-hover:border-[#C6A15B] group-hover:bg-[#C6A15B]/15 transition-colors">
+              {(brandName || 'K').charAt(0).toUpperCase()}
+            </div>
+          )}
           {!isCollapsedMode && (
             <div className="min-w-0">
               <div className="text-sm font-bold text-[var(--kz-text-primary)] tracking-tight leading-tight truncate">
-                Kaizen
+                {brandName || 'Kaizen'}
               </div>
               <div className="text-[10px] font-medium text-[var(--kz-text-subtle)] tracking-wide truncate">
                 Gestão Integrada
@@ -166,6 +184,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   const Icon = ICON_MAP[item.iconName];
                   const active = isItemActive(item);
                   const showAgendaBadge = item.id === 'agenda' && agendaAlertsCount > 0;
+                  const showNotificationsBadge =
+                    item.id === 'notifications' && unreadNotificationsCount > 0;
 
                   const buttonEl = (
                     <button
@@ -199,6 +219,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           {showAgendaBadge && (
                             <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold leading-none bg-[var(--kz-warning-bg)] text-[var(--kz-warning-text)] border border-[var(--kz-warning-border)]">
                               {agendaAlertsCount}
+                            </span>
+                          )}
+
+                          {showNotificationsBadge && (
+                            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold leading-none bg-[var(--kz-accent-soft)] text-[var(--kz-accent-text)] border border-[var(--kz-accent-border)]">
+                              {unreadNotificationsCount}
                             </span>
                           )}
 

@@ -19,6 +19,12 @@ import {
   transitionTaskStatus,
 } from '../services/taskService';
 import { getTodayIsoDate } from '../services/projectService';
+import { getFilesForTaskContext } from '../services/resources';
+import {
+  ResourceCategory,
+  ResourceFile,
+  ResourceFolder,
+} from '../types/resources';
 import { TaskFormModal } from './TaskFormModal';
 import {
   Alert,
@@ -41,6 +47,7 @@ import {
   FolderKanban,
   LayoutGrid,
   List,
+  Paperclip,
   Plus,
   Search,
   Trash2,
@@ -51,9 +58,13 @@ interface TasksViewProps {
   tasks: Task[];
   projects: Project[];
   clients: Client[];
+  resourceFiles?: ResourceFile[];
+  resourceCategories?: ResourceCategory[];
+  resourceFolders?: ResourceFolder[];
   cloudPermissionBlocked?: boolean;
   onSaveTask: (task: Task, mode: 'create' | 'edit') => Promise<void> | void;
   onDeleteTask: (taskId: string) => Promise<void> | void;
+  onSyncTaskFiles?: (taskId: string, selectedFileIds: string[]) => Promise<void> | void;
   onOpenProject?: (projectId: string) => void;
   onOpenClient?: (clientId: string) => void;
   onNavigate?: (tab: AppTab) => void;
@@ -63,9 +74,11 @@ export const TasksView: React.FC<TasksViewProps> = ({
   tasks,
   projects,
   clients,
+  resourceFiles = [],
   cloudPermissionBlocked = false,
   onSaveTask,
   onDeleteTask,
+  onSyncTaskFiles,
   onOpenProject,
   onOpenClient,
 }) => {
@@ -373,6 +386,7 @@ export const TasksView: React.FC<TasksViewProps> = ({
             const statusMeta = getTaskStatusMeta(task.status);
             const priorityMeta = getTaskPriorityMeta(task.priority);
             const checklistDone = task.checklist.filter((c) => c.done).length;
+            const attachedFilesCount = getFilesForTaskContext(resourceFiles, task.id).length;
 
             return (
               <Card
@@ -491,6 +505,15 @@ export const TasksView: React.FC<TasksViewProps> = ({
                             Checklist {checklistDone}/{task.checklist.length}
                           </span>
                         )}
+
+                        {attachedFilesCount > 0 && (
+                          <span className="inline-flex items-center gap-1 font-mono text-[var(--kz-accent-text)]">
+                            <Paperclip className="w-3 h-3" />
+                            <span>
+                              {attachedFilesCount} {attachedFilesCount === 1 ? 'arquivo' : 'arquivos'}
+                            </span>
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -567,6 +590,7 @@ export const TasksView: React.FC<TasksViewProps> = ({
                         ? projectById.get(task.projectId)
                         : undefined;
                       const priorityMeta = getTaskPriorityMeta(task.priority);
+                      const attachedFilesCount = getFilesForTaskContext(resourceFiles, task.id).length;
 
                       return (
                         <div
@@ -611,6 +635,13 @@ export const TasksView: React.FC<TasksViewProps> = ({
                             </div>
                           )}
 
+                          {attachedFilesCount > 0 && (
+                            <div className="inline-flex items-center gap-1 text-[10px] font-mono text-[var(--kz-text-secondary)]">
+                              <Paperclip className="w-3 h-3 text-[var(--kz-accent)]" />
+                              <span>{attachedFilesCount} anexo(s)</span>
+                            </div>
+                          )}
+
                           <div className="flex items-center justify-between gap-2 pt-1 border-t border-[var(--kz-border-subtle)]">
                             <span className="text-[10px] font-mono text-[var(--kz-text-muted)]">
                               {formatBrDate(task.dueDate)}
@@ -652,8 +683,10 @@ export const TasksView: React.FC<TasksViewProps> = ({
         }}
         projects={projects}
         clients={clients}
+        resourceFiles={resourceFiles}
         editingTask={editingTask}
         onSave={onSaveTask}
+        onSyncTaskFiles={onSyncTaskFiles}
       />
 
       <ConfirmDialog

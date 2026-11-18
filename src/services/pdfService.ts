@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf';
 import { ProposalContract, getProposalStatusMeta } from '../types/kaizen';
 import { GeneratedFinancialReport } from './finance/reportsService';
+import { IssuerBrandingSnapshot } from './system/settingsService';
 
 function formatCurrencyBrl(value: number): string {
   return `R$ ${(Number(value) || 0).toLocaleString('pt-BR', {
@@ -33,7 +34,10 @@ function sanitizeFileSlug(text: string): string {
  * Generates an executive A4 PDF document for any Proposal or Contract using jsPDF.
  * Operates completely client-side via Blob download without popups or window.open.
  */
-export function buildProposalPdfDocument(proposal: ProposalContract): jsPDF {
+export function buildProposalPdfDocument(
+  proposal: ProposalContract,
+  branding?: Partial<IssuerBrandingSnapshot>
+): jsPDF {
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
@@ -45,6 +49,8 @@ export function buildProposalPdfDocument(proposal: ProposalContract): jsPDF {
   const margin = 18;
   const contentWidth = pageWidth - margin * 2;
   let y = 0;
+
+  const agencyHeading = (branding?.agencyName || 'KAIZEN').toUpperCase();
 
   const ensureSpace = (neededMm: number) => {
     if (y + neededMm > pageHeight - 20) {
@@ -64,8 +70,8 @@ export function buildProposalPdfDocument(proposal: ProposalContract): jsPDF {
   doc.setFontSize(9);
   doc.text(
     proposal.kind === 'contrato'
-      ? 'KAIZEN — CONTRATO DE PRESTAÇÃO DE SERVIÇOS'
-      : 'KAIZEN — PROPOSTA COMERCIAL',
+      ? `${agencyHeading} — CONTRATO DE PRESTAÇÃO DE SERVIÇOS`
+      : `${agencyHeading} — PROPOSTA COMERCIAL`,
     margin,
     13
   );
@@ -130,8 +136,18 @@ export function buildProposalPdfDocument(proposal: ProposalContract): jsPDF {
   ]
     .filter(Boolean)
     .join('\n');
+  const effectiveIssuerDoc = proposal.issuerDocument || branding?.issuerDocument;
+  const issuerContactParts = [
+    branding?.commercialPhone || null,
+    branding?.contactEmail || null,
+    branding?.websiteUrl || null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
   const rightDetails = [
-    proposal.issuerDocument ? `Doc.: ${proposal.issuerDocument}` : 'Kaizen — Gestão & Tecnologia',
+    effectiveIssuerDoc ? `Doc.: ${effectiveIssuerDoc}` : `${branding?.agencyName || 'Kaizen'} — Gestão & Tecnologia`,
+    issuerContactParts || null,
     proposal.recipientEmail ? `Contato cliente: ${proposal.recipientEmail}` : null,
     proposal.deliveryDeadlineDays
       ? `Prazo estimado: ${proposal.deliveryDeadlineDays} dias`
@@ -329,16 +345,21 @@ export function buildProposalPdfDocument(proposal: ProposalContract): jsPDF {
 
   // Page footers
   const totalPages = doc.getNumberOfPages();
+  const footerBrand = [
+    branding?.agencyName || 'Kaizen — Gestão Integrada',
+    branding?.websiteUrl || null,
+    branding?.commercialPhone || null,
+    proposal.code,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
   for (let p = 1; p <= totalPages; p++) {
     doc.setPage(p);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.5);
     doc.setTextColor(140, 140, 152);
-    doc.text(
-      `Kaizen — Gestão Integrada · ${proposal.code}`,
-      margin,
-      pageHeight - 10
-    );
+    doc.text(footerBrand, margin, pageHeight - 10);
     doc.text(`Página ${p} de ${totalPages}`, pageWidth - margin, pageHeight - 10, {
       align: 'right',
     });
@@ -347,8 +368,11 @@ export function buildProposalPdfDocument(proposal: ProposalContract): jsPDF {
   return doc;
 }
 
-export function downloadProposalPdf(proposal: ProposalContract): string {
-  const doc = buildProposalPdfDocument(proposal);
+export function downloadProposalPdf(
+  proposal: ProposalContract,
+  branding?: Partial<IssuerBrandingSnapshot>
+): string {
+  const doc = buildProposalPdfDocument(proposal, branding);
   const slug = sanitizeFileSlug(proposal.recipientCompany || proposal.title);
   const filename = `${proposal.code || 'kaizen-doc'}-${slug}.pdf`;
   doc.save(filename);

@@ -19,6 +19,12 @@ import {
   transitionSocialPostStage,
 } from '../services/socialService';
 import { getTodayIsoDate } from '../services/projectService';
+import { getFilesForSocialPostContext } from '../services/resources';
+import {
+  ResourceCategory,
+  ResourceFile,
+  ResourceFolder,
+} from '../types/resources';
 import { SocialChannelModal } from './SocialChannelModal';
 import { SocialPostModal } from './SocialPostModal';
 import {
@@ -48,6 +54,7 @@ import {
   ExternalLink,
   Kanban,
   List,
+  Paperclip,
   Plus,
   Search,
   Send,
@@ -60,6 +67,9 @@ interface SocialViewProps {
   posts: SocialPost[];
   clients: Client[];
   proposals: ProposalContract[];
+  resourceFiles?: ResourceFile[];
+  resourceCategories?: ResourceCategory[];
+  resourceFolders?: ResourceFolder[];
   userName: string;
   cloudPermissionBlocked?: boolean;
   onSaveChannel: (
@@ -69,6 +79,11 @@ interface SocialViewProps {
   onDeleteChannel: (channelId: string) => Promise<void> | void;
   onSavePost: (post: SocialPost, mode: 'create' | 'edit') => Promise<void> | void;
   onDeletePost: (postId: string) => Promise<void> | void;
+  onSyncSocialPostFiles?: (
+    postId: string,
+    clientId: string,
+    selectedFileIds: string[]
+  ) => Promise<void> | void;
   onOpenClient?: (clientId: string) => void;
 }
 
@@ -79,12 +94,14 @@ export const SocialView: React.FC<SocialViewProps> = ({
   posts,
   clients,
   proposals,
+  resourceFiles = [],
   userName,
   cloudPermissionBlocked = false,
   onSaveChannel,
   onDeleteChannel,
   onSavePost,
   onDeletePost,
+  onSyncSocialPostFiles,
   onOpenClient,
 }) => {
   const [viewMode, setViewMode] = useState<'calendar' | 'kanban' | 'list' | 'channels'>(
@@ -620,12 +637,20 @@ export const SocialView: React.FC<SocialViewProps> = ({
                           </Badge>
                         </div>
 
-                        <div className="text-[10px] font-mono text-[var(--kz-text-muted)]">
-                          {post.plannedDate
-                            ? `${formatBrDate(post.plannedDate)}${
-                                post.plannedTime ? ` · ${post.plannedTime}` : ''
-                              }`
-                            : 'Sem data definida'}
+                        <div className="flex items-center justify-between gap-2 text-[10px] font-mono text-[var(--kz-text-muted)]">
+                          <span>
+                            {post.plannedDate
+                              ? `${formatBrDate(post.plannedDate)}${
+                                  post.plannedTime ? ` · ${post.plannedTime}` : ''
+                                }`
+                              : 'Sem data definida'}
+                          </span>
+                          {getFilesForSocialPostContext(resourceFiles, post.id).length > 0 && (
+                            <span className="inline-flex items-center gap-0.5 text-[var(--kz-accent-text)]">
+                              <Paperclip className="w-2.5 h-2.5" />
+                              {getFilesForSocialPostContext(resourceFiles, post.id).length}
+                            </span>
+                          )}
                         </div>
 
                         {post.status === 'aprovado' && (
@@ -842,8 +867,15 @@ export const SocialView: React.FC<SocialViewProps> = ({
                     <TableRow key={post.id}>
                       <TableCell className="font-semibold text-[var(--kz-text-primary)]">
                         <div>{post.title}</div>
-                        <div className="text-[11px] font-normal text-[var(--kz-text-muted)]">
-                          Responsável: {post.assignee}
+                        <div className="flex flex-wrap items-center gap-2 text-[11px] font-normal text-[var(--kz-text-muted)]">
+                          <span>Responsável: {post.assignee}</span>
+                          {getFilesForSocialPostContext(resourceFiles, post.id).length > 0 && (
+                            <span className="inline-flex items-center gap-1 font-mono text-[var(--kz-accent-text)]">
+                              <Paperclip className="w-3 h-3" />
+                              {getFilesForSocialPostContext(resourceFiles, post.id).length}{' '}
+                              material(is)
+                            </span>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -930,10 +962,12 @@ export const SocialView: React.FC<SocialViewProps> = ({
         clients={clients}
         proposals={proposals}
         channels={channels}
+        resourceFiles={resourceFiles}
         userName={userName}
         editingPost={editingPost}
         defaultDate={defaultPostDate}
         onSavePost={onSavePost}
+        onSyncSocialPostFiles={onSyncSocialPostFiles}
       />
 
       <ConfirmDialog

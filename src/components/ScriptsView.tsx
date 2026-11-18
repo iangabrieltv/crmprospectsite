@@ -40,7 +40,8 @@ import {
   Search,
   User,
   Mic,
-  MessageSquare
+  MessageSquare,
+  BookOpen
 } from 'lucide-react';
 import {
   DEFAULT_SCRIPTS,
@@ -57,8 +58,10 @@ interface ScriptsViewProps {
   leads: Lead[];
   userName: string;
   targetLeadId?: string | null;
+  commercialScriptsCount?: number;
   onUpdateNicheScripts: (updatedScripts: Record<string, ScriptDefinition>) => void;
   onFastWhatsAppContacted: (lead: Lead) => void;
+  onOpenCommercialScriptsCenter?: () => void;
 }
 
 export const ScriptsView: React.FC<ScriptsViewProps> = ({
@@ -66,8 +69,10 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
   leads,
   userName,
   targetLeadId,
+  commercialScriptsCount = 0,
   onUpdateNicheScripts,
   onFastWhatsAppContacted,
+  onOpenCommercialScriptsCenter,
 }) => {
   const scriptKeys = Object.keys(niche.scripts);
   const [selectedScriptId, setSelectedScriptId] = useState<string>(() => {
@@ -700,6 +705,20 @@ export const ScriptsView: React.FC<ScriptsViewProps> = ({
 
         {/* Lead Switcher & Reset Button */}
         <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
+          {onOpenCommercialScriptsCenter && (
+            <button
+              type="button"
+              onClick={onOpenCommercialScriptsCenter}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-[var(--kz-accent-text)] bg-[var(--kz-accent-soft)] hover:bg-[var(--kz-accent)]/20 border border-[var(--kz-accent-border)] rounded-lg transition-colors cursor-pointer"
+              title="Abrir biblioteca central de scripts comerciais da agência"
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              <span>
+                Central de Scripts{commercialScriptsCount > 0 ? ` (${commercialScriptsCount})` : ''}
+              </span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={handleResetToDefault}

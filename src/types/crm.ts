@@ -290,5 +290,7 @@ export type AppTab =
   | 'finance'
   | 'productivity'
   | 'settings'
-  | 'ai_assistant';
+  | 'ai_assistant'
+  | 'automations'
+  | 'notifications';
 

@@ -9,9 +9,12 @@ import {
   getProposalStatusMeta,
 } from '../types/kaizen';
 import { FinancialEntry, FinancialRecurrence } from '../types/finance';
+import { ModelTemplate } from '../types/resources';
+import { SystemSettings } from '../types/system';
 import { BuildProposalFinancialInput } from '../services/finance';
 import { computeProposalsSummary } from '../services/proposalService';
 import { downloadProposalPdf } from '../services/pdfService';
+import { getIssuerBrandingFromSettings } from '../services/system/settingsService';
 import { ProposalModal } from './ProposalModal';
 import { ProposalPreviewModal } from './ProposalPreviewModal';
 import {
@@ -42,6 +45,7 @@ import {
   TrendingUp,
   Users,
   ScrollText,
+  Library,
 } from 'lucide-react';
 
 interface ProposalsViewProps {
@@ -51,6 +55,8 @@ interface ProposalsViewProps {
   niches: NicheCampaign[];
   financialEntries?: FinancialEntry[];
   financialRecurrences?: FinancialRecurrence[];
+  modelTemplates?: ModelTemplate[];
+  systemSettings?: SystemSettings | null;
   userName: string;
   cloudPermissionBlocked?: boolean;
   initialDraftSource?: {
@@ -73,6 +79,7 @@ interface ProposalsViewProps {
     input: Omit<BuildProposalFinancialInput, 'actor'>
   ) => Promise<{ createdEntriesCount: number; createdRecurrencesCount: number }>;
   onNavigate: (tab: AppTab) => void;
+  onOpenTemplatesLibrary?: () => void;
   onOpenClientFromProposal?: (client: Client) => void;
 }
 
@@ -85,6 +92,8 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
   niches,
   financialEntries = [],
   financialRecurrences = [],
+  modelTemplates = [],
+  systemSettings = null,
   userName,
   cloudPermissionBlocked = false,
   initialDraftSource = null,
@@ -97,6 +106,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
   onApproveAndSyncClient,
   onGenerateFinancialForecast,
   onNavigate,
+  onOpenTemplatesLibrary,
   onOpenClientFromProposal,
 }) => {
   const [kindFilter, setKindFilter] = useState<'all' | DocumentKind>('all');
@@ -129,6 +139,10 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
   }, [previewProposalIdExternal]);
 
   const summary = useMemo(() => computeProposalsSummary(proposals), [proposals]);
+  const issuerBranding = useMemo(
+    () => getIssuerBrandingFromSettings(systemSettings, userName),
+    [systemSettings, userName]
+  );
 
   const filteredProposals = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -183,6 +197,16 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {onOpenTemplatesLibrary && (
+            <Button
+              variant="outline"
+              size="sm"
+              leftIcon={<Library className="w-3.5 h-3.5" />}
+              onClick={onOpenTemplatesLibrary}
+            >
+              Biblioteca de Modelos
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -485,7 +509,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
                             variant="outline"
                             size="xs"
                             leftIcon={<Download className="w-3.5 h-3.5" />}
-                            onClick={() => downloadProposalPdf(prop)}
+                            onClick={() => downloadProposalPdf(prop, issuerBranding)}
                           >
                             PDF
                           </Button>
@@ -516,6 +540,8 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
           clients={clients}
           leads={leads}
           niches={niches}
+          modelTemplates={modelTemplates}
+          systemSettings={systemSettings}
           userName={userName}
           initialProposal={editingProposal}
           initialClient={editingProposal ? null : initialDraftSource?.client || null}
@@ -531,6 +557,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
           clients={clients}
           financialEntries={financialEntries}
           financialRecurrences={financialRecurrences}
+          systemSettings={systemSettings}
           onClose={handleClosePreview}
           onEdit={(prop) => {
             setEditingProposal(prop);

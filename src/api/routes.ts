@@ -440,6 +440,189 @@ Retorne estritamente o JSON no schema especificado.`;
     handleFilterImportedLeads
   );
 
+  // API: Verify server-side Gemini availability (never returns keys or secrets)
+  const handleGeminiStatus = (_req: Request, res: Response) => {
+    const configured = Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim());
+    res.json({
+      configured,
+      model: DEFAULT_GEMINI_MODEL,
+    });
+  };
+  router.get('/api/gemini/status', requireAuth, rateLimiter, handleGeminiStatus);
+  router.get('/gemini/status', requireAuth, rateLimiter, handleGeminiStatus);
+
+  // API: Kaizen Etapa 7 Contextual AI Assistant Chat
+  const handleAssistantChat = async (req: Request, res: Response) => {
+    try {
+      if (!isPlainBodyObject(req.body)) {
+        res.status(400).json({ error: 'Corpo da requisição inválido.' });
+        return;
+      }
+
+      const message = sanitizeString(req.body.message, 4000);
+      if (!message) {
+        res.status(400).json({ error: 'Mensagem é obrigatória para conversar com o assistente.' });
+        return;
+      }
+
+      const ai = getGeminiClient();
+      if (!ai) {
+        res.status(503).json({
+          error:
+            'GEMINI_API_KEY não configurada no servidor. As sugestões inteligentes determinísticas continuam disponíveis na barra lateral.',
+          code: 'GEMINI_NOT_CONFIGURED',
+        });
+        return;
+      }
+
+      const rawHistory = Array.isArray(req.body.history) ? req.body.history.slice(-10) : [];
+      const historyLines = rawHistory
+        .filter((h): h is { role?: unknown; content?: unknown } => isPlainBodyObject(h))
+        .map((h) => {
+          const role = h.role === 'assistant' ? 'Assistente' : 'Administrador';
+          const content = sanitizeString(h.content, 1500);
+          return content ? `${role}: ${content}` : '';
+        })
+        .filter(Boolean)
+        .join('\n');
+
+      const contextJson = isPlainBodyObject(req.body.contextSummary)
+        ? JSON.stringify(req.body.contextSummary).slice(0, 14000)
+        : '{}';
+
+      const systemInstruction = `Você é o Assistente Executivo Contextual do Kaizen (sistema privado de gestão de uma agência digital de um único administrador).
+Regras obrigatórias de veracidade e segurança:
+1. Baseie suas respostas EXCLUSIVAMENTE nos dados fornecidos em CONTEXTO REAL DO KAIZEN. Nunca invente clientes, leads, valores, datas ou tarefas.
+2. Nunca confunda valores previstos/em aberto com valores efetivamente recebidos ou pagos.
+3. Nunca trate abertura de link WhatsApp (wa.me) como mensagem enviada/entregue, nem proposta "enviada" como contrato fechado.
+4. Você NUNCA executa ações financeiras, nunca exclui registros e nunca envia mensagens automaticamente.
+5. Quando o usuário pedir para criar uma tarefa ou preparar um rascunho de mensagem WhatsApp/pauta de reunião, você pode sugerir o objeto "proposedAction" (que será exibido como prévia editável aguardando confirmação explícita do usuário).
+6. Responda em português do Brasil, de forma objetiva, executiva e organizada.`;
+
+      const prompt = `CONTEXTO REAL DO KAIZEN (JSON):
+${contextJson}
+
+${historyLines ? `HISTÓRICO RECENTE DA CONVERSA:\n${historyLines}\n\n` : ''}PERGUNTA / PEDIDO ATUAL DO ADMINISTRADOR:
+"""
+${message}
+"""
+
+Retorne um JSON estruturado conforme o schema:
+- "reply": resposta clara e acionável em português.
+- "citedSources": lista curta dos módulos/itens citados (ex: ["CRM", "Financeiro", "Tarefas"]).
+- "dataLimitationsNote": nota curta sobre limitações ou separação previsto vs realizado quando aplicável (ou string vazia).
+- "hasProposedAction": boolean (true apenas se fizer sentido sugerir "create_task", "whatsapp_draft", "meeting_brief" ou "prioritize_note").
+- "proposedActionType": "create_task" | "whatsapp_draft" | "meeting_brief" | "prioritize_note" (ou "").
+- "proposedActionTitle": título curto da ação sugerida (ou "").
+- "proposedActionDescription": descrição da ação (ou "").
+- "proposedTaskDueDate": YYYY-MM-DD se aplicável (ou "").
+- "proposedTaskPriority": "baixa" | "media" | "alta" | "urgente" (ou "media").
+- "proposedTargetName": nome do destinatário se for rascunho WhatsApp (ou "").
+- "proposedTargetPhone": telefone se constar no contexto (ou "").
+- "proposedDraftText": texto do rascunho se for WhatsApp/briefing (ou "").`;
+
+      const response = await ai.models.generateContent({
+        model: DEFAULT_GEMINI_MODEL,
+        contents: prompt,
+        config: {
+          systemInstruction,
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              reply: { type: Type.STRING },
+              citedSources: { type: Type.ARRAY, items: { type: Type.STRING } },
+              dataLimitationsNote: { type: Type.STRING },
+              hasProposedAction: { type: Type.BOOLEAN },
+              proposedActionType: { type: Type.STRING },
+              proposedActionTitle: { type: Type.STRING },
+              proposedActionDescription: { type: Type.STRING },
+              proposedTaskDueDate: { type: Type.STRING },
+              proposedTaskPriority: { type: Type.STRING },
+              proposedTargetName: { type: Type.STRING },
+              proposedTargetPhone: { type: Type.STRING },
+              proposedDraftText: { type: Type.STRING },
+            },
+            required: ['reply', 'citedSources'],
+          },
+        },
+      });
+
+      const rawText = response.text || '';
+      let parsed: Record<string, unknown> = {};
+      try {
+        parsed = JSON.parse(rawText) as Record<string, unknown>;
+      } catch {
+        parsed = { reply: rawText.trim(), citedSources: ['Kaizen'] };
+      }
+
+      const allowedActionTypes = new Set([
+        'create_task',
+        'whatsapp_draft',
+        'meeting_brief',
+        'prioritize_note',
+      ]);
+      const actionTypeRaw =
+        typeof parsed.proposedActionType === 'string' ? parsed.proposedActionType : '';
+      const hasAction =
+        Boolean(parsed.hasProposedAction) && allowedActionTypes.has(actionTypeRaw);
+
+      const allowedPriorities = new Set(['baixa', 'media', 'alta', 'urgente']);
+      const rawPrio =
+        typeof parsed.proposedTaskPriority === 'string' ? parsed.proposedTaskPriority : 'media';
+      const safePrio = (allowedPriorities.has(rawPrio) ? rawPrio : 'media') as
+        | 'baixa'
+        | 'media'
+        | 'alta'
+        | 'urgente';
+
+      const proposedAction = hasAction
+        ? {
+            id: `act-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+            type: actionTypeRaw as
+              | 'create_task'
+              | 'whatsapp_draft'
+              | 'meeting_brief'
+              | 'prioritize_note',
+            title: sanitizeString(parsed.proposedActionTitle, 160) || 'Ação sugerida',
+            description: sanitizeString(parsed.proposedActionDescription, 1000),
+            status: 'pending' as const,
+            taskTitle:
+              actionTypeRaw === 'create_task'
+                ? sanitizeString(parsed.proposedActionTitle, 160) || 'Nova tarefa sugerida'
+                : undefined,
+            taskDueDate: sanitizeString(parsed.proposedTaskDueDate, 20) || undefined,
+            taskPriority: actionTypeRaw === 'create_task' ? safePrio : undefined,
+            targetName: sanitizeString(parsed.proposedTargetName, 120) || undefined,
+            targetPhone: sanitizeString(parsed.proposedTargetPhone, 40) || undefined,
+            draftText: sanitizeString(parsed.proposedDraftText, 2500) || undefined,
+          }
+        : undefined;
+
+      res.json({
+        reply:
+          typeof parsed.reply === 'string' && parsed.reply.trim()
+            ? parsed.reply.trim()
+            : 'Não foi possível estruturar a resposta.',
+        citedSources: Array.isArray(parsed.citedSources)
+          ? parsed.citedSources.filter((s): s is string => typeof s === 'string').slice(0, 8)
+          : [],
+        dataLimitationsNote:
+          typeof parsed.dataLimitationsNote === 'string' && parsed.dataLimitationsNote.trim()
+            ? parsed.dataLimitationsNote.trim()
+            : undefined,
+        proposedAction,
+      });
+    } catch (error) {
+      const rawMsg = error instanceof Error ? error.message : 'Erro interno';
+      const safeMsg = rawMsg.replace(/AIza[0-9A-Za-z\-_]+/g, '[REDIGIDO]');
+      console.error(`[API /assistant-chat] Falha controlada: ${safeMsg}`);
+      res.status(500).json({ error: 'Falha ao consultar o Assistente IA no servidor.' });
+    }
+  };
+  router.post('/api/gemini/assistant-chat', requireAuth, rateLimiter, handleAssistantChat);
+  router.post('/gemini/assistant-chat', requireAuth, rateLimiter, handleAssistantChat);
+
   return router;
 }
 

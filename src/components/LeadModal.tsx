@@ -9,6 +9,12 @@ import {
   normalizeStageId
 } from '../types/crm';
 import { Client } from '../types/kaizen';
+import { CommercialScript } from '../types/resources';
+import {
+  buildVariableContextFromLead,
+  interpolateCommercialScript,
+  markScriptUsed,
+} from '../services/resources';
 import {
   cleanPhoneForWhatsApp,
   formatDisplayPhone,
@@ -45,7 +51,8 @@ import {
   ShieldAlert,
   PhoneCall,
   UserCheck,
-  FileSignature
+  FileSignature,
+  BookOpen
 } from 'lucide-react';
 
 interface LeadModalProps {
@@ -54,6 +61,12 @@ interface LeadModalProps {
   userName: string;
   linkedClient?: Client | null;
   linkedProposalsCount?: number;
+  commercialScripts?: CommercialScript[];
+  onSaveCommercialScript?: (
+    script: CommercialScript,
+    mode: 'create' | 'edit'
+  ) => Promise<void> | void;
+  onOpenCommercialScriptsCenter?: () => void;
   onClose: () => void;
   onUpdateLead: (updated: Lead) => void;
   onDeleteLead: (leadId: string) => void;
@@ -70,6 +83,9 @@ export const LeadModal: React.FC<LeadModalProps> = ({
   userName,
   linkedClient = null,
   linkedProposalsCount = 0,
+  commercialScripts = [],
+  onSaveCommercialScript,
+  onOpenCommercialScriptsCenter,
   onClose,
   onUpdateLead,
   onDeleteLead,
@@ -161,6 +177,50 @@ export const LeadModal: React.FC<LeadModalProps> = ({
     return 'opening';
   });
 
+  const [selectedCommercialScriptId, setSelectedCommercialScriptId] = useState<string>('');
+
+  const activeCommercialScripts = React.useMemo(
+    () => commercialScripts.filter((s) => s.status === 'ativo'),
+    [commercialScripts]
+  );
+
+  const selectedCommercialScript = React.useMemo(
+    () =>
+      selectedCommercialScriptId
+        ? activeCommercialScripts.find((s) => s.id === selectedCommercialScriptId) || null
+        : null,
+    [activeCommercialScripts, selectedCommercialScriptId]
+  );
+
+  const commercialScriptInterpolated = React.useMemo(() => {
+    if (!selectedCommercialScript) return null;
+    const ctx = buildVariableContextFromLead(
+      {
+        ...lead,
+        companyName: companyName || lead.companyName,
+        contactName: contactName || undefined,
+        city: city || lead.city,
+        category: category || lead.category,
+        mockupUrl: mockupUrl || undefined,
+        websiteUrl: websiteUrl || undefined,
+      },
+      niche,
+      userName || 'Agência Kaizen'
+    );
+    return interpolateCommercialScript(selectedCommercialScript.content, ctx);
+  }, [
+    selectedCommercialScript,
+    lead,
+    companyName,
+    contactName,
+    city,
+    category,
+    mockupUrl,
+    websiteUrl,
+    niche,
+    userName,
+  ]);
+
   // Direct WhatsApp greeting using "Nome da Empresa / Profissional *" (companyName)
   const businessOrProName = (companyName?.trim() || lead.companyName?.trim() || '').trim();
 
@@ -177,7 +237,11 @@ export const LeadModal: React.FC<LeadModalProps> = ({
     }
   };
 
-  const currentMessage = aiPitch ? aiPitch : getSelectedTemplate();
+  const currentMessage = aiPitch
+    ? aiPitch
+    : commercialScriptInterpolated
+    ? commercialScriptInterpolated.renderedText
+    : getSelectedTemplate();
 
   const waLink = buildWhatsAppLink(phone, currentMessage);
 
@@ -340,9 +404,15 @@ export const LeadModal: React.FC<LeadModalProps> = ({
     navigator.clipboard.writeText(currentMessage);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+    if (!aiPitch && selectedCommercialScript && onSaveCommercialScript) {
+      void onSaveCommercialScript(markScriptUsed(selectedCommercialScript), 'edit');
+    }
   };
 
   const handleTrackWhatsApp = () => {
+    if (!aiPitch && selectedCommercialScript && onSaveCommercialScript) {
+      void onSaveCommercialScript(markScriptUsed(selectedCommercialScript), 'edit');
+    }
     onFastWhatsAppContacted({
       ...lead,
       companyName,
@@ -1081,10 +1151,11 @@ export const LeadModal: React.FC<LeadModalProps> = ({
                 type="button"
                 onClick={() => {
                   setAiPitch('');
+                  setSelectedCommercialScriptId('');
                   setActiveMessageChoice('opening');
                 }}
                 className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer border ${
-                  activeMessageChoice === 'opening' && !aiPitch
+                  activeMessageChoice === 'opening' && !aiPitch && !selectedCommercialScriptId
                     ? 'bg-[var(--kz-accent)] text-[var(--kz-accent-fg)] border-[var(--kz-accent)] shadow-[var(--kz-shadow-xs)]'
                     : 'bg-[var(--kz-bg-surface)] text-[var(--kz-text-secondary)] border-[var(--kz-border-default)] hover:bg-[var(--kz-bg-muted)]'
                 }`}
@@ -1096,10 +1167,11 @@ export const LeadModal: React.FC<LeadModalProps> = ({
                 type="button"
                 onClick={() => {
                   setAiPitch('');
+                  setSelectedCommercialScriptId('');
                   setActiveMessageChoice('pc');
                 }}
                 className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer border ${
-                  activeMessageChoice === 'pc' && !aiPitch
+                  activeMessageChoice === 'pc' && !aiPitch && !selectedCommercialScriptId
                     ? 'bg-[var(--kz-accent)] text-[var(--kz-accent-fg)] border-[var(--kz-accent)] shadow-[var(--kz-shadow-xs)]'
                     : 'bg-[var(--kz-bg-surface)] text-[var(--kz-text-secondary)] border-[var(--kz-border-default)] hover:bg-[var(--kz-bg-muted)]'
                 }`}
@@ -1111,10 +1183,11 @@ export const LeadModal: React.FC<LeadModalProps> = ({
                 type="button"
                 onClick={() => {
                   setAiPitch('');
+                  setSelectedCommercialScriptId('');
                   setActiveMessageChoice('fu1');
                 }}
                 className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer border ${
-                  activeMessageChoice === 'fu1' && !aiPitch
+                  activeMessageChoice === 'fu1' && !aiPitch && !selectedCommercialScriptId
                     ? 'bg-[var(--kz-accent)] text-[var(--kz-accent-fg)] border-[var(--kz-accent)] shadow-[var(--kz-shadow-xs)]'
                     : 'bg-[var(--kz-bg-surface)] text-[var(--kz-text-secondary)] border-[var(--kz-border-default)] hover:bg-[var(--kz-bg-muted)]'
                 }`}
@@ -1124,6 +1197,54 @@ export const LeadModal: React.FC<LeadModalProps> = ({
               </button>
             </div>
 
+            {(activeCommercialScripts.length > 0 || onOpenCommercialScriptsCenter) && (
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-0.5">
+                {activeCommercialScripts.length > 0 && (
+                  <select
+                    value={selectedCommercialScriptId}
+                    onChange={(e) => {
+                      setAiPitch('');
+                      setSelectedCommercialScriptId(e.target.value);
+                    }}
+                    className="flex-1 text-xs px-2.5 py-1.5 bg-[var(--kz-bg-surface)] border border-[var(--kz-border-default)] rounded-lg text-[var(--kz-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--kz-accent)]/35 cursor-pointer"
+                  >
+                    <option value="">
+                      Usar script da Central de Scripts ({activeCommercialScripts.length} disponíveis)...
+                    </option>
+                    {activeCommercialScripts.map((scr) => (
+                      <option key={scr.id} value={scr.id}>
+                        {scr.title} ({scr.channel})
+                      </option>
+                    ))}
+                  </select>
+                )}
+
+                {onOpenCommercialScriptsCenter && (
+                  <button
+                    type="button"
+                    onClick={onOpenCommercialScriptsCenter}
+                    className="inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-[var(--kz-accent-text)] bg-[var(--kz-bg-surface)] hover:bg-[var(--kz-accent-soft)] border border-[var(--kz-accent-border)] rounded-lg transition-colors cursor-pointer shrink-0"
+                  >
+                    <BookOpen className="w-3.5 h-3.5" />
+                    <span>Abrir Central de Scripts</span>
+                  </button>
+                )}
+              </div>
+            )}
+
+            {commercialScriptInterpolated &&
+              commercialScriptInterpolated.missingVariables.length > 0 && (
+                <div className="text-[11px] text-[var(--kz-warning-text)] bg-[var(--kz-warning-bg)] border border-[var(--kz-warning-border)] px-3 py-1.5 rounded-lg flex flex-wrap items-center gap-1.5">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span>
+                    Variáveis sem dado real neste lead (mantidas sem invenção):{' '}
+                    <strong className="font-mono">
+                      {commercialScriptInterpolated.missingVariables.join(', ')}
+                    </strong>
+                  </span>
+                </div>
+              )}
+
             {/* Message Box */}
             <div className="bg-[var(--kz-bg-canvas)] rounded-lg border border-[var(--kz-border-default)] p-3 text-xs text-[var(--kz-text-primary)] font-sans whitespace-pre-wrap leading-relaxed max-h-36 overflow-y-auto">
               {currentMessage}
@@ -1131,7 +1252,9 @@ export const LeadModal: React.FC<LeadModalProps> = ({
 
             <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
               <span className="text-[11px] text-[var(--kz-text-muted)]">
-                Variáveis substituídas automaticamente para este lead.
+                {selectedCommercialScript
+                  ? `Script selecionado: ${selectedCommercialScript.title}`
+                  : 'Variáveis substituídas automaticamente para este lead.'}
               </span>
               <div className="flex items-center gap-2 flex-wrap">
                 {onOpenScriptForLead && (

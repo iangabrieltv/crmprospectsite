@@ -707,6 +707,182 @@ service cloud.firestore {
         && (taskDrafts == null || (taskDrafts is list && taskDrafts.size() <= 50));
     }
 
+    function isValidCustomReport(data) {
+      let cfg = data.get('config', null);
+      return data.keys().hasAll(['name', 'config'])
+        && data.keys().hasOnly([
+          'id', 'name', 'description', 'config', 'favorite',
+          'lastRunAt', 'createdAt', 'schemaVersion', 'updatedAt'
+        ])
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 200
+        && cfg is map
+        && optStr(data.get('id', null), 128)
+        && optStr(data.get('description', null), 1000)
+        && optBool(data.get('favorite', null))
+        && optStr(data.get('lastRunAt', null), 64)
+        && optStr(data.get('createdAt', null), 64)
+        && optStr(data.get('updatedAt', null), 64)
+        && optNum(data.get('schemaVersion', null));
+    }
+
+    function isValidAnalyticsPreferences(data) {
+      let favs = data.get('favoriteKpis', null);
+      return data.keys().hasAll([
+          'defaultPeriodPreset', 'favoriteKpis', 'compactTables', 'showDataLimitationsNotice'
+        ])
+        && data.keys().hasOnly([
+          'id', 'defaultPeriodPreset', 'favoriteKpis', 'compactTables',
+          'showDataLimitationsNotice', 'preferredSubTab', 'schemaVersion', 'updatedAt'
+        ])
+        && data.defaultPeriodPreset in [
+          'hoje', 'ontem', 'ultimos_7_dias', 'ultimos_30_dias', 'este_mes',
+          'mes_anterior', 'ultimos_90_dias', 'este_semestre', 'este_ano', 'personalizado'
+        ]
+        && favs is list && favs.size() <= 30
+        && data.compactTables is bool
+        && data.showDataLimitationsNotice is bool
+        && optStr(data.get('id', null), 128)
+        && optStr(data.get('preferredSubTab', null), 64)
+        && optStr(data.get('updatedAt', null), 64)
+        && optNum(data.get('schemaVersion', null));
+    }
+
+    function isValidSystemSettings(data) {
+      let admin = data.get('adminProfile', null);
+      let visual = data.get('visualIdentity', null);
+      let reg = data.get('regional', null);
+      let prefs = data.get('preferences', null);
+      return data.keys().hasAll(['adminProfile', 'visualIdentity', 'regional', 'preferences'])
+        && data.keys().hasOnly([
+          'id', 'adminProfile', 'visualIdentity', 'regional', 'preferences',
+          'schemaVersion', 'updatedAt'
+        ])
+        && admin is map
+        && visual is map
+        && reg is map
+        && prefs is map
+        && visual.get('appearanceMode', 'premium_dark') == 'premium_dark'
+        && reg.get('currency', 'BRL') == 'BRL'
+        && reg.get('timezone', 'America/Maceio') == 'America/Maceio'
+        && optStr(data.get('id', null), 128)
+        && optStr(data.get('updatedAt', null), 64)
+        && optNum(data.get('schemaVersion', null));
+    }
+
+    function isValidSystemNotification(data) {
+      return data.keys().hasAll([
+          'eventKey', 'category', 'severity', 'title', 'message',
+          'targetTab', 'read', 'dismissed', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'eventKey', 'category', 'severity', 'title', 'message',
+          'targetTab', 'entityType', 'entityId', 'dueLabel', 'read',
+          'dismissed', 'createdAt', 'readAt', 'schemaVersion', 'updatedAt'
+        ])
+        && data.eventKey is string && data.eventKey.size() >= 1 && data.eventKey.size() <= 160
+        && data.category in ['comercial', 'operacional', 'financeiro', 'agenda']
+        && data.severity in ['info', 'warning', 'danger']
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 240
+        && data.message is string && data.message.size() >= 1 && data.message.size() <= 1000
+        && data.targetTab is string && data.targetTab.size() >= 1 && data.targetTab.size() <= 64
+        && data.read is bool
+        && data.dismissed is bool
+        && data.createdAt is string && data.createdAt.size() >= 1 && data.createdAt.size() <= 64
+        && optStr(data.get('id', null), 128)
+        && optStr(data.get('entityType', null), 32)
+        && optStr(data.get('entityId', null), 128)
+        && optStr(data.get('dueLabel', null), 120)
+        && optStr(data.get('readAt', null), 64)
+        && optStr(data.get('updatedAt', null), 64)
+        && optNum(data.get('schemaVersion', null));
+    }
+
+    function isValidAutomationRule(data) {
+      return data.keys().hasAll([
+          'key', 'name', 'description', 'category', 'enabled',
+          'triggerCondition', 'cadenceMode', 'nextCheckNote', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'key', 'name', 'description', 'category', 'enabled',
+          'triggerCondition', 'cadenceMode', 'thresholdDays', 'lastRunAt',
+          'lastStatus', 'lastFindingsCount', 'nextCheckNote', 'createdAt',
+          'schemaVersion', 'updatedAt'
+        ])
+        && data.key is string && data.key.size() >= 1 && data.key.size() <= 80
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 200
+        && data.description is string && data.description.size() >= 1 && data.description.size() <= 1000
+        && data.category in ['comercial', 'operacional', 'financeiro']
+        && data.enabled is bool
+        && data.triggerCondition is string && data.triggerCondition.size() >= 1 && data.triggerCondition.size() <= 300
+        && data.cadenceMode in ['manual_ou_ao_abrir']
+        && data.nextCheckNote is string && data.nextCheckNote.size() >= 1 && data.nextCheckNote.size() <= 300
+        && data.createdAt is string && data.createdAt.size() >= 1 && data.createdAt.size() <= 64
+        && optStr(data.get('id', null), 128)
+        && optNum(data.get('thresholdDays', null))
+        && optStr(data.get('lastRunAt', null), 64)
+        && optStr(data.get('lastStatus', null), 32)
+        && optNum(data.get('lastFindingsCount', null))
+        && optStr(data.get('updatedAt', null), 64)
+        && optNum(data.get('schemaVersion', null));
+    }
+
+    function isValidAutomationLog(data) {
+      return data.keys().hasAll([
+          'ruleId', 'ruleName', 'category', 'triggerType', 'status',
+          'findingsCount', 'summary', 'executedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'ruleId', 'ruleName', 'category', 'triggerType', 'status',
+          'findingsCount', 'summary', 'details', 'executedAt',
+          'schemaVersion', 'updatedAt'
+        ])
+        && data.ruleId is string && data.ruleId.size() >= 1 && data.ruleId.size() <= 128
+        && data.ruleName is string && data.ruleName.size() >= 1 && data.ruleName.size() <= 200
+        && data.category in ['comercial', 'operacional', 'financeiro']
+        && data.triggerType in ['manual', 'abertura_sistema']
+        && data.status in ['sucesso', 'sem_alertas', 'erro']
+        && (data.findingsCount is int || data.findingsCount is float) && data.findingsCount >= 0
+        && data.summary is string && data.summary.size() >= 1 && data.summary.size() <= 500
+        && data.executedAt is string && data.executedAt.size() >= 1 && data.executedAt.size() <= 64
+        && optStr(data.get('id', null), 128)
+        && optStr(data.get('details', null), 2000)
+        && optStr(data.get('updatedAt', null), 64)
+        && optNum(data.get('schemaVersion', null));
+    }
+
+    function isValidAiConversation(data) {
+      let msgs = data.get('messages', null);
+      return data.keys().hasAll(['title', 'archived', 'createdAt', 'updatedAt', 'messages'])
+        && data.keys().hasOnly([
+          'id', 'title', 'archived', 'createdAt', 'updatedAt', 'messages', 'schemaVersion'
+        ])
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 200
+        && data.archived is bool
+        && data.createdAt is string && data.createdAt.size() >= 1 && data.createdAt.size() <= 64
+        && data.updatedAt is string && data.updatedAt.size() >= 1 && data.updatedAt.size() <= 64
+        && msgs is list && msgs.size() <= 100
+        && optStr(data.get('id', null), 128)
+        && optNum(data.get('schemaVersion', null));
+    }
+
+    function isValidSystemLog(data) {
+      return data.keys().hasAll(['level', 'source', 'title', 'message', 'createdAt'])
+        && data.keys().hasOnly([
+          'id', 'level', 'source', 'title', 'message', 'createdAt',
+          'schemaVersion', 'updatedAt'
+        ])
+        && data.level in ['info', 'warning', 'error']
+        && data.source in [
+          'firestore', 'auth', 'gemini_ia', 'automacoes', 'notificacoes', 'backup', 'sistema'
+        ]
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 200
+        && data.message is string && data.message.size() >= 1 && data.message.size() <= 1000
+        && data.createdAt is string && data.createdAt.size() >= 1 && data.createdAt.size() <= 64
+        && optStr(data.get('id', null), 128)
+        && optStr(data.get('updatedAt', null), 64)
+        && optNum(data.get('schemaVersion', null));
+    }
+
     // -------------------------------------------------------------------------
     // WORKSPACE PRIVADO DO ADMINISTRADOR ÚNICO (PRESERVA CAMINHO DE PRODUÇÃO)
     // -------------------------------------------------------------------------
@@ -905,6 +1081,82 @@ service cloud.firestore {
           && isAuthorizedAdmin()
           && isValidId(templateId)
           && isValidModelTemplate(incoming());
+      }
+
+      match /customReports/{reportId} {
+        allow list: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin();
+        allow get, delete: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin() && isValidId(reportId);
+        allow create, update: if workspaceId == 'adm_equipeie'
+          && isAuthorizedAdmin()
+          && isValidId(reportId)
+          && isValidCustomReport(incoming());
+      }
+
+      match /analyticsSettings/{settingId} {
+        allow list: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin();
+        allow get: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin() && isValidId(settingId);
+        allow delete: if false;
+        allow create, update: if workspaceId == 'adm_equipeie'
+          && isAuthorizedAdmin()
+          && isValidId(settingId)
+          && isValidAnalyticsPreferences(incoming());
+      }
+
+      match /systemSettings/{settingId} {
+        allow list: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin();
+        allow get: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin() && isValidId(settingId);
+        allow delete: if false;
+        allow create, update: if workspaceId == 'adm_equipeie'
+          && isAuthorizedAdmin()
+          && isValidId(settingId)
+          && isValidSystemSettings(incoming());
+      }
+
+      match /notifications/{notificationId} {
+        allow list: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin();
+        allow get, delete: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin() && isValidId(notificationId);
+        allow create, update: if workspaceId == 'adm_equipeie'
+          && isAuthorizedAdmin()
+          && isValidId(notificationId)
+          && isValidSystemNotification(incoming());
+      }
+
+      match /automationSettings/{ruleId} {
+        allow list: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin();
+        allow get, delete: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin() && isValidId(ruleId);
+        allow create, update: if workspaceId == 'adm_equipeie'
+          && isAuthorizedAdmin()
+          && isValidId(ruleId)
+          && isValidAutomationRule(incoming());
+      }
+
+      match /automationLogs/{logId} {
+        allow list: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin();
+        allow get: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin() && isValidId(logId);
+        allow delete, update: if false;
+        allow create: if workspaceId == 'adm_equipeie'
+          && isAuthorizedAdmin()
+          && isValidId(logId)
+          && isValidAutomationLog(incoming());
+      }
+
+      match /aiConversations/{conversationId} {
+        allow list: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin();
+        allow get, delete: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin() && isValidId(conversationId);
+        allow create, update: if workspaceId == 'adm_equipeie'
+          && isAuthorizedAdmin()
+          && isValidId(conversationId)
+          && isValidAiConversation(incoming());
+      }
+
+      match /systemLogs/{logId} {
+        allow list: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin();
+        allow get: if workspaceId == 'adm_equipeie' && isAuthorizedAdmin() && isValidId(logId);
+        allow delete, update: if false;
+        allow create: if workspaceId == 'adm_equipeie'
+          && isAuthorizedAdmin()
+          && isValidId(logId)
+          && isValidSystemLog(incoming());
       }
     }
   }

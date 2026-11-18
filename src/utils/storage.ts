@@ -24,6 +24,21 @@ import {
   ResourceFolder,
 } from '../types/resources';
 import {
+  AnalyticsPreferences,
+  DEFAULT_FAVORITE_KPI_IDS,
+  SavedCustomReport,
+} from '../types/analytics';
+import {
+  AiConversation,
+  AutomationExecutionLog,
+  AutomationRuleSetting,
+  SystemLogEntry,
+  SystemNotification,
+  SystemSettings,
+} from '../types/system';
+import { buildDefaultSystemSettings, normalizeSystemSettings } from '../services/system/settingsService';
+import { buildDefaultAutomationRules, mergeAutomationRulesWithDefaults } from '../services/system/automationEngineService';
+import {
   INITIAL_NICHES,
   SCRIPT_MENSAGEM,
   SCRIPT_LIGACAO,
@@ -53,9 +68,27 @@ const RESOURCE_FOLDERS_STORAGE_KEY = 'kaizen_resource_folders_v1';
 const RESOURCE_CATEGORIES_STORAGE_KEY = 'kaizen_resource_categories_v1';
 const COMMERCIAL_SCRIPTS_STORAGE_KEY = 'kaizen_commercial_scripts_v1';
 const MODEL_TEMPLATES_STORAGE_KEY = 'kaizen_model_templates_v1';
+const SAVED_CUSTOM_REPORTS_STORAGE_KEY = 'kaizen_saved_custom_reports_v1';
+const ANALYTICS_SETTINGS_STORAGE_KEY = 'kaizen_analytics_settings_v1';
+const SYSTEM_SETTINGS_STORAGE_KEY = 'kaizen_system_settings_v1';
+const SYSTEM_NOTIFICATIONS_STORAGE_KEY = 'kaizen_system_notifications_v1';
+const AUTOMATION_SETTINGS_STORAGE_KEY = 'kaizen_automation_settings_v1';
+const AUTOMATION_LOGS_STORAGE_KEY = 'kaizen_automation_logs_v1';
+const AI_CONVERSATIONS_STORAGE_KEY = 'kaizen_ai_conversations_v1';
+const SYSTEM_LOGS_STORAGE_KEY = 'kaizen_system_logs_v1';
 const ACTIVE_NICHE_KEY = 'prospectflow_crm_active_niche_clean_v2';
 const USER_NAME_KEY = 'prospectflow_crm_user_name_clean_v2';
 const LAST_BACKUP_AT_KEY = 'prospectflow_crm_last_backup_at';
+
+export const DEFAULT_ANALYTICS_PREFERENCES: AnalyticsPreferences = {
+  id: 'default',
+  defaultPeriodPreset: 'este_mes',
+  favoriteKpis: [...DEFAULT_FAVORITE_KPI_IDS],
+  compactTables: false,
+  showDataLimitationsNotice: true,
+  preferredSubTab: 'visao_geral',
+  schemaVersion: 1,
+};
 
 /**
  * Loads niches from localStorage without destructive substring filters or
@@ -604,6 +637,211 @@ export function saveStoredModelTemplates(templates: ModelTemplate[]): void {
     localStorage.setItem(MODEL_TEMPLATES_STORAGE_KEY, JSON.stringify(templates));
   } catch (err) {
     console.error('Failed to save modelTemplates to localStorage', err);
+  }
+}
+
+export function loadStoredSavedCustomReports(): SavedCustomReport[] {
+  try {
+    const raw = localStorage.getItem(SAVED_CUSTOM_REPORTS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (r: unknown): r is SavedCustomReport =>
+        Boolean(r && typeof r === 'object' && (r as SavedCustomReport).id && (r as SavedCustomReport).config)
+    );
+  } catch (err) {
+    console.error('Failed to load savedCustomReports from localStorage', err);
+    return [];
+  }
+}
+
+export function saveStoredSavedCustomReports(reports: SavedCustomReport[]): void {
+  try {
+    localStorage.setItem(SAVED_CUSTOM_REPORTS_STORAGE_KEY, JSON.stringify(reports));
+  } catch (err) {
+    console.error('Failed to save savedCustomReports to localStorage', err);
+  }
+}
+
+export function loadStoredAnalyticsPreferences(): AnalyticsPreferences {
+  try {
+    const raw = localStorage.getItem(ANALYTICS_SETTINGS_STORAGE_KEY);
+    if (!raw) return { ...DEFAULT_ANALYTICS_PREFERENCES };
+    const parsed = JSON.parse(raw) as Partial<AnalyticsPreferences> | null;
+    if (!parsed || typeof parsed !== 'object') {
+      return { ...DEFAULT_ANALYTICS_PREFERENCES };
+    }
+    return {
+      ...DEFAULT_ANALYTICS_PREFERENCES,
+      ...parsed,
+      id: parsed.id || 'default',
+      favoriteKpis: Array.isArray(parsed.favoriteKpis)
+        ? parsed.favoriteKpis
+        : [...DEFAULT_FAVORITE_KPI_IDS],
+    };
+  } catch (err) {
+    console.error('Failed to load analyticsPreferences from localStorage', err);
+    return { ...DEFAULT_ANALYTICS_PREFERENCES };
+  }
+}
+
+export function saveStoredAnalyticsPreferences(prefs: AnalyticsPreferences): void {
+  try {
+    localStorage.setItem(ANALYTICS_SETTINGS_STORAGE_KEY, JSON.stringify(prefs));
+  } catch (err) {
+    console.error('Failed to save analyticsPreferences to localStorage', err);
+  }
+}
+
+export function loadStoredSystemSettings(fallbackUserName = 'Ian'): SystemSettings {
+  try {
+    const raw = localStorage.getItem(SYSTEM_SETTINGS_STORAGE_KEY);
+    if (!raw) return buildDefaultSystemSettings(fallbackUserName);
+    const parsed = JSON.parse(raw) as Partial<SystemSettings> | null;
+    return normalizeSystemSettings(parsed, fallbackUserName);
+  } catch (err) {
+    console.error('Failed to load systemSettings from localStorage', err);
+    return buildDefaultSystemSettings(fallbackUserName);
+  }
+}
+
+export function saveStoredSystemSettings(settings: SystemSettings): void {
+  try {
+    localStorage.setItem(SYSTEM_SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+  } catch (err) {
+    console.error('Failed to save systemSettings to localStorage', err);
+  }
+}
+
+export function loadStoredNotifications(): SystemNotification[] {
+  try {
+    const raw = localStorage.getItem(SYSTEM_NOTIFICATIONS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (n: unknown): n is SystemNotification =>
+        Boolean(n && typeof n === 'object' && (n as SystemNotification).id && (n as SystemNotification).eventKey)
+    );
+  } catch (err) {
+    console.error('Failed to load notifications from localStorage', err);
+    return [];
+  }
+}
+
+export function saveStoredNotifications(notifications: SystemNotification[]): void {
+  try {
+    localStorage.setItem(SYSTEM_NOTIFICATIONS_STORAGE_KEY, JSON.stringify(notifications));
+  } catch (err) {
+    console.error('Failed to save notifications to localStorage', err);
+  }
+}
+
+export function loadStoredAutomationSettings(): AutomationRuleSetting[] {
+  try {
+    const raw = localStorage.getItem(AUTOMATION_SETTINGS_STORAGE_KEY);
+    if (!raw) return buildDefaultAutomationRules();
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return buildDefaultAutomationRules();
+    return mergeAutomationRulesWithDefaults(
+      parsed.filter(
+        (r: unknown): r is AutomationRuleSetting =>
+          Boolean(r && typeof r === 'object' && (r as AutomationRuleSetting).id)
+      )
+    );
+  } catch (err) {
+    console.error('Failed to load automationSettings from localStorage', err);
+    return buildDefaultAutomationRules();
+  }
+}
+
+export function saveStoredAutomationSettings(rules: AutomationRuleSetting[]): void {
+  try {
+    localStorage.setItem(AUTOMATION_SETTINGS_STORAGE_KEY, JSON.stringify(rules));
+  } catch (err) {
+    console.error('Failed to save automationSettings to localStorage', err);
+  }
+}
+
+export function loadStoredAutomationLogs(): AutomationExecutionLog[] {
+  try {
+    const raw = localStorage.getItem(AUTOMATION_LOGS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter(
+        (l: unknown): l is AutomationExecutionLog =>
+          Boolean(l && typeof l === 'object' && (l as AutomationExecutionLog).id)
+      )
+      .slice(0, 120);
+  } catch (err) {
+    console.error('Failed to load automationLogs from localStorage', err);
+    return [];
+  }
+}
+
+export function saveStoredAutomationLogs(logs: AutomationExecutionLog[]): void {
+  try {
+    localStorage.setItem(AUTOMATION_LOGS_STORAGE_KEY, JSON.stringify(logs.slice(0, 120)));
+  } catch (err) {
+    console.error('Failed to save automationLogs to localStorage', err);
+  }
+}
+
+export function loadStoredAiConversations(): AiConversation[] {
+  try {
+    const raw = localStorage.getItem(AI_CONVERSATIONS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter(
+        (c: unknown): c is AiConversation =>
+          Boolean(c && typeof c === 'object' && (c as AiConversation).id)
+      )
+      .map((c: AiConversation) => ({
+        ...c,
+        messages: Array.isArray(c.messages) ? c.messages : [],
+      }));
+  } catch (err) {
+    console.error('Failed to load aiConversations from localStorage', err);
+    return [];
+  }
+}
+
+export function saveStoredAiConversations(conversations: AiConversation[]): void {
+  try {
+    localStorage.setItem(AI_CONVERSATIONS_STORAGE_KEY, JSON.stringify(conversations));
+  } catch (err) {
+    console.error('Failed to save aiConversations to localStorage', err);
+  }
+}
+
+export function loadStoredSystemLogs(): SystemLogEntry[] {
+  try {
+    const raw = localStorage.getItem(SYSTEM_LOGS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter(
+        (l: unknown): l is SystemLogEntry =>
+          Boolean(l && typeof l === 'object' && (l as SystemLogEntry).id)
+      )
+      .slice(0, 150);
+  } catch (err) {
+    console.error('Failed to load systemLogs from localStorage', err);
+    return [];
+  }
+}
+
+export function saveStoredSystemLogs(logs: SystemLogEntry[]): void {
+  try {
+    localStorage.setItem(SYSTEM_LOGS_STORAGE_KEY, JSON.stringify(logs.slice(0, 150)));
+  } catch (err) {
+    console.error('Failed to save systemLogs to localStorage', err);
   }
 }
 

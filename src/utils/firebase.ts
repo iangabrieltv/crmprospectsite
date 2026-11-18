@@ -37,6 +37,15 @@ import {
   ResourceFile,
   ResourceFolder,
 } from '../types/resources';
+import { AnalyticsPreferences, SavedCustomReport } from '../types/analytics';
+import {
+  AiConversation,
+  AutomationExecutionLog,
+  AutomationRuleSetting,
+  SystemLogEntry,
+  SystemNotification,
+  SystemSettings,
+} from '../types/system';
 import { firebaseConfig, WORKSPACE_ID as CONFIG_WORKSPACE_ID, USE_FIREBASE_EMULATOR } from '../config/env';
 
 // Initialize Firebase App
@@ -634,6 +643,11 @@ export async function fetchFullWorkspaceSnapshot(): Promise<{
   resourceCategories: ResourceCategory[];
   commercialScripts: CommercialScript[];
   modelTemplates: ModelTemplate[];
+  savedReports: SavedCustomReport[];
+  analyticsSettings: AnalyticsPreferences | null;
+  systemSettings: SystemSettings | null;
+  notifications: SystemNotification[];
+  automationSettings: AutomationRuleSetting[];
 }> {
   const [
     nichesSnap,
@@ -657,6 +671,11 @@ export async function fetchFullWorkspaceSnapshot(): Promise<{
     resCatsRes,
     commScriptsRes,
     modelTmplsRes,
+    customReportsRes,
+    analyticsSettingsRes,
+    systemSettingsRes,
+    notificationsRes,
+    automationSettingsRes,
   ] = await Promise.all([
     getDocs(collection(db, 'workspaces', WORKSPACE_ID, 'niches')),
     getDocs(collection(db, 'workspaces', WORKSPACE_ID, 'leads')),
@@ -679,6 +698,11 @@ export async function fetchFullWorkspaceSnapshot(): Promise<{
     getDocs(collection(db, 'workspaces', WORKSPACE_ID, 'resourceCategories')).catch(() => null),
     getDocs(collection(db, 'workspaces', WORKSPACE_ID, 'commercialScripts')).catch(() => null),
     getDocs(collection(db, 'workspaces', WORKSPACE_ID, 'modelTemplates')).catch(() => null),
+    getDocs(collection(db, 'workspaces', WORKSPACE_ID, 'customReports')).catch(() => null),
+    getDocs(collection(db, 'workspaces', WORKSPACE_ID, 'analyticsSettings')).catch(() => null),
+    getDocs(collection(db, 'workspaces', WORKSPACE_ID, 'systemSettings')).catch(() => null),
+    getDocs(collection(db, 'workspaces', WORKSPACE_ID, 'notifications')).catch(() => null),
+    getDocs(collection(db, 'workspaces', WORKSPACE_ID, 'automationSettings')).catch(() => null),
   ]);
 
   const niches: NicheCampaign[] = [];
@@ -776,6 +800,35 @@ export async function fetchFullWorkspaceSnapshot(): Promise<{
     modelTemplates.push({ ...(d.data() as ModelTemplate), id: d.id })
   );
 
+  const savedReports: SavedCustomReport[] = [];
+  customReportsRes?.forEach((d) =>
+    savedReports.push({ ...(d.data() as SavedCustomReport), id: d.id })
+  );
+
+  let analyticsSettings: AnalyticsPreferences | null = null;
+  analyticsSettingsRes?.forEach((d) => {
+    if (d.id === 'default' || !analyticsSettings) {
+      analyticsSettings = { ...(d.data() as AnalyticsPreferences), id: d.id };
+    }
+  });
+
+  let systemSettings: SystemSettings | null = null;
+  systemSettingsRes?.forEach((d) => {
+    if (d.id === 'default' || !systemSettings) {
+      systemSettings = { ...(d.data() as SystemSettings), id: d.id };
+    }
+  });
+
+  const notifications: SystemNotification[] = [];
+  notificationsRes?.forEach((d) =>
+    notifications.push({ ...(d.data() as SystemNotification), id: d.id })
+  );
+
+  const automationSettings: AutomationRuleSetting[] = [];
+  automationSettingsRes?.forEach((d) =>
+    automationSettings.push({ ...(d.data() as AutomationRuleSetting), id: d.id })
+  );
+
   return {
     niches,
     leads,
@@ -798,6 +851,11 @@ export async function fetchFullWorkspaceSnapshot(): Promise<{
     resourceCategories,
     commercialScripts,
     modelTemplates,
+    savedReports,
+    analyticsSettings,
+    systemSettings,
+    notifications,
+    automationSettings,
   };
 }
 
@@ -1770,6 +1828,451 @@ export async function batchSyncModelTemplatesToFirestore(templates: ModelTemplat
       handleFirestoreError(err, OperationType.WRITE, `workspaces/${WORKSPACE_ID}/modelTemplates (batch)`);
       throw err;
     }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// ETAPA 6 — RELATÓRIOS PERSONALIZADOS E PREFERÊNCIAS DE INDICADORES
+// ---------------------------------------------------------------------------
+
+export function subscribeToCustomReports(
+  onUpdate: (reports: SavedCustomReport[]) => void,
+  onError?: (error: Error) => void
+) {
+  const colRef = collection(db, 'workspaces', WORKSPACE_ID, 'customReports');
+  return onSnapshot(
+    colRef,
+    (snapshot) => {
+      const list: SavedCustomReport[] = [];
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data() as SavedCustomReport;
+        list.push({ ...data, id: data.id || docSnap.id });
+      });
+      list.sort(
+        (a, b) =>
+          new Date(b.createdAt || '').getTime() - new Date(a.createdAt || '').getTime()
+      );
+      onUpdate(list);
+    },
+    (err) => {
+      handleFirestoreError(err, OperationType.LIST, `workspaces/${WORKSPACE_ID}/customReports`);
+      onError?.(err);
+    }
+  );
+}
+
+export async function syncCustomReportToFirestore(report: SavedCustomReport): Promise<void> {
+  try {
+    const ref = doc(db, 'workspaces', WORKSPACE_ID, 'customReports', report.id);
+    await setDoc(ref, sanitizeForFirestore(withVersionMetadata(report)), { merge: true });
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, `workspaces/${WORKSPACE_ID}/customReports/${report.id}`);
+    throw err;
+  }
+}
+
+export async function deleteCustomReportFromFirestore(reportId: string): Promise<void> {
+  try {
+    await deleteDoc(doc(db, 'workspaces', WORKSPACE_ID, 'customReports', reportId));
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, `workspaces/${WORKSPACE_ID}/customReports/${reportId}`);
+    throw err;
+  }
+}
+
+export async function batchSyncCustomReportsToFirestore(reports: SavedCustomReport[]): Promise<void> {
+  if (reports.length === 0) return;
+  const chunkSize = 400;
+  for (let i = 0; i < reports.length; i += chunkSize) {
+    const chunk = reports.slice(i, i + chunkSize);
+    const batch = writeBatch(db);
+    for (const r of chunk) {
+      batch.set(
+        doc(db, 'workspaces', WORKSPACE_ID, 'customReports', r.id),
+        sanitizeForFirestore(withVersionMetadata(r)),
+        { merge: true }
+      );
+    }
+    try {
+      await batch.commit();
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, `workspaces/${WORKSPACE_ID}/customReports (batch)`);
+      throw err;
+    }
+  }
+}
+
+export function subscribeToAnalyticsSettings(
+  onUpdate: (prefs: AnalyticsPreferences | null) => void,
+  onError?: (error: Error) => void
+) {
+  const docRef = doc(db, 'workspaces', WORKSPACE_ID, 'analyticsSettings', 'default');
+  return onSnapshot(
+    docRef,
+    (docSnap) => {
+      if (!docSnap.exists()) {
+        onUpdate(null);
+        return;
+      }
+      const data = docSnap.data() as AnalyticsPreferences;
+      onUpdate({
+        ...data,
+        id: data.id || docSnap.id,
+        favoriteKpis: Array.isArray(data.favoriteKpis) ? data.favoriteKpis : [],
+      });
+    },
+    (err) => {
+      handleFirestoreError(
+        err,
+        OperationType.GET,
+        `workspaces/${WORKSPACE_ID}/analyticsSettings/default`
+      );
+      onError?.(err);
+    }
+  );
+}
+
+export async function syncAnalyticsSettingsToFirestore(prefs: AnalyticsPreferences): Promise<void> {
+  try {
+    const ref = doc(db, 'workspaces', WORKSPACE_ID, 'analyticsSettings', prefs.id || 'default');
+    await setDoc(ref, sanitizeForFirestore(withVersionMetadata(prefs)), { merge: true });
+  } catch (err) {
+    handleFirestoreError(
+      err,
+      OperationType.WRITE,
+      `workspaces/${WORKSPACE_ID}/analyticsSettings/${prefs.id || 'default'}`
+    );
+    throw err;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// ETAPA 7 — CONFIGURAÇÕES DO SISTEMA, NOTIFICAÇÕES, AUTOMAÇÕES, IA E LOGS
+// ---------------------------------------------------------------------------
+
+export function subscribeToSystemSettings(
+  onUpdate: (settings: SystemSettings | null) => void,
+  onError?: (error: Error) => void
+) {
+  const docRef = doc(db, 'workspaces', WORKSPACE_ID, 'systemSettings', 'default');
+  return onSnapshot(
+    docRef,
+    (docSnap) => {
+      if (!docSnap.exists()) {
+        onUpdate(null);
+        return;
+      }
+      const data = docSnap.data() as SystemSettings;
+      onUpdate({
+        ...data,
+        id: data.id || docSnap.id,
+      });
+    },
+    (err) => {
+      handleFirestoreError(
+        err,
+        OperationType.GET,
+        `workspaces/${WORKSPACE_ID}/systemSettings/default`
+      );
+      onError?.(err);
+    }
+  );
+}
+
+export async function syncSystemSettingsToFirestore(settings: SystemSettings): Promise<void> {
+  try {
+    const ref = doc(db, 'workspaces', WORKSPACE_ID, 'systemSettings', settings.id || 'default');
+    await setDoc(ref, sanitizeForFirestore(withVersionMetadata(settings)), { merge: true });
+  } catch (err) {
+    handleFirestoreError(
+      err,
+      OperationType.WRITE,
+      `workspaces/${WORKSPACE_ID}/systemSettings/${settings.id || 'default'}`
+    );
+    throw err;
+  }
+}
+
+export function subscribeToNotifications(
+  onUpdate: (notifications: SystemNotification[]) => void,
+  onError?: (error: Error) => void
+) {
+  const colRef = collection(db, 'workspaces', WORKSPACE_ID, 'notifications');
+  return onSnapshot(
+    colRef,
+    (snapshot) => {
+      const list: SystemNotification[] = [];
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data() as SystemNotification;
+        list.push({ ...data, id: data.id || docSnap.id });
+      });
+      list.sort(
+        (a, b) => new Date(b.createdAt || '').getTime() - new Date(a.createdAt || '').getTime()
+      );
+      onUpdate(list);
+    },
+    (err) => {
+      handleFirestoreError(err, OperationType.LIST, `workspaces/${WORKSPACE_ID}/notifications`);
+      onError?.(err);
+    }
+  );
+}
+
+export async function syncNotificationToFirestore(
+  notification: SystemNotification
+): Promise<void> {
+  try {
+    const ref = doc(db, 'workspaces', WORKSPACE_ID, 'notifications', notification.id);
+    await setDoc(ref, sanitizeForFirestore(withVersionMetadata(notification)), { merge: true });
+  } catch (err) {
+    handleFirestoreError(
+      err,
+      OperationType.WRITE,
+      `workspaces/${WORKSPACE_ID}/notifications/${notification.id}`
+    );
+    throw err;
+  }
+}
+
+export async function batchSyncNotificationsToFirestore(
+  notifications: SystemNotification[]
+): Promise<void> {
+  if (notifications.length === 0) return;
+  const chunkSize = 400;
+  for (let i = 0; i < notifications.length; i += chunkSize) {
+    const chunk = notifications.slice(i, i + chunkSize);
+    const batch = writeBatch(db);
+    for (const n of chunk) {
+      batch.set(
+        doc(db, 'workspaces', WORKSPACE_ID, 'notifications', n.id),
+        sanitizeForFirestore(withVersionMetadata(n)),
+        { merge: true }
+      );
+    }
+    try {
+      await batch.commit();
+    } catch (err) {
+      handleFirestoreError(
+        err,
+        OperationType.WRITE,
+        `workspaces/${WORKSPACE_ID}/notifications (batch)`
+      );
+      throw err;
+    }
+  }
+}
+
+export function subscribeToAutomationSettings(
+  onUpdate: (rules: AutomationRuleSetting[]) => void,
+  onError?: (error: Error) => void
+) {
+  const colRef = collection(db, 'workspaces', WORKSPACE_ID, 'automationSettings');
+  return onSnapshot(
+    colRef,
+    (snapshot) => {
+      const list: AutomationRuleSetting[] = [];
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data() as AutomationRuleSetting;
+        list.push({ ...data, id: data.id || docSnap.id });
+      });
+      onUpdate(list);
+    },
+    (err) => {
+      handleFirestoreError(
+        err,
+        OperationType.LIST,
+        `workspaces/${WORKSPACE_ID}/automationSettings`
+      );
+      onError?.(err);
+    }
+  );
+}
+
+export async function syncAutomationRuleToFirestore(
+  rule: AutomationRuleSetting
+): Promise<void> {
+  try {
+    const ref = doc(db, 'workspaces', WORKSPACE_ID, 'automationSettings', rule.id);
+    await setDoc(ref, sanitizeForFirestore(withVersionMetadata(rule)), { merge: true });
+  } catch (err) {
+    handleFirestoreError(
+      err,
+      OperationType.WRITE,
+      `workspaces/${WORKSPACE_ID}/automationSettings/${rule.id}`
+    );
+    throw err;
+  }
+}
+
+export async function batchSyncAutomationRulesToFirestore(
+  rules: AutomationRuleSetting[]
+): Promise<void> {
+  if (rules.length === 0) return;
+  const chunkSize = 400;
+  for (let i = 0; i < rules.length; i += chunkSize) {
+    const chunk = rules.slice(i, i + chunkSize);
+    const batch = writeBatch(db);
+    for (const r of chunk) {
+      batch.set(
+        doc(db, 'workspaces', WORKSPACE_ID, 'automationSettings', r.id),
+        sanitizeForFirestore(withVersionMetadata(r)),
+        { merge: true }
+      );
+    }
+    try {
+      await batch.commit();
+    } catch (err) {
+      handleFirestoreError(
+        err,
+        OperationType.WRITE,
+        `workspaces/${WORKSPACE_ID}/automationSettings (batch)`
+      );
+      throw err;
+    }
+  }
+}
+
+export function subscribeToAutomationLogs(
+  onUpdate: (logs: AutomationExecutionLog[]) => void,
+  onError?: (error: Error) => void
+) {
+  const colRef = collection(db, 'workspaces', WORKSPACE_ID, 'automationLogs');
+  return onSnapshot(
+    colRef,
+    (snapshot) => {
+      const list: AutomationExecutionLog[] = [];
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data() as AutomationExecutionLog;
+        list.push({ ...data, id: data.id || docSnap.id });
+      });
+      list.sort(
+        (a, b) => new Date(b.executedAt || '').getTime() - new Date(a.executedAt || '').getTime()
+      );
+      onUpdate(list);
+    },
+    (err) => {
+      handleFirestoreError(err, OperationType.LIST, `workspaces/${WORKSPACE_ID}/automationLogs`);
+      onError?.(err);
+    }
+  );
+}
+
+export async function syncAutomationLogToFirestore(
+  log: AutomationExecutionLog
+): Promise<void> {
+  try {
+    const ref = doc(db, 'workspaces', WORKSPACE_ID, 'automationLogs', log.id);
+    await setDoc(ref, sanitizeForFirestore(withVersionMetadata(log)), { merge: true });
+  } catch (err) {
+    handleFirestoreError(
+      err,
+      OperationType.WRITE,
+      `workspaces/${WORKSPACE_ID}/automationLogs/${log.id}`
+    );
+    throw err;
+  }
+}
+
+export function subscribeToAiConversations(
+  onUpdate: (conversations: AiConversation[]) => void,
+  onError?: (error: Error) => void
+) {
+  const colRef = collection(db, 'workspaces', WORKSPACE_ID, 'aiConversations');
+  return onSnapshot(
+    colRef,
+    (snapshot) => {
+      const list: AiConversation[] = [];
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data() as AiConversation;
+        list.push({
+          ...data,
+          id: data.id || docSnap.id,
+          messages: Array.isArray(data.messages) ? data.messages : [],
+        });
+      });
+      list.sort(
+        (a, b) => new Date(b.updatedAt || '').getTime() - new Date(a.updatedAt || '').getTime()
+      );
+      onUpdate(list);
+    },
+    (err) => {
+      handleFirestoreError(err, OperationType.LIST, `workspaces/${WORKSPACE_ID}/aiConversations`);
+      onError?.(err);
+    }
+  );
+}
+
+export async function syncAiConversationToFirestore(
+  conversation: AiConversation
+): Promise<void> {
+  try {
+    const ref = doc(db, 'workspaces', WORKSPACE_ID, 'aiConversations', conversation.id);
+    const bounded: AiConversation = {
+      ...conversation,
+      messages: (conversation.messages || []).slice(-100),
+      schemaVersion: conversation.schemaVersion ?? 1,
+      updatedAt: new Date().toISOString(),
+    };
+    await setDoc(ref, sanitizeForFirestore(bounded), { merge: true });
+  } catch (err) {
+    handleFirestoreError(
+      err,
+      OperationType.WRITE,
+      `workspaces/${WORKSPACE_ID}/aiConversations/${conversation.id}`
+    );
+    throw err;
+  }
+}
+
+export async function deleteAiConversationFromFirestore(conversationId: string): Promise<void> {
+  try {
+    await deleteDoc(doc(db, 'workspaces', WORKSPACE_ID, 'aiConversations', conversationId));
+  } catch (err) {
+    handleFirestoreError(
+      err,
+      OperationType.DELETE,
+      `workspaces/${WORKSPACE_ID}/aiConversations/${conversationId}`
+    );
+    throw err;
+  }
+}
+
+export function subscribeToSystemLogs(
+  onUpdate: (logs: SystemLogEntry[]) => void,
+  onError?: (error: Error) => void
+) {
+  const colRef = collection(db, 'workspaces', WORKSPACE_ID, 'systemLogs');
+  return onSnapshot(
+    colRef,
+    (snapshot) => {
+      const list: SystemLogEntry[] = [];
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data() as SystemLogEntry;
+        list.push({ ...data, id: data.id || docSnap.id });
+      });
+      list.sort(
+        (a, b) => new Date(b.createdAt || '').getTime() - new Date(a.createdAt || '').getTime()
+      );
+      onUpdate(list);
+    },
+    (err) => {
+      handleFirestoreError(err, OperationType.LIST, `workspaces/${WORKSPACE_ID}/systemLogs`);
+      onError?.(err);
+    }
+  );
+}
+
+export async function syncSystemLogToFirestore(log: SystemLogEntry): Promise<void> {
+  try {
+    const ref = doc(db, 'workspaces', WORKSPACE_ID, 'systemLogs', log.id);
+    await setDoc(ref, sanitizeForFirestore(withVersionMetadata(log)), { merge: true });
+  } catch (err) {
+    handleFirestoreError(
+      err,
+      OperationType.WRITE,
+      `workspaces/${WORKSPACE_ID}/systemLogs/${log.id}`
+    );
+    throw err;
   }
 }
 

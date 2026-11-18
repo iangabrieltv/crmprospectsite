@@ -13,6 +13,7 @@ import {
   getClientStatusMeta,
 } from '../types/kaizen';
 import { FinancialEntry, FinancialTransaction } from '../types/finance';
+import { ResourceCategory, ResourceFile, ResourceFolder } from '../types/resources';
 import {
   computeClientSummary,
   findDuplicateClient,
@@ -62,10 +63,17 @@ interface ClientsViewProps {
   socialPosts?: SocialPost[];
   financialEntries?: FinancialEntry[];
   financialTransactions?: FinancialTransaction[];
+  resourceFiles?: ResourceFile[];
+  resourceFolders?: ResourceFolder[];
+  resourceCategories?: ResourceCategory[];
   userName: string;
   cloudPermissionBlocked?: boolean;
   onSaveClient: (client: Client, mode: 'create' | 'edit') => Promise<void>;
   onDeleteClient: (clientId: string) => Promise<void>;
+  onSaveResourceFile?: (
+    file: ResourceFile,
+    mode: 'create' | 'edit'
+  ) => Promise<void> | void;
   onConvertLeadToClient: (lead: Lead) => Promise<Client>;
   onOpenLeadModal: (lead: Lead) => void;
   onCreateProposalForClient: (client: Client) => void;
@@ -93,10 +101,14 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
   socialPosts = [],
   financialEntries = [],
   financialTransactions = [],
+  resourceFiles = [],
+  resourceFolders = [],
+  resourceCategories = [],
   userName,
   cloudPermissionBlocked = false,
   onSaveClient,
   onDeleteClient,
+  onSaveResourceFile,
   onConvertLeadToClient,
   onOpenLeadModal,
   onCreateProposalForClient,
@@ -579,6 +591,9 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
           socialPosts={socialPosts}
           financialEntries={financialEntries}
           financialTransactions={financialTransactions}
+          resourceFiles={resourceFiles}
+          resourceFolders={resourceFolders}
+          resourceCategories={resourceCategories}
           userName={userName}
           onClose={() => {
             setDetailClientId(null);
@@ -592,6 +607,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
             await onSaveClient(updated, 'edit');
           }}
           onDeleteClient={onDeleteClient}
+          onSaveResourceFile={onSaveResourceFile}
           onOpenLeadModal={onOpenLeadModal}
           onCreateProposalForClient={onCreateProposalForClient}
           onPreviewProposal={onPreviewProposal}

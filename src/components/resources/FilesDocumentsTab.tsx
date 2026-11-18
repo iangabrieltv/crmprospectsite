@@ -27,6 +27,7 @@ import {
   TableCell,
   TableContainer,
   TableHead,
+  TableHeader,
   TableRow,
 } from '../ui';
 import {
@@ -486,16 +487,16 @@ export const FilesDocumentsTab: React.FC<FilesDocumentsTabProps> = ({
         <Card className="p-4 space-y-3">
           <TableContainer>
             <Table>
-              <TableHead>
+              <TableHeader>
                 <TableRow>
-                  <TableHeader>Arquivo</TableHeader>
-                  <TableHeader>Formato / Tam.</TableHeader>
-                  <TableHeader>Categoria</TableHeader>
-                  <TableHeader>Cliente / Projeto</TableHeader>
-                  <TableHeader>Data</TableHeader>
-                  <TableHeader className="text-right">Ações</TableHeader>
+                  <TableHead>Arquivo</TableHead>
+                  <TableHead>Formato / Tam.</TableHead>
+                  <TableHead>Categoria</TableHead>
+                  <TableHead>Cliente / Projeto</TableHead>
+                  <TableHead>Data</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
-              </TableHead>
+              </TableHeader>
               <TableBody>
                 {paginated.items.map((file) => {
                   const cat = categories.find((c) => c.id === file.categoryId);

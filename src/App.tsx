@@ -37,6 +37,24 @@ import {
   FinancialTransaction,
 } from './types/finance';
 import {
+  CommercialScript,
+  ModelTemplate,
+  ResourceCategory,
+  ResourceFile,
+  ResourceFolder,
+} from './types/resources';
+import { AnalyticsPreferences, SavedCustomReport } from './types/analytics';
+import {
+  AiConversation,
+  AutomationExecutionLog,
+  AutomationRuleSetting,
+  SystemLogEntry,
+  SystemLogLevel,
+  SystemLogSource,
+  SystemNotification,
+  SystemSettings,
+} from './types/system';
+import {
   loadStoredNiches,
   saveStoredNiches,
   loadStoredLeads,
@@ -67,10 +85,37 @@ import {
   saveStoredFinancialSettings,
   loadStoredFinancialAuditLogs,
   saveStoredFinancialAuditLogs,
+  loadStoredResourceFiles,
+  saveStoredResourceFiles,
+  loadStoredResourceFolders,
+  saveStoredResourceFolders,
+  loadStoredResourceCategories,
+  saveStoredResourceCategories,
+  loadStoredCommercialScripts,
+  saveStoredCommercialScripts,
+  loadStoredModelTemplates,
+  saveStoredModelTemplates,
+  DEFAULT_ANALYTICS_PREFERENCES,
+  loadStoredSavedCustomReports,
+  saveStoredSavedCustomReports,
+  loadStoredAnalyticsPreferences,
+  saveStoredAnalyticsPreferences,
   loadStoredActiveNicheId,
   saveStoredActiveNicheId,
   loadStoredUserName,
   saveStoredUserName,
+  loadStoredSystemSettings,
+  saveStoredSystemSettings,
+  loadStoredNotifications,
+  saveStoredNotifications,
+  loadStoredAutomationSettings,
+  saveStoredAutomationSettings,
+  loadStoredAutomationLogs,
+  saveStoredAutomationLogs,
+  loadStoredAiConversations,
+  saveStoredAiConversations,
+  loadStoredSystemLogs,
+  saveStoredSystemLogs,
   loadLastBackupTimestamp,
   resetAllDataToCleanBaseline,
 } from './utils/storage';
@@ -83,7 +128,16 @@ import {
   mergeClientWithProposalAcceptance,
 } from './services/clientService';
 import { appendProjectHistory } from './services/projectService';
-import { transitionProposalStatus } from './services/proposalService';
+import { generateProposalId, transitionProposalStatus } from './services/proposalService';
+import {
+  buildInitialCommercialScripts,
+  buildInitialModelTemplates,
+  ensureDefaultCategories,
+  linkFileToSocialPost,
+  linkFileToTask,
+  unlinkFileFromSocialPost,
+  unlinkFileFromTask,
+} from './services/resources';
 import {
   KAIZEN_TIMEZONE,
   BuildProposalFinancialInput,
@@ -103,6 +157,16 @@ import {
   updateFinancialEntryRecord,
   updateFinancialRecurrenceRecord,
 } from './services/finance';
+import {
+  buildDefaultAutomationRules,
+  createSystemLogEntry,
+  evaluateWorkspaceNotifications,
+  fetchGeminiServerStatus,
+  GeminiStatusProbe,
+  mergeAutomationRulesWithDefaults,
+  normalizeSystemSettings,
+  runAutomationRules,
+} from './services/system';
 import { cleanPhoneForWhatsApp, formatDisplayPhone } from './utils/phone';
 import { Header } from './components/Header';
 import { Sidebar } from './components/layout/Sidebar';
@@ -119,9 +183,13 @@ import { ProjectsView } from './components/ProjectsView';
 import { TasksView } from './components/TasksView';
 import { SocialView } from './components/SocialView';
 import { FinanceView } from './components/finance/FinanceView';
+import { ResourcesCenterView, ResourcesSubTabId } from './components/resources/ResourcesCenterView';
+import { AnalyticsHubView } from './components/analytics/AnalyticsHubView';
 import { GlobalAgencyView, DeleteNicheChoice } from './components/GlobalAgencyView';
 import { SettingsView } from './components/SettingsView';
-import { ModulePlaceholder } from './components/ModulePlaceholder';
+import { AiAssistantView } from './components/assistant/AiAssistantView';
+import { AutomationsView } from './components/automations/AutomationsView';
+import { NotificationsView } from './components/notifications/NotificationsView';
 import { LeadModal } from './components/LeadModal';
 import { NewNicheModal } from './components/NewNicheModal';
 import { NewLeadModal } from './components/NewLeadModal';
@@ -147,6 +215,11 @@ import {
   subscribeToFinancialRecurrences,
   subscribeToFinancialSettings,
   subscribeToFinancialAuditLogs,
+  subscribeToResourceFiles,
+  subscribeToResourceFolders,
+  subscribeToResourceCategories,
+  subscribeToCommercialScripts,
+  subscribeToModelTemplates,
   syncLeadToFirestore,
   deleteLeadFromFirestore,
   batchSyncLeadsToFirestore,
@@ -184,6 +257,41 @@ import {
   syncFinancialSettingsToFirestore,
   syncFinancialAuditLogToFirestore,
   batchSyncFinancialAuditLogsToFirestore,
+  syncResourceFileToFirestore,
+  deleteResourceFileFromFirestore,
+  batchSyncResourceFilesToFirestore,
+  syncResourceFolderToFirestore,
+  deleteResourceFolderFromFirestore,
+  batchSyncResourceFoldersToFirestore,
+  syncResourceCategoryToFirestore,
+  deleteResourceCategoryFromFirestore,
+  batchSyncResourceCategoriesToFirestore,
+  syncCommercialScriptToFirestore,
+  deleteCommercialScriptFromFirestore,
+  batchSyncCommercialScriptsToFirestore,
+  syncModelTemplateToFirestore,
+  batchSyncModelTemplatesToFirestore,
+  subscribeToCustomReports,
+  syncCustomReportToFirestore,
+  deleteCustomReportFromFirestore,
+  batchSyncCustomReportsToFirestore,
+  subscribeToAnalyticsSettings,
+  syncAnalyticsSettingsToFirestore,
+  subscribeToSystemSettings,
+  syncSystemSettingsToFirestore,
+  subscribeToNotifications,
+  syncNotificationToFirestore,
+  batchSyncNotificationsToFirestore,
+  subscribeToAutomationSettings,
+  syncAutomationRuleToFirestore,
+  batchSyncAutomationRulesToFirestore,
+  subscribeToAutomationLogs,
+  syncAutomationLogToFirestore,
+  subscribeToAiConversations,
+  syncAiConversationToFirestore,
+  deleteAiConversationFromFirestore,
+  subscribeToSystemLogs,
+  syncSystemLogToFirestore,
   batchDeleteLeadsFromFirestore,
   reassignLeadsNicheInFirestore,
   syncNicheToFirestore,
@@ -194,6 +302,7 @@ import {
   resetFirestoreToCleanBaseline,
 } from './utils/firebase';
 import {
+  getActiveFirebaseIdToken,
   subscribeToAdminSession,
   logoutFromFirebase,
 } from './services/authService';
@@ -247,6 +356,40 @@ export default function App() {
   const [financialAuditLogs, setFinancialAuditLogs] = useState<FinancialAuditLog[]>(() =>
     loadStoredFinancialAuditLogs()
   );
+  const [resourceFiles, setResourceFiles] = useState<ResourceFile[]>(() =>
+    loadStoredResourceFiles()
+  );
+  const [resourceFolders, setResourceFolders] = useState<ResourceFolder[]>(() =>
+    loadStoredResourceFolders()
+  );
+  const [resourceCategories, setResourceCategories] = useState<ResourceCategory[]>(() => {
+    const stored = loadStoredResourceCategories();
+    const { categories: ensured } = ensureDefaultCategories(stored);
+    if (ensured.length !== stored.length) {
+      saveStoredResourceCategories(ensured);
+    }
+    return ensured;
+  });
+  const [commercialScripts, setCommercialScripts] = useState<CommercialScript[]>(() => {
+    const stored = loadStoredCommercialScripts();
+    if (stored.length > 0) return stored;
+    const seeded = buildInitialCommercialScripts('Agência Kaizen');
+    saveStoredCommercialScripts(seeded);
+    return seeded;
+  });
+  const [modelTemplates, setModelTemplates] = useState<ModelTemplate[]>(() => {
+    const stored = loadStoredModelTemplates();
+    if (stored.length > 0) return stored;
+    const seeded = buildInitialModelTemplates();
+    saveStoredModelTemplates(seeded);
+    return seeded;
+  });
+  const [savedCustomReports, setSavedCustomReports] = useState<SavedCustomReport[]>(() =>
+    loadStoredSavedCustomReports()
+  );
+  const [analyticsSettings, setAnalyticsSettings] = useState<AnalyticsPreferences>(() =>
+    loadStoredAnalyticsPreferences()
+  );
   const [importedSheets, setImportedSheets] = useState<ImportedSheet[]>([]);
   const [clientsCloudBlocked, setClientsCloudBlocked] = useState<boolean>(false);
   const [proposalsCloudBlocked, setProposalsCloudBlocked] = useState<boolean>(false);
@@ -255,11 +398,37 @@ export default function App() {
   const [agendaCloudBlocked, setAgendaCloudBlocked] = useState<boolean>(false);
   const [socialCloudBlocked, setSocialCloudBlocked] = useState<boolean>(false);
   const [financeCloudBlocked, setFinanceCloudBlocked] = useState<boolean>(false);
+  const [resourcesCloudBlocked, setResourcesCloudBlocked] = useState<boolean>(false);
+  const [analyticsCloudBlocked, setAnalyticsCloudBlocked] = useState<boolean>(false);
+  const [systemCloudBlocked, setSystemCloudBlocked] = useState<boolean>(false);
+  const [resourcesSubTabOverride, setResourcesSubTabOverride] =
+    useState<ResourcesSubTabId | null>(null);
   const processingRecurrencesRef = useRef<boolean>(false);
   const [activeNicheId, setActiveNicheId] = useState<string>(() =>
     loadStoredActiveNicheId(niches[0]?.id || '')
   );
   const [userName, setUserName] = useState<string>(() => loadStoredUserName());
+  const [systemSettings, setSystemSettings] = useState<SystemSettings>(() =>
+    loadStoredSystemSettings(loadStoredUserName())
+  );
+  const [notifications, setNotifications] = useState<SystemNotification[]>(() =>
+    loadStoredNotifications()
+  );
+  const [automationRules, setAutomationRules] = useState<AutomationRuleSetting[]>(() =>
+    loadStoredAutomationSettings()
+  );
+  const [automationLogs, setAutomationLogs] = useState<AutomationExecutionLog[]>(() =>
+    loadStoredAutomationLogs()
+  );
+  const [aiConversations, setAiConversations] = useState<AiConversation[]>(() =>
+    loadStoredAiConversations()
+  );
+  const [systemLogs, setSystemLogs] = useState<SystemLogEntry[]>(() =>
+    loadStoredSystemLogs()
+  );
+  const [geminiStatus, setGeminiStatus] = useState<GeminiStatusProbe | null>(null);
+  const notificationsRef = useRef<SystemNotification[]>(notifications);
+  const autoRunOnOpenDoneRef = useRef<boolean>(false);
   const [activeTab, setActiveTab] = useState<AppTab>('dashboard');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
     try {
@@ -756,6 +925,342 @@ export default function App() {
       }
     );
 
+    const unsubResourceFiles = subscribeToResourceFiles(
+      (remoteFiles) => {
+        if (!active) return;
+        setResourcesCloudBlocked(false);
+        if (remoteFiles.length > 0) {
+          setResourceFiles(remoteFiles);
+          saveStoredResourceFiles(remoteFiles);
+        } else {
+          setResourceFiles((prev) => {
+            if (prev.length === 0) {
+              saveStoredResourceFiles([]);
+              return [];
+            }
+            return prev;
+          });
+        }
+      },
+      (err) => {
+        if (!active) return;
+        if (isFirestorePermissionDeniedError(err)) {
+          setResourcesCloudBlocked(true);
+        } else {
+          notifySyncFailure('leitura de arquivos da central', err);
+        }
+      }
+    );
+
+    const unsubResourceFolders = subscribeToResourceFolders(
+      (remoteFolders) => {
+        if (!active) return;
+        setResourcesCloudBlocked(false);
+        if (remoteFolders.length > 0) {
+          setResourceFolders(remoteFolders);
+          saveStoredResourceFolders(remoteFolders);
+        } else {
+          setResourceFolders((prev) => {
+            if (prev.length === 0) {
+              saveStoredResourceFolders([]);
+              return [];
+            }
+            return prev;
+          });
+        }
+      },
+      (err) => {
+        if (!active) return;
+        if (isFirestorePermissionDeniedError(err)) {
+          setResourcesCloudBlocked(true);
+        } else {
+          notifySyncFailure('leitura de pastas da central', err);
+        }
+      }
+    );
+
+    const unsubResourceCategories = subscribeToResourceCategories(
+      (remoteCats) => {
+        if (!active) return;
+        setResourcesCloudBlocked(false);
+        if (remoteCats.length > 0) {
+          const { categories: ensured } = ensureDefaultCategories(remoteCats);
+          setResourceCategories(ensured);
+          saveStoredResourceCategories(ensured);
+        } else {
+          const { categories: ensured } = ensureDefaultCategories(
+            loadStoredResourceCategories()
+          );
+          setResourceCategories(ensured);
+          saveStoredResourceCategories(ensured);
+          if (ensured.length > 0) {
+            batchSyncResourceCategoriesToFirestore(ensured).catch((err) => {
+              if (isFirestorePermissionDeniedError(err)) {
+                setResourcesCloudBlocked(true);
+              }
+            });
+          }
+        }
+      },
+      (err) => {
+        if (!active) return;
+        if (isFirestorePermissionDeniedError(err)) {
+          setResourcesCloudBlocked(true);
+        } else {
+          notifySyncFailure('leitura de categorias da central', err);
+        }
+      }
+    );
+
+    const unsubCommercialScripts = subscribeToCommercialScripts(
+      (remoteScripts) => {
+        if (!active) return;
+        setResourcesCloudBlocked(false);
+        if (remoteScripts.length > 0) {
+          setCommercialScripts(remoteScripts);
+          saveStoredCommercialScripts(remoteScripts);
+        } else {
+          const stored = loadStoredCommercialScripts();
+          const current =
+            stored.length > 0 ? stored : buildInitialCommercialScripts('Agência Kaizen');
+          setCommercialScripts(current);
+          saveStoredCommercialScripts(current);
+          if (current.length > 0) {
+            batchSyncCommercialScriptsToFirestore(current).catch((err) => {
+              if (isFirestorePermissionDeniedError(err)) {
+                setResourcesCloudBlocked(true);
+              }
+            });
+          }
+        }
+      },
+      (err) => {
+        if (!active) return;
+        if (isFirestorePermissionDeniedError(err)) {
+          setResourcesCloudBlocked(true);
+        } else {
+          notifySyncFailure('leitura de scripts comerciais', err);
+        }
+      }
+    );
+
+    const unsubModelTemplates = subscribeToModelTemplates(
+      (remoteTemplates) => {
+        if (!active) return;
+        setResourcesCloudBlocked(false);
+        if (remoteTemplates.length > 0) {
+          setModelTemplates(remoteTemplates);
+          saveStoredModelTemplates(remoteTemplates);
+        } else {
+          const stored = loadStoredModelTemplates();
+          const current =
+            stored.length > 0 ? stored : buildInitialModelTemplates();
+          setModelTemplates(current);
+          saveStoredModelTemplates(current);
+          if (current.length > 0) {
+            batchSyncModelTemplatesToFirestore(current).catch((err) => {
+              if (isFirestorePermissionDeniedError(err)) {
+                setResourcesCloudBlocked(true);
+              }
+            });
+          }
+        }
+      },
+      (err) => {
+        if (!active) return;
+        if (isFirestorePermissionDeniedError(err)) {
+          setResourcesCloudBlocked(true);
+        } else {
+          notifySyncFailure('leitura de biblioteca de modelos', err);
+        }
+      }
+    );
+
+    const unsubCustomReports = subscribeToCustomReports(
+      (remoteReports) => {
+        if (!active) return;
+        setAnalyticsCloudBlocked(false);
+        if (remoteReports.length > 0) {
+          setSavedCustomReports(remoteReports);
+          saveStoredSavedCustomReports(remoteReports);
+        } else {
+          setSavedCustomReports((prev) => {
+            if (prev.length === 0) {
+              saveStoredSavedCustomReports([]);
+              return [];
+            }
+            return prev;
+          });
+        }
+      },
+      (err) => {
+        if (!active) return;
+        if (isFirestorePermissionDeniedError(err)) {
+          setAnalyticsCloudBlocked(true);
+        } else {
+          notifySyncFailure('leitura de relatórios personalizados', err);
+        }
+      }
+    );
+
+    const unsubAnalyticsSettings = subscribeToAnalyticsSettings(
+      (remoteSettings) => {
+        if (!active) return;
+        setAnalyticsCloudBlocked(false);
+        if (remoteSettings) {
+          setAnalyticsSettings(remoteSettings);
+          saveStoredAnalyticsPreferences(remoteSettings);
+        } else {
+          const localPrefs = loadStoredAnalyticsPreferences() || DEFAULT_ANALYTICS_PREFERENCES;
+          syncAnalyticsSettingsToFirestore(localPrefs).catch((err) => {
+            if (isFirestorePermissionDeniedError(err)) {
+              setAnalyticsCloudBlocked(true);
+            }
+          });
+        }
+      },
+      (err) => {
+        if (!active) return;
+        if (isFirestorePermissionDeniedError(err)) {
+          setAnalyticsCloudBlocked(true);
+        } else {
+          notifySyncFailure('leitura de preferências de relatórios', err);
+        }
+      }
+    );
+
+    const unsubSystemSettings = subscribeToSystemSettings(
+      (remoteSys) => {
+        if (!active) return;
+        setSystemCloudBlocked(false);
+        if (remoteSys) {
+          const normalized = normalizeSystemSettings(remoteSys, userName);
+          setSystemSettings(normalized);
+          saveStoredSystemSettings(normalized);
+          if (normalized.adminProfile.displayName) {
+            setUserName(normalized.adminProfile.displayName);
+          }
+        } else {
+          const localSys = loadStoredSystemSettings(userName);
+          syncSystemSettingsToFirestore(localSys).catch((err) => {
+            if (isFirestorePermissionDeniedError(err)) {
+              setSystemCloudBlocked(true);
+            }
+          });
+        }
+      },
+      (err) => {
+        if (!active) return;
+        if (isFirestorePermissionDeniedError(err)) {
+          setSystemCloudBlocked(true);
+        } else {
+          notifySyncFailure('leitura de configurações do sistema', err);
+        }
+      }
+    );
+
+    const unsubNotifications = subscribeToNotifications(
+      (remoteNotifications) => {
+        if (!active) return;
+        setSystemCloudBlocked(false);
+        if (remoteNotifications.length > 0) {
+          setNotifications(remoteNotifications);
+          notificationsRef.current = remoteNotifications;
+          saveStoredNotifications(remoteNotifications);
+        }
+      },
+      (err) => {
+        if (!active) return;
+        if (isFirestorePermissionDeniedError(err)) {
+          setSystemCloudBlocked(true);
+        } else {
+          notifySyncFailure('leitura de notificações', err);
+        }
+      }
+    );
+
+    const unsubAutomationSettings = subscribeToAutomationSettings(
+      (remoteRules) => {
+        if (!active) return;
+        setSystemCloudBlocked(false);
+        if (remoteRules.length > 0) {
+          const merged = mergeAutomationRulesWithDefaults(remoteRules);
+          setAutomationRules(merged);
+          saveStoredAutomationSettings(merged);
+        } else {
+          const defaults = buildDefaultAutomationRules();
+          batchSyncAutomationRulesToFirestore(defaults).catch((err) => {
+            if (isFirestorePermissionDeniedError(err)) {
+              setSystemCloudBlocked(true);
+            }
+          });
+        }
+      },
+      (err) => {
+        if (!active) return;
+        if (isFirestorePermissionDeniedError(err)) {
+          setSystemCloudBlocked(true);
+        } else {
+          notifySyncFailure('leitura de automações', err);
+        }
+      }
+    );
+
+    const unsubAutomationLogs = subscribeToAutomationLogs(
+      (remoteLogs) => {
+        if (!active) return;
+        setSystemCloudBlocked(false);
+        if (remoteLogs.length > 0) {
+          setAutomationLogs(remoteLogs.slice(0, 120));
+          saveStoredAutomationLogs(remoteLogs);
+        }
+      },
+      (err) => {
+        if (!active) return;
+        if (isFirestorePermissionDeniedError(err)) {
+          setSystemCloudBlocked(true);
+        } else {
+          notifySyncFailure('leitura de histórico de automações', err);
+        }
+      }
+    );
+
+    const unsubAiConversations = subscribeToAiConversations(
+      (remoteConvs) => {
+        if (!active) return;
+        setSystemCloudBlocked(false);
+        setAiConversations(remoteConvs);
+        saveStoredAiConversations(remoteConvs);
+      },
+      (err) => {
+        if (!active) return;
+        if (isFirestorePermissionDeniedError(err)) {
+          setSystemCloudBlocked(true);
+        } else {
+          notifySyncFailure('leitura de conversas do Assistente IA', err);
+        }
+      }
+    );
+
+    const unsubSystemLogs = subscribeToSystemLogs(
+      (remoteSysLogs) => {
+        if (!active) return;
+        setSystemCloudBlocked(false);
+        if (remoteSysLogs.length > 0) {
+          setSystemLogs(remoteSysLogs.slice(0, 150));
+          saveStoredSystemLogs(remoteSysLogs);
+        }
+      },
+      (err) => {
+        if (!active) return;
+        if (isFirestorePermissionDeniedError(err)) {
+          setSystemCloudBlocked(true);
+        } else {
+          notifySyncFailure('leitura de logs do sistema', err);
+        }
+      }
+    );
+
     return () => {
       active = false;
       unsubNiches();
@@ -774,6 +1279,19 @@ export default function App() {
       unsubFinancialRecurrences();
       unsubFinancialSettings();
       unsubFinancialAuditLogs();
+      unsubResourceFiles();
+      unsubResourceFolders();
+      unsubResourceCategories();
+      unsubCommercialScripts();
+      unsubModelTemplates();
+      unsubCustomReports();
+      unsubAnalyticsSettings();
+      unsubSystemSettings();
+      unsubNotifications();
+      unsubAutomationSettings();
+      unsubAutomationLogs();
+      unsubAiConversations();
+      unsubSystemLogs();
     };
   }, [authReady, isAuthenticated, authConfigValid, notifySyncFailure]);
 
@@ -850,6 +1368,87 @@ export default function App() {
       saveStoredActiveNicheId(activeNiche.id);
     }
   }, [activeNiche?.id]);
+
+  // Keep notificationsRef in sync
+  useEffect(() => {
+    notificationsRef.current = notifications;
+  }, [notifications]);
+
+  // Gemini server status probe
+  const handleRefreshGeminiStatus = useCallback(async () => {
+    const token = await getActiveFirebaseIdToken();
+    const probe = await fetchGeminiServerStatus(token);
+    setGeminiStatus(probe);
+  }, []);
+
+  useEffect(() => {
+    if (!authReady || !isAuthenticated || !authConfigValid) return;
+    handleRefreshGeminiStatus();
+  }, [authReady, isAuthenticated, authConfigValid, handleRefreshGeminiStatus]);
+
+  // Sanitized system log recorder
+  const appendSystemLog = useCallback(
+    async (level: SystemLogLevel, source: SystemLogSource, title: string, message: string) => {
+      const entry = createSystemLogEntry({ level, source, title, message });
+      setSystemLogs((prev) => {
+        const next = [entry, ...prev].slice(0, 150);
+        saveStoredSystemLogs(next);
+        return next;
+      });
+      if (!systemCloudBlocked && authReady && isAuthenticated) {
+        try {
+          await syncSystemLogToFirestore(entry);
+        } catch (err) {
+          if (isFirestorePermissionDeniedError(err)) {
+            setSystemCloudBlocked(true);
+          }
+        }
+      }
+    },
+    [systemCloudBlocked, authReady, isAuthenticated]
+  );
+
+  // Deduplicated Notification Center evaluation from real workspace entities
+  useEffect(() => {
+    if (!authReady || !isAuthenticated || !authConfigValid) return;
+    const { notifications: evaluated, changedNotifications } = evaluateWorkspaceNotifications({
+      leads,
+      proposals,
+      projects,
+      tasks,
+      agendaEvents,
+      financialEntries,
+      existingNotifications: notificationsRef.current,
+      settings: systemSettings,
+      financialAlertDaysAhead: financialSettings.alertDaysAhead ?? 5,
+    });
+
+    if (changedNotifications.length > 0) {
+      notificationsRef.current = evaluated;
+      setNotifications(evaluated);
+      saveStoredNotifications(evaluated);
+      if (!systemCloudBlocked) {
+        batchSyncNotificationsToFirestore(changedNotifications).catch((err) => {
+          if (isFirestorePermissionDeniedError(err)) {
+            setSystemCloudBlocked(true);
+          }
+        });
+      }
+    }
+  }, [
+    authReady,
+    isAuthenticated,
+    authConfigValid,
+    leads,
+    proposals,
+    projects,
+    tasks,
+    agendaEvents,
+    financialEntries,
+    financialSettings.alertDaysAhead,
+    systemSettings,
+    systemCloudBlocked,
+  ]);
 
   useEffect(() => {
     saveStoredUserName(userName);
@@ -2457,6 +3056,469 @@ export default function App() {
     };
   };
 
+  // Handler: Etapa 5 — Central de Materiais, Documentos, Scripts & Biblioteca de Modelos
+  const handleSaveResourceFile = async (file: ResourceFile, mode: 'create' | 'edit') => {
+    setResourceFiles((prev) => {
+      const next =
+        mode === 'create'
+          ? [file, ...prev.filter((f) => f.id !== file.id)]
+          : prev.map((f) => (f.id === file.id ? file : f));
+      saveStoredResourceFiles(next);
+      return next;
+    });
+
+    setSyncStatus('saving');
+    try {
+      await syncResourceFileToFirestore(file);
+      setResourcesCloudBlocked(false);
+      notifySaved(
+        mode === 'create'
+          ? `Arquivo "${file.name}" registrado na Central.`
+          : `Arquivo "${file.name}" atualizado.`
+      );
+    } catch (err) {
+      if (isFirestorePermissionDeniedError(err)) {
+        setResourcesCloudBlocked(true);
+        notifySaved(
+          `Arquivo "${file.name}" salvo localmente (aguardando publicação de firestore.rules).`
+        );
+      } else {
+        notifySyncFailure('salvamento de arquivo', err);
+      }
+    }
+  };
+
+  const handleDeleteResourceFile = async (fileId: string) => {
+    setResourceFiles((prev) => {
+      const next = prev.filter((f) => f.id !== fileId);
+      saveStoredResourceFiles(next);
+      return next;
+    });
+
+    setSyncStatus('saving');
+    try {
+      await deleteResourceFileFromFirestore(fileId);
+      setResourcesCloudBlocked(false);
+      notifySaved('Arquivo removido da Central.');
+    } catch (err) {
+      if (isFirestorePermissionDeniedError(err)) {
+        setResourcesCloudBlocked(true);
+        notifySaved('Arquivo removido localmente (aguardando publicação de firestore.rules).');
+      } else {
+        notifySyncFailure('exclusão de arquivo', err);
+      }
+    }
+  };
+
+  const handleSaveResourceFolder = async (
+    folder: ResourceFolder,
+    mode: 'create' | 'edit'
+  ) => {
+    setResourceFolders((prev) => {
+      const next =
+        mode === 'create'
+          ? [folder, ...prev.filter((f) => f.id !== folder.id)]
+          : prev.map((f) => (f.id === folder.id ? folder : f));
+      saveStoredResourceFolders(next);
+      return next;
+    });
+
+    setSyncStatus('saving');
+    try {
+      await syncResourceFolderToFirestore(folder);
+      setResourcesCloudBlocked(false);
+      notifySaved(`Pasta "${folder.name}" salva.`);
+    } catch (err) {
+      if (isFirestorePermissionDeniedError(err)) {
+        setResourcesCloudBlocked(true);
+        notifySaved(`Pasta "${folder.name}" salva localmente.`);
+      } else {
+        notifySyncFailure('salvamento de pasta', err);
+      }
+    }
+  };
+
+  const handleDeleteResourceFolder = async (folderId: string) => {
+    const nowIso = new Date().toISOString();
+    const affectedFiles: ResourceFile[] = [];
+    setResourceFolders((prev) => {
+      const next = prev.filter((f) => f.id !== folderId);
+      saveStoredResourceFolders(next);
+      return next;
+    });
+    setResourceFiles((prev) => {
+      const next = prev.map((f) => {
+        if (f.folderId === folderId) {
+          const updated: ResourceFile = { ...f, folderId: undefined, updatedAt: nowIso };
+          affectedFiles.push(updated);
+          return updated;
+        }
+        return f;
+      });
+      if (affectedFiles.length > 0) saveStoredResourceFiles(next);
+      return next;
+    });
+
+    setSyncStatus('saving');
+    try {
+      await deleteResourceFolderFromFirestore(folderId);
+      if (affectedFiles.length > 0) {
+        await batchSyncResourceFilesToFirestore(affectedFiles);
+      }
+      setResourcesCloudBlocked(false);
+      notifySaved('Pasta removida (arquivos preservados na raiz).');
+    } catch (err) {
+      if (isFirestorePermissionDeniedError(err)) {
+        setResourcesCloudBlocked(true);
+        notifySaved('Pasta removida localmente.');
+      } else {
+        notifySyncFailure('exclusão de pasta', err);
+      }
+    }
+  };
+
+  const handleSaveResourceCategory = async (
+    category: ResourceCategory,
+    mode: 'create' | 'edit'
+  ) => {
+    setResourceCategories((prev) => {
+      const next =
+        mode === 'create'
+          ? [...prev.filter((c) => c.id !== category.id), category]
+          : prev.map((c) => (c.id === category.id ? category : c));
+      saveStoredResourceCategories(next);
+      return next;
+    });
+
+    setSyncStatus('saving');
+    try {
+      await syncResourceCategoryToFirestore(category);
+      setResourcesCloudBlocked(false);
+      notifySaved(`Categoria "${category.name}" salva.`);
+    } catch (err) {
+      if (isFirestorePermissionDeniedError(err)) {
+        setResourcesCloudBlocked(true);
+        notifySaved(`Categoria "${category.name}" salva localmente.`);
+      } else {
+        notifySyncFailure('salvamento de categoria da central', err);
+      }
+    }
+  };
+
+  const handleDeleteResourceCategory = async (categoryId: string) => {
+    setResourceCategories((prev) => {
+      const next = prev.filter((c) => c.id !== categoryId);
+      saveStoredResourceCategories(next);
+      return next;
+    });
+
+    setSyncStatus('saving');
+    try {
+      await deleteResourceCategoryFromFirestore(categoryId);
+      setResourcesCloudBlocked(false);
+      notifySaved('Categoria removida.');
+    } catch (err) {
+      if (isFirestorePermissionDeniedError(err)) {
+        setResourcesCloudBlocked(true);
+        notifySaved('Categoria removida localmente.');
+      } else {
+        notifySyncFailure('exclusão de categoria da central', err);
+      }
+    }
+  };
+
+  const handleSaveCommercialScript = async (
+    script: CommercialScript,
+    mode: 'create' | 'edit'
+  ) => {
+    setCommercialScripts((prev) => {
+      const next =
+        mode === 'create'
+          ? [script, ...prev.filter((s) => s.id !== script.id)]
+          : prev.map((s) => (s.id === script.id ? script : s));
+      saveStoredCommercialScripts(next);
+      return next;
+    });
+
+    setSyncStatus('saving');
+    try {
+      await syncCommercialScriptToFirestore(script);
+      setResourcesCloudBlocked(false);
+      notifySaved(
+        mode === 'create'
+          ? `Script "${script.title}" criado.`
+          : `Script "${script.title}" atualizado.`
+      );
+    } catch (err) {
+      if (isFirestorePermissionDeniedError(err)) {
+        setResourcesCloudBlocked(true);
+        notifySaved(`Script "${script.title}" salvo localmente.`);
+      } else {
+        notifySyncFailure('salvamento de script comercial', err);
+      }
+    }
+  };
+
+  const handleDeleteCommercialScript = async (scriptId: string) => {
+    setCommercialScripts((prev) => {
+      const next = prev.filter((s) => s.id !== scriptId);
+      saveStoredCommercialScripts(next);
+      return next;
+    });
+
+    setSyncStatus('saving');
+    try {
+      await deleteCommercialScriptFromFirestore(scriptId);
+      setResourcesCloudBlocked(false);
+      notifySaved('Script removido.');
+    } catch (err) {
+      if (isFirestorePermissionDeniedError(err)) {
+        setResourcesCloudBlocked(true);
+        notifySaved('Script removido localmente.');
+      } else {
+        notifySyncFailure('exclusão de script comercial', err);
+      }
+    }
+  };
+
+  const handleSaveModelTemplate = async (
+    template: ModelTemplate,
+    mode: 'create' | 'edit'
+  ) => {
+    setModelTemplates((prev) => {
+      const next =
+        mode === 'create'
+          ? [template, ...prev.filter((t) => t.id !== template.id)]
+          : prev.map((t) => (t.id === template.id ? template : t));
+      saveStoredModelTemplates(next);
+      return next;
+    });
+
+    setSyncStatus('saving');
+    try {
+      await syncModelTemplateToFirestore(template);
+      setResourcesCloudBlocked(false);
+      notifySaved(
+        mode === 'create'
+          ? `Modelo "${template.title}" adicionado à biblioteca.`
+          : `Modelo "${template.title}" atualizado.`
+      );
+    } catch (err) {
+      if (isFirestorePermissionDeniedError(err)) {
+        setResourcesCloudBlocked(true);
+        notifySaved(`Modelo "${template.title}" salvo localmente.`);
+      } else {
+        notifySyncFailure('salvamento de modelo', err);
+      }
+    }
+  };
+
+  const handleCreateProposalFromTemplate = async (
+    draft: Omit<ProposalContract, 'id' | 'createdAt'>
+  ) => {
+    const nowIso = new Date().toISOString();
+    const created: ProposalContract = {
+      ...draft,
+      id: generateProposalId(),
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    };
+    await handleSaveProposal(created, 'create');
+    setExternalPreviewProposalId(created.id);
+    setActiveTab('proposals');
+  };
+
+  const handleCreateProjectFromTemplate = async (params: {
+    project: Project;
+    initialTasks: Task[];
+  }) => {
+    await handleCreateProjectWithTasks(params.project, params.initialTasks);
+    setExternalSelectedProjectId(params.project.id);
+    setActiveTab('projects');
+  };
+
+  const handleCreateTasksFromTemplate = async (newTasks: Task[]) => {
+    if (newTasks.length === 0) return;
+    setTasks((prev) => {
+      const next = [...newTasks, ...prev];
+      saveStoredTasks(next);
+      return next;
+    });
+
+    setSyncStatus('saving');
+    try {
+      await batchSyncTasksToFirestore(newTasks);
+      setTasksCloudBlocked(false);
+      notifySaved(`${newTasks.length} tarefa(s) independente(s) gerada(s) em Minhas Tarefas.`);
+    } catch (err) {
+      if (isFirestorePermissionDeniedError(err)) {
+        setTasksCloudBlocked(true);
+        notifySaved(`${newTasks.length} tarefa(s) criada(s) localmente.`);
+      } else {
+        notifySyncFailure('criação de tarefas via modelo', err);
+      }
+    }
+    setActiveTab('tasks');
+  };
+
+  const handleSyncFilesForTask = async (taskId: string, selectedFileIds: string[]) => {
+    const selectedSet = new Set(selectedFileIds);
+    const updatedFiles: ResourceFile[] = [];
+
+    setResourceFiles((prev) => {
+      const next = prev.map((file) => {
+        const currentlyLinked = (file.linkedTaskIds || []).includes(taskId);
+        const shouldBeLinked = selectedSet.has(file.id);
+        if (currentlyLinked === shouldBeLinked) return file;
+        const nextFile = shouldBeLinked
+          ? linkFileToTask(file, taskId)
+          : unlinkFileFromTask(file, taskId);
+        updatedFiles.push(nextFile);
+        return nextFile;
+      });
+      if (updatedFiles.length > 0) saveStoredResourceFiles(next);
+      return next;
+    });
+
+    if (updatedFiles.length === 0) return;
+    try {
+      await batchSyncResourceFilesToFirestore(updatedFiles);
+      setResourcesCloudBlocked(false);
+    } catch (err) {
+      if (isFirestorePermissionDeniedError(err)) {
+        setResourcesCloudBlocked(true);
+      } else {
+        notifySyncFailure('vínculo de arquivos na tarefa', err);
+      }
+    }
+  };
+
+  const handleSyncFilesForSocialPost = async (
+    postId: string,
+    clientId: string,
+    selectedFileIds: string[]
+  ) => {
+    const selectedSet = new Set(selectedFileIds);
+    const updatedFiles: ResourceFile[] = [];
+
+    setResourceFiles((prev) => {
+      const next = prev.map((file) => {
+        const currentlyLinked = (file.linkedSocialPostIds || []).includes(postId);
+        const shouldBeLinked = selectedSet.has(file.id);
+        if (currentlyLinked === shouldBeLinked) return file;
+        let nextFile = shouldBeLinked
+          ? linkFileToSocialPost(file, postId)
+          : unlinkFileFromSocialPost(file, postId);
+        if (shouldBeLinked && !nextFile.clientId && clientId) {
+          nextFile = {
+            ...nextFile,
+            clientId,
+            clientSection: nextFile.clientSection || 'imagens',
+          };
+        }
+        updatedFiles.push(nextFile);
+        return nextFile;
+      });
+      if (updatedFiles.length > 0) saveStoredResourceFiles(next);
+      return next;
+    });
+
+    if (updatedFiles.length === 0) return;
+    try {
+      await batchSyncResourceFilesToFirestore(updatedFiles);
+      setResourcesCloudBlocked(false);
+    } catch (err) {
+      if (isFirestorePermissionDeniedError(err)) {
+        setResourcesCloudBlocked(true);
+      } else {
+        notifySyncFailure('vínculo de arquivos na publicação social', err);
+      }
+    }
+  };
+
+  // Etapa 6: Relatórios Personalizados e Preferências de Inteligência
+  const handleSaveCustomReport = async (report: SavedCustomReport) => {
+    const normalized: SavedCustomReport = {
+      ...report,
+      schemaVersion: report.schemaVersion || 1,
+      updatedAt: new Date().toISOString(),
+    };
+    setSavedCustomReports((prev) => {
+      const exists = prev.some((r) => r.id === normalized.id);
+      const next = exists
+        ? prev.map((r) => (r.id === normalized.id ? normalized : r))
+        : [normalized, ...prev];
+      saveStoredSavedCustomReports(next);
+      return next;
+    });
+    setSyncStatus('saving');
+    try {
+      await syncCustomReportToFirestore(normalized);
+      setAnalyticsCloudBlocked(false);
+      notifySaved('Modelo de relatório salvo.');
+    } catch (err) {
+      if (isFirestorePermissionDeniedError(err)) {
+        setAnalyticsCloudBlocked(true);
+        notifySaved('Modelo salvo localmente neste navegador.');
+      } else {
+        notifySyncFailure('salvamento de relatório personalizado', err);
+      }
+    }
+  };
+
+  const handleDeleteCustomReport = async (reportId: string) => {
+    setSavedCustomReports((prev) => {
+      const next = prev.filter((r) => r.id !== reportId);
+      saveStoredSavedCustomReports(next);
+      return next;
+    });
+    setSyncStatus('saving');
+    try {
+      await deleteCustomReportFromFirestore(reportId);
+      setAnalyticsCloudBlocked(false);
+      notifySaved('Modelo de relatório removido.');
+    } catch (err) {
+      if (isFirestorePermissionDeniedError(err)) {
+        setAnalyticsCloudBlocked(true);
+        notifySaved('Modelo removido localmente.');
+      } else {
+        notifySyncFailure('exclusão de relatório personalizado', err);
+      }
+    }
+  };
+
+  const handleToggleFavoriteCustomReport = async (report: SavedCustomReport) => {
+    await handleSaveCustomReport({
+      ...report,
+      favorite: !report.favorite,
+      updatedAt: new Date().toISOString(),
+    });
+  };
+
+  const handleSaveAnalyticsPreferences = async (prefs: AnalyticsPreferences) => {
+    const normalized: AnalyticsPreferences = {
+      ...prefs,
+      id: 'default',
+      schemaVersion: 1,
+      updatedAt: new Date().toISOString(),
+    };
+    setAnalyticsSettings(normalized);
+    saveStoredAnalyticsPreferences(normalized);
+    setSyncStatus('saving');
+    try {
+      await syncAnalyticsSettingsToFirestore(normalized);
+      setAnalyticsCloudBlocked(false);
+      notifySaved('Preferências de relatórios atualizadas.');
+    } catch (err) {
+      if (isFirestorePermissionDeniedError(err)) {
+        setAnalyticsCloudBlocked(true);
+        notifySaved('Preferências salvas localmente.');
+      } else {
+        notifySyncFailure('salvamento de preferências de relatórios', err);
+      }
+    }
+  };
+
   // Handler: Safe, awaited backup restore (merges verified records preserving IDs)
   const handleRestoreBackup = async (payload: {
     niches: NicheCampaign[];
@@ -2475,6 +3537,16 @@ export default function App() {
     financialRecurrences?: FinancialRecurrence[];
     financialSettings?: FinancialSettings;
     financialAuditLogs?: FinancialAuditLog[];
+    resourceFiles?: ResourceFile[];
+    resourceFolders?: ResourceFolder[];
+    resourceCategories?: ResourceCategory[];
+    commercialScripts?: CommercialScript[];
+    modelTemplates?: ModelTemplate[];
+    savedReports?: SavedCustomReport[];
+    analyticsSettings?: AnalyticsPreferences;
+    systemSettings?: SystemSettings;
+    automationSettings?: AutomationRuleSetting[];
+    notifications?: SystemNotification[];
     userName?: string;
   }) => {
     setSyncStatus('saving');
@@ -2668,14 +3740,411 @@ export default function App() {
         }
       }
 
+      if (payload.resourceCategories && payload.resourceCategories.length > 0) {
+        const { categories: ensured } = ensureDefaultCategories(payload.resourceCategories);
+        setResourceCategories(ensured);
+        saveStoredResourceCategories(ensured);
+        try {
+          await batchSyncResourceCategoriesToFirestore(ensured);
+        } catch (err) {
+          if (isFirestorePermissionDeniedError(err)) {
+            setResourcesCloudBlocked(true);
+          } else {
+            throw err;
+          }
+        }
+      }
+
+      if (payload.resourceFolders && payload.resourceFolders.length > 0) {
+        setResourceFolders(payload.resourceFolders);
+        saveStoredResourceFolders(payload.resourceFolders);
+        try {
+          await batchSyncResourceFoldersToFirestore(payload.resourceFolders);
+        } catch (err) {
+          if (isFirestorePermissionDeniedError(err)) {
+            setResourcesCloudBlocked(true);
+          } else {
+            throw err;
+          }
+        }
+      }
+
+      if (payload.resourceFiles && payload.resourceFiles.length > 0) {
+        setResourceFiles(payload.resourceFiles);
+        saveStoredResourceFiles(payload.resourceFiles);
+        try {
+          await batchSyncResourceFilesToFirestore(payload.resourceFiles);
+        } catch (err) {
+          if (isFirestorePermissionDeniedError(err)) {
+            setResourcesCloudBlocked(true);
+          } else {
+            throw err;
+          }
+        }
+      }
+
+      if (payload.commercialScripts && payload.commercialScripts.length > 0) {
+        setCommercialScripts(payload.commercialScripts);
+        saveStoredCommercialScripts(payload.commercialScripts);
+        try {
+          await batchSyncCommercialScriptsToFirestore(payload.commercialScripts);
+        } catch (err) {
+          if (isFirestorePermissionDeniedError(err)) {
+            setResourcesCloudBlocked(true);
+          } else {
+            throw err;
+          }
+        }
+      }
+
+      if (payload.modelTemplates && payload.modelTemplates.length > 0) {
+        setModelTemplates(payload.modelTemplates);
+        saveStoredModelTemplates(payload.modelTemplates);
+        try {
+          await batchSyncModelTemplatesToFirestore(payload.modelTemplates);
+        } catch (err) {
+          if (isFirestorePermissionDeniedError(err)) {
+            setResourcesCloudBlocked(true);
+          } else {
+            throw err;
+          }
+        }
+      }
+
+      if (payload.savedReports && payload.savedReports.length > 0) {
+        setSavedCustomReports(payload.savedReports);
+        saveStoredSavedCustomReports(payload.savedReports);
+        try {
+          await batchSyncCustomReportsToFirestore(payload.savedReports);
+        } catch (err) {
+          if (isFirestorePermissionDeniedError(err)) {
+            setAnalyticsCloudBlocked(true);
+          } else {
+            throw err;
+          }
+        }
+      }
+
+      if (payload.analyticsSettings) {
+        setAnalyticsSettings(payload.analyticsSettings);
+        saveStoredAnalyticsPreferences(payload.analyticsSettings);
+        try {
+          await syncAnalyticsSettingsToFirestore(payload.analyticsSettings);
+        } catch (err) {
+          if (isFirestorePermissionDeniedError(err)) {
+            setAnalyticsCloudBlocked(true);
+          } else {
+            throw err;
+          }
+        }
+      }
+
+      if (payload.systemSettings) {
+        const normalizedSys = normalizeSystemSettings(
+          payload.systemSettings,
+          payload.userName || userName
+        );
+        setSystemSettings(normalizedSys);
+        saveStoredSystemSettings(normalizedSys);
+        try {
+          await syncSystemSettingsToFirestore(normalizedSys);
+        } catch (err) {
+          if (isFirestorePermissionDeniedError(err)) {
+            setSystemCloudBlocked(true);
+          } else {
+            throw err;
+          }
+        }
+      }
+
+      if (payload.automationSettings && payload.automationSettings.length > 0) {
+        const mergedRules = mergeAutomationRulesWithDefaults(payload.automationSettings);
+        setAutomationRules(mergedRules);
+        saveStoredAutomationSettings(mergedRules);
+        try {
+          await batchSyncAutomationRulesToFirestore(mergedRules);
+        } catch (err) {
+          if (isFirestorePermissionDeniedError(err)) {
+            setSystemCloudBlocked(true);
+          } else {
+            throw err;
+          }
+        }
+      }
+
+      if (payload.notifications && payload.notifications.length > 0) {
+        setNotifications(payload.notifications);
+        notificationsRef.current = payload.notifications;
+        saveStoredNotifications(payload.notifications);
+        try {
+          await batchSyncNotificationsToFirestore(payload.notifications);
+        } catch (err) {
+          if (isFirestorePermissionDeniedError(err)) {
+            setSystemCloudBlocked(true);
+          } else {
+            throw err;
+          }
+        }
+      }
+
       if (payload.userName) {
         setUserName(payload.userName);
       }
+      await appendSystemLog(
+        'info',
+        'backup',
+        'Backup restaurado com integridade',
+        `Restauração confirmada (${payload.leads.length} leads, ${payload.clients?.length || 0} clientes, ${payload.proposals?.length || 0} propostas).`
+      );
       notifySaved('Backup restaurado e confirmado.');
     } catch (err) {
       notifySyncFailure('restauração de backup', err);
       throw err;
     }
+  };
+
+  // Etapa 7 Handlers: Configurações, Notificações, Automações e Assistente IA
+  const handleSaveSystemSettings = async (nextSettings: SystemSettings) => {
+    const normalized = normalizeSystemSettings(nextSettings, userName);
+    setSystemSettings(normalized);
+    saveStoredSystemSettings(normalized);
+    if (normalized.adminProfile.displayName) {
+      setUserName(normalized.adminProfile.displayName);
+    }
+    setSyncStatus('saving');
+    try {
+      await syncSystemSettingsToFirestore(normalized);
+      await appendSystemLog(
+        'info',
+        'sistema',
+        'Configurações atualizadas',
+        `Preferências e marca (${normalized.adminProfile.agencyName}) salvas.`
+      );
+      notifySaved('Configurações do sistema salvas.');
+    } catch (err) {
+      if (isFirestorePermissionDeniedError(err)) {
+        setSystemCloudBlocked(true);
+      } else {
+        notifySyncFailure('salvamento de configurações', err);
+        throw err;
+      }
+    }
+  };
+
+  const handleMarkNotificationRead = async (notificationId: string) => {
+    const nowIso = new Date().toISOString();
+    let updatedItem: SystemNotification | null = null;
+    setNotifications((prev) => {
+      const next = prev.map((n) => {
+        if (n.id !== notificationId) return n;
+        updatedItem = { ...n, read: true, readAt: n.readAt || nowIso, updatedAt: nowIso };
+        return updatedItem;
+      });
+      notificationsRef.current = next;
+      saveStoredNotifications(next);
+      return next;
+    });
+    if (updatedItem) {
+      try {
+        await syncNotificationToFirestore(updatedItem);
+      } catch (err) {
+        if (isFirestorePermissionDeniedError(err)) {
+          setSystemCloudBlocked(true);
+        }
+      }
+    }
+  };
+
+  const handleMarkAllNotificationsRead = async () => {
+    const nowIso = new Date().toISOString();
+    const changed: SystemNotification[] = [];
+    setNotifications((prev) => {
+      const next = prev.map((n) => {
+        if (n.read || n.dismissed) return n;
+        const upd = { ...n, read: true, readAt: nowIso, updatedAt: nowIso };
+        changed.push(upd);
+        return upd;
+      });
+      notificationsRef.current = next;
+      saveStoredNotifications(next);
+      return next;
+    });
+    if (changed.length > 0) {
+      try {
+        await batchSyncNotificationsToFirestore(changed);
+      } catch (err) {
+        if (isFirestorePermissionDeniedError(err)) {
+          setSystemCloudBlocked(true);
+        }
+      }
+    }
+  };
+
+  const handleDismissNotification = async (notificationId: string) => {
+    const nowIso = new Date().toISOString();
+    let dismissedItem: SystemNotification | null = null;
+    setNotifications((prev) => {
+      const next = prev.map((n) => {
+        if (n.id !== notificationId) return n;
+        dismissedItem = { ...n, dismissed: true, read: true, updatedAt: nowIso };
+        return dismissedItem;
+      });
+      notificationsRef.current = next;
+      saveStoredNotifications(next);
+      return next;
+    });
+    if (dismissedItem) {
+      try {
+        await syncNotificationToFirestore(dismissedItem);
+      } catch (err) {
+        if (isFirestorePermissionDeniedError(err)) {
+          setSystemCloudBlocked(true);
+        }
+      }
+    }
+  };
+
+  const handleToggleAutomationRule = async (ruleId: string, enabled: boolean) => {
+    const nowIso = new Date().toISOString();
+    let updatedRule: AutomationRuleSetting | null = null;
+    setAutomationRules((prev) => {
+      const next = prev.map((r) => {
+        if (r.id !== ruleId) return r;
+        updatedRule = { ...r, enabled, updatedAt: nowIso };
+        return updatedRule;
+      });
+      saveStoredAutomationSettings(next);
+      return next;
+    });
+    if (updatedRule) {
+      try {
+        await syncAutomationRuleToFirestore(updatedRule);
+      } catch (err) {
+        if (isFirestorePermissionDeniedError(err)) {
+          setSystemCloudBlocked(true);
+        }
+      }
+    }
+  };
+
+  const executeAutomationBatch = useCallback(
+    async (triggerType: 'manual' | 'abertura_sistema', onlyRuleId?: string) => {
+      const { updatedRules, newLogs } = runAutomationRules({
+        rules: automationRules,
+        data: {
+          leads,
+          proposals,
+          projects,
+          tasks,
+          agendaEvents,
+          financialEntries,
+          financialRecurrences,
+          financialAlertDaysAhead: financialSettings.alertDaysAhead ?? 5,
+        },
+        triggerType,
+        onlyRuleId,
+      });
+
+      setAutomationRules(updatedRules);
+      saveStoredAutomationSettings(updatedRules);
+      if (newLogs.length > 0) {
+        setAutomationLogs((prev) => {
+          const next = [...newLogs, ...prev].slice(0, 120);
+          saveStoredAutomationLogs(next);
+          return next;
+        });
+      }
+
+      if (!systemCloudBlocked) {
+        try {
+          await batchSyncAutomationRulesToFirestore(updatedRules);
+          for (const log of newLogs.slice(0, 15)) {
+            await syncAutomationLogToFirestore(log);
+          }
+        } catch (err) {
+          if (isFirestorePermissionDeniedError(err)) {
+            setSystemCloudBlocked(true);
+          }
+        }
+      }
+
+      const findingsTotal = newLogs.reduce((acc, l) => acc + l.findingsCount, 0);
+      await appendSystemLog(
+        'info',
+        'automacoes',
+        onlyRuleId ? 'Regra de automação executada' : 'Rodada de automações concluída',
+        `${newLogs.length} regra(s) avaliada(s) (${triggerType}) com ${findingsTotal} achado(s).`
+      );
+    },
+    [
+      automationRules,
+      leads,
+      proposals,
+      projects,
+      tasks,
+      agendaEvents,
+      financialEntries,
+      financialRecurrences,
+      financialSettings.alertDaysAhead,
+      systemCloudBlocked,
+      appendSystemLog,
+    ]
+  );
+
+  // One-shot automatic monitoring evaluation when opening the system
+  useEffect(() => {
+    if (!authReady || !isAuthenticated || !authConfigValid) return;
+    if (autoRunOnOpenDoneRef.current) return;
+    if (!systemSettings.preferences.autoRunAutomationsOnOpen) return;
+    autoRunOnOpenDoneRef.current = true;
+    executeAutomationBatch('abertura_sistema');
+  }, [
+    authReady,
+    isAuthenticated,
+    authConfigValid,
+    systemSettings.preferences.autoRunAutomationsOnOpen,
+    executeAutomationBatch,
+  ]);
+
+  const handleSaveAiConversation = async (conv: AiConversation) => {
+    setAiConversations((prev) => {
+      const exists = prev.some((c) => c.id === conv.id);
+      const next = exists
+        ? prev.map((c) => (c.id === conv.id ? conv : c))
+        : [conv, ...prev];
+      next.sort(
+        (a, b) => new Date(b.updatedAt || '').getTime() - new Date(a.updatedAt || '').getTime()
+      );
+      saveStoredAiConversations(next);
+      return next;
+    });
+    try {
+      await syncAiConversationToFirestore(conv);
+    } catch (err) {
+      if (isFirestorePermissionDeniedError(err)) {
+        setSystemCloudBlocked(true);
+      }
+    }
+  };
+
+  const handleDeleteAiConversation = async (convId: string) => {
+    setAiConversations((prev) => {
+      const next = prev.filter((c) => c.id !== convId);
+      saveStoredAiConversations(next);
+      return next;
+    });
+    try {
+      await deleteAiConversationFromFirestore(convId);
+    } catch (err) {
+      if (isFirestorePermissionDeniedError(err)) {
+        setSystemCloudBlocked(true);
+      }
+    }
+  };
+
+  const handleCreateTaskFromAi = async (task: Task) => {
+    await handleSaveTask(task, 'create');
+    notifySaved(`Tarefa "${task.title}" criada a partir do Assistente IA.`);
   };
 
   // Handler: Logout via Firebase Authentication
@@ -2726,19 +4195,20 @@ export default function App() {
   const isCrmRoute =
     activeTab === 'kanban' || activeTab === 'leads_list' || activeTab === 'importer';
 
-  const unbuiltModuleTabs: AppTab[] = [
-    'documents',
-    'templates',
-    'productivity',
-    'ai_assistant',
-  ];
+  const unbuiltModuleTabs: AppTab[] = [];
+  const unreadNotificationsCount = notifications.filter((n) => !n.read && !n.dismissed).length;
+
+  const handleSelectNavigationTab = (tab: AppTab) => {
+    setResourcesSubTabOverride(null);
+    setActiveTab(tab);
+  };
 
   return (
     <div className="h-screen h-dvh bg-[var(--kz-bg-canvas)] text-[var(--kz-text-primary)] flex w-full max-w-full overflow-hidden">
       {/* Kaizen Navigation Sidebar */}
       <Sidebar
         activeTab={activeTab}
-        onSelectTab={(tab) => setActiveTab(tab)}
+        onSelectTab={handleSelectNavigationTab}
         collapsed={isSidebarCollapsed}
         onToggleCollapse={handleToggleSidebarCollapse}
         mobileOpen={isMobileSidebarOpen}
@@ -2746,6 +4216,9 @@ export default function App() {
         agendaAlertsCount={
           meetingLeadsCount + todayCallbacksCount + dueAgendaEventsCount + dueTasksCount
         }
+        unreadNotificationsCount={unreadNotificationsCount}
+        brandName={systemSettings.visualIdentity.brandName}
+        compactLogoUrl={systemSettings.visualIdentity.compactLogoUrl}
       />
 
       {/* Right Workspace Column: Header + Contextual SubNav + Main Content */}
@@ -2762,12 +4235,29 @@ export default function App() {
           activeTab={activeTab}
           onSelectTab={(tab) => setActiveTab(tab)}
           userName={userName}
-          onUpdateUserName={(name) => setUserName(name)}
+          onUpdateUserName={(name) => {
+            setUserName(name);
+            const updated = normalizeSystemSettings(
+              {
+                ...systemSettings,
+                adminProfile: { ...systemSettings.adminProfile, displayName: name },
+                updatedAt: new Date().toISOString(),
+              },
+              name
+            );
+            setSystemSettings(updated);
+            saveStoredSystemSettings(updated);
+          }}
           leads={activeNicheLeads}
           tasks={tasks}
           agendaEvents={agendaEvents}
           financialEntries={financialEntries}
           financialAlertDaysAhead={financialSettings.alertDaysAhead ?? 5}
+          notifications={notifications}
+          onMarkNotificationRead={handleMarkNotificationRead}
+          onMarkAllNotificationsRead={handleMarkAllNotificationsRead}
+          photoUrl={systemSettings.adminProfile.photoUrl}
+          agencyName={systemSettings.adminProfile.agencyName}
           totalLeadsCount={activeNicheLeads.length}
           allLeadsCount={leads.length}
           allNichesCount={niches.length}
@@ -2894,8 +4384,13 @@ export default function App() {
               leads={activeNicheLeads}
               userName={userName}
               targetLeadId={activeLeadForScriptId}
+              commercialScriptsCount={commercialScripts.filter((s) => s.status === 'ativo').length}
               onUpdateNicheScripts={handleUpdateNicheScripts}
               onFastWhatsAppContacted={handleFastWhatsAppContacted}
+              onOpenCommercialScriptsCenter={() => {
+                setResourcesSubTabOverride('scripts');
+                setActiveTab('documents');
+              }}
             />
           )}
 
@@ -2924,12 +4419,16 @@ export default function App() {
               socialPosts={socialPosts}
               financialEntries={financialEntries}
               financialTransactions={financialTransactions}
+              resourceFiles={resourceFiles}
+              resourceFolders={resourceFolders}
+              resourceCategories={resourceCategories}
               userName={userName}
               cloudPermissionBlocked={clientsCloudBlocked}
               externalSelectedClientId={externalSelectedClientId}
               onClearExternalSelectedClientId={() => setExternalSelectedClientId(null)}
               onSaveClient={handleSaveClient}
               onDeleteClient={handleDeleteClient}
+              onSaveResourceFile={handleSaveResourceFile}
               onConvertLeadToClient={handleConvertLeadToClient}
               onOpenLeadModal={(lead) => setSelectedLead(lead)}
               onCreateProposalForClient={(client) => {
@@ -2965,6 +4464,8 @@ export default function App() {
               niches={niches}
               financialEntries={financialEntries}
               financialRecurrences={financialRecurrences}
+              modelTemplates={modelTemplates}
+              systemSettings={systemSettings}
               userName={userName}
               cloudPermissionBlocked={proposalsCloudBlocked}
               initialDraftSource={proposalDraftSource}
@@ -2977,6 +4478,10 @@ export default function App() {
               onApproveAndSyncClient={handleApproveProposalAndSyncClient}
               onGenerateFinancialForecast={handleGenerateProposalFinancialForecast}
               onNavigate={(tab) => setActiveTab(tab)}
+              onOpenTemplatesLibrary={() => {
+                setResourcesSubTabOverride('templates');
+                setActiveTab('templates');
+              }}
               onOpenClientFromProposal={(client) => {
                 setExternalSelectedClientId(client.id);
                 setActiveTab('clients');
@@ -2991,6 +4496,9 @@ export default function App() {
               proposals={proposals}
               tasks={tasks}
               financialEntries={financialEntries}
+              resourceFiles={resourceFiles}
+              resourceFolders={resourceFolders}
+              resourceCategories={resourceCategories}
               userName={userName}
               cloudPermissionBlocked={projectsCloudBlocked}
               externalSelectedProjectId={externalSelectedProjectId}
@@ -3002,6 +4510,8 @@ export default function App() {
               onDeleteProject={handleDeleteProject}
               onSaveTask={handleSaveTask}
               onDeleteTask={handleDeleteTask}
+              onSaveResourceFile={handleSaveResourceFile}
+              onSyncTaskFiles={handleSyncFilesForTask}
               onOpenClient={(clientId) => {
                 setExternalSelectedClientId(clientId);
                 setActiveTab('clients');
@@ -3015,9 +4525,13 @@ export default function App() {
               tasks={tasks}
               projects={projects}
               clients={clients}
+              resourceFiles={resourceFiles}
+              resourceCategories={resourceCategories}
+              resourceFolders={resourceFolders}
               cloudPermissionBlocked={tasksCloudBlocked}
               onSaveTask={handleSaveTask}
               onDeleteTask={handleDeleteTask}
+              onSyncTaskFiles={handleSyncFilesForTask}
               onOpenProject={(projectId) => {
                 setExternalSelectedProjectId(projectId);
                 setActiveTab('projects');
@@ -3036,12 +4550,16 @@ export default function App() {
               posts={socialPosts}
               clients={clients}
               proposals={proposals}
+              resourceFiles={resourceFiles}
+              resourceCategories={resourceCategories}
+              resourceFolders={resourceFolders}
               userName={userName}
               cloudPermissionBlocked={socialCloudBlocked}
               onSaveChannel={handleSaveSocialChannel}
               onDeleteChannel={handleDeleteSocialChannel}
               onSavePost={handleSaveSocialPost}
               onDeletePost={handleDeleteSocialPost}
+              onSyncSocialPostFiles={handleSyncFilesForSocialPost}
               onOpenClient={(clientId) => {
                 setExternalSelectedClientId(clientId);
                 setActiveTab('clients');
@@ -3081,6 +4599,78 @@ export default function App() {
             />
           )}
 
+          {(activeTab === 'documents' || activeTab === 'templates') && (
+            <ResourcesCenterView
+              initialSubTab={
+                resourcesSubTabOverride ||
+                (activeTab === 'templates' ? 'templates' : 'overview')
+              }
+              files={resourceFiles}
+              folders={resourceFolders}
+              categories={resourceCategories}
+              scripts={commercialScripts}
+              templates={modelTemplates}
+              clients={clients}
+              projects={projects}
+              tasks={tasks}
+              proposals={proposals}
+              socialPosts={socialPosts}
+              leads={leads}
+              niches={niches}
+              userName={userName}
+              cloudPermissionBlocked={resourcesCloudBlocked}
+              onSaveFile={handleSaveResourceFile}
+              onDeleteFile={handleDeleteResourceFile}
+              onSaveFolder={handleSaveResourceFolder}
+              onDeleteFolder={handleDeleteResourceFolder}
+              onSaveCategory={handleSaveResourceCategory}
+              onDeleteCategory={handleDeleteResourceCategory}
+              onSaveScript={handleSaveCommercialScript}
+              onDeleteScript={handleDeleteCommercialScript}
+              onSaveTemplate={handleSaveModelTemplate}
+              onCreateProposalFromTemplate={handleCreateProposalFromTemplate}
+              onCreateProjectFromTemplate={handleCreateProjectFromTemplate}
+              onCreateTasksFromTemplate={handleCreateTasksFromTemplate}
+            />
+          )}
+
+          {activeTab === 'productivity' && (
+            <AnalyticsHubView
+              leads={leads}
+              niches={niches}
+              clients={clients}
+              proposals={proposals}
+              projects={projects}
+              tasks={tasks}
+              agendaEvents={agendaEvents}
+              socialChannels={socialChannels}
+              socialPosts={socialPosts}
+              financialEntries={financialEntries}
+              financialTransactions={financialTransactions}
+              financialCategories={financialCategories}
+              financialRecurrences={financialRecurrences}
+              financialSettings={financialSettings}
+              financialAuditLogs={financialAuditLogs}
+              resourceFiles={resourceFiles}
+              savedReports={savedCustomReports}
+              preferences={analyticsSettings}
+              cloudPermissionBlocked={analyticsCloudBlocked}
+              onSaveCustomReport={handleSaveCustomReport}
+              onDeleteCustomReport={handleDeleteCustomReport}
+              onToggleFavoriteCustomReport={handleToggleFavoriteCustomReport}
+              onSavePreferences={handleSaveAnalyticsPreferences}
+              onNavigateTab={(tab) => setActiveTab(tab)}
+              onOpenClient={(clientId) => {
+                setExternalSelectedClientId(clientId);
+                setActiveTab('clients');
+              }}
+              onOpenProject={(projectId) => {
+                setExternalSelectedProjectId(projectId);
+                setActiveTab('projects');
+              }}
+            />
+          )}
+
           {activeTab === 'global' && (
             <GlobalAgencyView
               niches={niches}
@@ -3099,6 +4689,16 @@ export default function App() {
               financialRecurrences={financialRecurrences}
               financialSettings={financialSettings}
               financialAuditLogs={financialAuditLogs}
+              resourceFiles={resourceFiles}
+              resourceFolders={resourceFolders}
+              resourceCategories={resourceCategories}
+              commercialScripts={commercialScripts}
+              modelTemplates={modelTemplates}
+              savedReports={savedCustomReports}
+              analyticsSettings={analyticsSettings}
+              systemSettings={systemSettings}
+              automationSettings={automationRules}
+              notifications={notifications}
               userName={userName}
               onSelectNiche={(id) => {
                 setActiveNicheId(id);
@@ -3111,13 +4711,76 @@ export default function App() {
             />
           )}
 
+          {activeTab === 'ai_assistant' && (
+            <AiAssistantView
+              conversations={aiConversations}
+              onSaveConversation={handleSaveAiConversation}
+              onDeleteConversation={handleDeleteAiConversation}
+              onCreateTaskFromAction={handleCreateTaskFromAi}
+              onLogAiEvent={(lvl, title, msg) => appendSystemLog(lvl, 'gemini_ia', title, msg)}
+              geminiStatus={geminiStatus}
+              systemSettings={systemSettings}
+              leads={leads}
+              niches={niches}
+              clients={clients}
+              proposals={proposals}
+              projects={projects}
+              tasks={tasks}
+              agendaEvents={agendaEvents}
+              socialChannels={socialChannels}
+              socialPosts={socialPosts}
+              financialEntries={financialEntries}
+              financialTransactions={financialTransactions}
+              financialCategories={financialCategories}
+              financialRecurrences={financialRecurrences}
+              financialSettings={financialSettings}
+              financialAuditLogs={financialAuditLogs}
+              resourceFiles={resourceFiles}
+              onNavigate={(tab) => setActiveTab(tab)}
+            />
+          )}
+
+          {activeTab === 'automations' && (
+            <AutomationsView
+              rules={automationRules}
+              logs={automationLogs}
+              onToggleRule={handleToggleAutomationRule}
+              onRunRule={(ruleId) => executeAutomationBatch('manual', ruleId)}
+              onRunAllActive={() => executeAutomationBatch('manual')}
+            />
+          )}
+
+          {activeTab === 'notifications' && (
+            <NotificationsView
+              notifications={notifications}
+              systemSettings={systemSettings}
+              onMarkRead={handleMarkNotificationRead}
+              onMarkAllRead={handleMarkAllNotificationsRead}
+              onDismiss={handleDismissNotification}
+              onNavigate={(tab) => setActiveTab(tab)}
+            />
+          )}
+
           {activeTab === 'settings' && (
             <SettingsView
               userName={userName}
               onUpdateUserName={(name) => setUserName(name)}
+              systemSettings={systemSettings}
+              onSaveSystemSettings={handleSaveSystemSettings}
+              notifications={notifications}
+              automationRules={automationRules}
+              systemLogs={systemLogs}
+              geminiStatus={geminiStatus}
+              onRefreshIntegrations={handleRefreshGeminiStatus}
+              onRunAllAutomations={() => executeAutomationBatch('manual')}
               niches={niches}
               leads={leads}
               importedSheets={importedSheets}
+              clientsCount={clients.length}
+              proposalsCount={proposals.length}
+              projectsCount={projects.length}
+              tasksCount={tasks.length}
+              financialEntriesCount={financialEntries.length}
               isCloudSynced={isCloudSynced}
               syncStatus={syncStatus}
               onNavigate={(tab) => setActiveTab(tab)}
@@ -3125,12 +4788,7 @@ export default function App() {
             />
           )}
 
-          {unbuiltModuleTabs.includes(activeTab) && (
-            <ModulePlaceholder
-              tab={activeTab}
-              onNavigate={(tab) => setActiveTab(tab)}
-            />
-          )}
+          {unbuiltModuleTabs.length > 0 && unbuiltModuleTabs.includes(activeTab) && null}
         </main>
       </div>
 
@@ -3158,6 +4816,13 @@ export default function App() {
           linkedProposalsCount={
             proposals.filter((p) => p.leadId === selectedLead.id).length
           }
+          commercialScripts={commercialScripts}
+          onSaveCommercialScript={handleSaveCommercialScript}
+          onOpenCommercialScriptsCenter={() => {
+            setSelectedLead(null);
+            setResourcesSubTabOverride('scripts');
+            setActiveTab('documents');
+          }}
           onClose={() => setSelectedLead(null)}
           onUpdateLead={handleUpdateLead}
           onDeleteLead={handleDeleteLead}

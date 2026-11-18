@@ -556,6 +556,153 @@
         "updatedAt": { "type": "string" }
       },
       "required": ["title", "domain", "kind", "categoryId", "content", "status", "createdBy"]
+    },
+    "SavedCustomReport": {
+      "title": "SavedCustomReport",
+      "description": "Configuração salva de relatório gerencial personalizado",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "config": { "type": "object" },
+        "favorite": { "type": "boolean" },
+        "lastRunAt": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "schemaVersion": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["name", "config"]
+    },
+    "AnalyticsPreferences": {
+      "title": "AnalyticsPreferences",
+      "description": "Preferências de períodos, KPIs favoritos e exibição do Hub de Relatórios e Inteligência",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "defaultPeriodPreset": { "type": "string" },
+        "favoriteKpis": { "type": "array" },
+        "compactTables": { "type": "boolean" },
+        "showDataLimitationsNotice": { "type": "boolean" },
+        "preferredSubTab": { "type": "string" },
+        "schemaVersion": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["defaultPeriodPreset", "favoriteKpis", "compactTables", "showDataLimitationsNotice"]
+    },
+    "SystemSettings": {
+      "title": "SystemSettings",
+      "description": "Configurações gerais, perfil administrativo, identidade visual Premium Dark e preferências regionais do Kaizen",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "adminProfile": { "type": "object" },
+        "visualIdentity": { "type": "object" },
+        "regional": { "type": "object" },
+        "preferences": { "type": "object" },
+        "schemaVersion": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["adminProfile", "visualIdentity", "regional", "preferences"]
+    },
+    "SystemNotification": {
+      "title": "SystemNotification",
+      "description": "Notificação real gerada por eventos comerciais, operacionais, financeiros ou de agenda",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "eventKey": { "type": "string" },
+        "category": { "type": "string" },
+        "severity": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "targetTab": { "type": "string" },
+        "entityType": { "type": "string" },
+        "entityId": { "type": "string" },
+        "dueLabel": { "type": "string" },
+        "read": { "type": "boolean" },
+        "dismissed": { "type": "boolean" },
+        "createdAt": { "type": "string" },
+        "readAt": { "type": "string" },
+        "schemaVersion": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["eventKey", "category", "severity", "title", "message", "targetTab", "read", "dismissed", "createdAt"]
+    },
+    "AutomationRuleSetting": {
+      "title": "AutomationRuleSetting",
+      "description": "Configuração e status da regra de automação segura (alerta e rascunho) do Kaizen",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "key": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "category": { "type": "string" },
+        "enabled": { "type": "boolean" },
+        "triggerCondition": { "type": "string" },
+        "cadenceMode": { "type": "string" },
+        "thresholdDays": { "type": "number" },
+        "lastRunAt": { "type": "string" },
+        "lastStatus": { "type": "string" },
+        "lastFindingsCount": { "type": "number" },
+        "nextCheckNote": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "schemaVersion": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["key", "name", "description", "category", "enabled", "triggerCondition", "cadenceMode", "nextCheckNote", "createdAt"]
+    },
+    "AutomationExecutionLog": {
+      "title": "AutomationExecutionLog",
+      "description": "Histórico imutável de execuções manuais ou na abertura das regras de automação",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "ruleId": { "type": "string" },
+        "ruleName": { "type": "string" },
+        "category": { "type": "string" },
+        "triggerType": { "type": "string" },
+        "status": { "type": "string" },
+        "findingsCount": { "type": "number" },
+        "summary": { "type": "string" },
+        "details": { "type": "string" },
+        "executedAt": { "type": "string" },
+        "schemaVersion": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["ruleId", "ruleName", "category", "triggerType", "status", "findingsCount", "summary", "executedAt"]
+    },
+    "AiConversation": {
+      "title": "AiConversation",
+      "description": "Conversa salva do Assistente IA contextual com ações propostas aguardando confirmação",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "archived": { "type": "boolean" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "messages": { "type": "array" },
+        "schemaVersion": { "type": "number" }
+      },
+      "required": ["title", "archived", "createdAt", "updatedAt", "messages"]
+    },
+    "SystemLogEntry": {
+      "title": "SystemLogEntry",
+      "description": "Registro operacional sanitizado de eventos, erros e conectividade do Kaizen",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "level": { "type": "string" },
+        "source": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "schemaVersion": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["level", "source", "title", "message", "createdAt"]
     }
   },
   "firestore": {
@@ -642,6 +789,38 @@
     "/workspaces/{workspaceId}/modelTemplates/{templateId}": {
       "schema": "ModelTemplate",
       "description": "Biblioteca de Modelos reutilizáveis (Comercial, Operacional, Marketing e Gestão)"
+    },
+    "/workspaces/{workspaceId}/customReports/{reportId}": {
+      "schema": "SavedCustomReport",
+      "description": "Relatórios gerenciais personalizados salvos pelo administrador"
+    },
+    "/workspaces/{workspaceId}/analyticsSettings/{settingId}": {
+      "schema": "AnalyticsPreferences",
+      "description": "Preferências configuráveis de indicadores e relatórios gerenciais"
+    },
+    "/workspaces/{workspaceId}/systemSettings/{settingId}": {
+      "schema": "SystemSettings",
+      "description": "Configurações gerais do sistema, perfil do administrador e identidade visual"
+    },
+    "/workspaces/{workspaceId}/notifications/{notificationId}": {
+      "schema": "SystemNotification",
+      "description": "Notificações persistidas e deduplicadas da Central de Notificações"
+    },
+    "/workspaces/{workspaceId}/automationSettings/{ruleId}": {
+      "schema": "AutomationRuleSetting",
+      "description": "Regras configuráveis de automações seguras (comercial, operacional e financeira)"
+    },
+    "/workspaces/{workspaceId}/automationLogs/{logId}": {
+      "schema": "AutomationExecutionLog",
+      "description": "Histórico auditável das execuções de automação"
+    },
+    "/workspaces/{workspaceId}/aiConversations/{conversationId}": {
+      "schema": "AiConversation",
+      "description": "Histórico de conversas do Assistente IA contextual"
+    },
+    "/workspaces/{workspaceId}/systemLogs/{logId}": {
+      "schema": "SystemLogEntry",
+      "description": "Logs operacionais e de monitoramento sanitizados do sistema"
     }
   }
 }
