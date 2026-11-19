@@ -671,7 +671,7 @@ export const Header: React.FC<HeaderProps> = ({
                       className="w-full text-left px-3 py-2 text-xs text-[var(--kz-danger-text)] hover:bg-[var(--kz-danger-bg)] flex items-center gap-2 cursor-pointer"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
-                      <span>Zerar base de dados</span>
+                      <span>Zerar base do CRM</span>
                     </button>
                   )}
                 </div>
@@ -730,15 +730,15 @@ export const Header: React.FC<HeaderProps> = ({
         isOpen={isClearModalOpen}
         onClose={() => setIsClearModalOpen(false)}
         onConfirm={handleConfirmClear}
-        title="Zerar Banco de Dados (Ação Irreversível)"
-        description="Exclui dados da nuvem (Firestore) e do cache local deste navegador."
-        confirmLabel="Confirmar Exclusão Total"
+        title="Zerar Base do CRM (Ação Irreversível)"
+        description="Exclui apenas os dados comerciais do CRM na nuvem (Firestore) e no cache local."
+        confirmLabel="Confirmar Limpeza do CRM"
         variant="danger"
         loading={isClearing}
         confirmDisabled={clearConfirmText.trim().toUpperCase() !== 'ZERAR'}
       >
         <div className="space-y-2 text-xs bg-[var(--kz-danger-bg)] p-3 rounded-xl border border-[var(--kz-danger-border)] text-[var(--kz-danger-text)]">
-          <p className="font-semibold">Documentos e coleções que serão apagados:</p>
+          <p className="font-semibold">Coleções do CRM que serão apagadas:</p>
           <ul className="list-disc pl-4 space-y-1">
             <li>
               <strong>{allLeadsCount ?? totalLeadsCount} leads</strong> (coleção{' '}
@@ -754,6 +754,9 @@ export const Header: React.FC<HeaderProps> = ({
             </li>
           </ul>
           <p className="text-[11px] pt-1">
+            Clientes, Propostas, Projetos, Tarefas, Financeiro, Materiais e Configurações são preservados.
+          </p>
+          <p className="text-[11px]">
             <strong>Último backup neste navegador:</strong>{' '}
             {lastBackupAt
               ? new Date(lastBackupAt).toLocaleString('pt-BR')

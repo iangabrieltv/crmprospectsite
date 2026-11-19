@@ -16,6 +16,7 @@ import {
 import { FinancialEntry, FinancialTransaction } from '../types/finance';
 import { computeDashboardMetrics, toLocalDateString } from '../utils/dashboardMetrics';
 import { computeTaskSummary } from '../services/taskService';
+import { buildIntegratedAgendaItems } from '../services/agendaService';
 import { formatBrlFromCents } from '../services/finance';
 import {
   Send,
@@ -109,15 +110,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     ).length;
     const completedProjects = projects.filter((p) => p.status === 'concluido').length;
     const taskStats = computeTaskSummary(tasks, todayStr);
-    const todayAgendaEvents = agendaEvents.filter(
-      (e) => e.status === 'agendado' && e.date === todayStr
-    ).length;
     const next7Date = new Date();
     next7Date.setDate(next7Date.getDate() + 7);
     const next7Str = toLocalDateString(next7Date);
-    const upcomingAgendaEvents = agendaEvents.filter(
-      (e) => e.status === 'agendado' && e.date >= todayStr && e.date <= next7Str
+    const integratedItems = buildIntegratedAgendaItems({
+      events: agendaEvents,
+      projects,
+      tasks,
+      leads: effectiveLeads,
+      clients: clients ?? [],
+      todayStr,
+    }).filter((item) => !item.isCompleted && !item.isCancelled);
+    const todayIntegratedCount = integratedItems.filter((item) => item.date === todayStr).length;
+    const upcomingIntegrated7Days = integratedItems.filter(
+      (item) => item.date >= todayStr && item.date <= next7Str
     ).length;
+    const overdueIntegratedCount = integratedItems.filter((item) => item.isOverdue).length;
     const socialInPipeline = socialPosts.filter((p) => p.status !== 'publicado').length;
     const socialApprovedAwaitingConfirm = socialPosts.filter(
       (p) => p.status === 'aprovado'
@@ -126,12 +134,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       activeProjects,
       completedProjects,
       taskStats,
-      todayAgendaEvents,
-      upcomingAgendaEvents,
+      todayIntegratedCount,
+      upcomingIntegrated7Days,
+      overdueIntegratedCount,
       socialInPipeline,
       socialApprovedAwaitingConfirm,
     };
-  }, [projects, tasks, agendaEvents, socialPosts]);
+  }, [projects, tasks, agendaEvents, effectiveLeads, clients, socialPosts]);
 
   const totalScopeLeads = effectiveLeads.length;
   const targetMrrPercent =
@@ -390,7 +399,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             )}
           </Card>
 
-          {/* 7. Receita mensal (Módulo Financeiro real + MRR contratado) */}
+          {/* 7. Receita mensal realizada (Módulo Financeiro real separado de MRR contratado) */}
           <Card
             padding="sm"
             onClick={onNavigate ? () => onNavigate('finance') : undefined}
@@ -401,24 +410,21 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             }`}
           >
             <div className="text-[11px] font-semibold text-[var(--kz-text-muted)] flex items-center justify-between">
-              <span>Receita mensal</span>
+              <span>Receita mensal (realizada)</span>
               <DollarSign className="w-3.5 h-3.5 text-[var(--kz-success-solid)]" />
             </div>
             <div className="mt-2.5 text-2xl kz-metric text-[var(--kz-success-text)]">
-              {kpis.monthlyRealizedRevenueCents > 0
-                ? formatBrlFromCents(kpis.monthlyRealizedRevenueCents)
-                : `R$ ${kpis.monthlyRevenueMrr.toLocaleString('pt-BR')}`}
+              {formatBrlFromCents(kpis.monthlyRealizedRevenueCents)}
             </div>
             <div className="mt-1 text-[11px] text-[var(--kz-text-muted)] font-mono">
-              {kpis.monthlyRealizedRevenueCents > 0
-                ? `Recebido no mês · MRR R$ ${kpis.monthlyRevenueMrr.toLocaleString('pt-BR')}`
-                : kpis.openReceivablesCents > 0
-                ? `A receber: ${formatBrlFromCents(kpis.openReceivablesCents)}${
+              {`MRR contratado: R$ ${kpis.monthlyRevenueMrr.toLocaleString('pt-BR')}`}
+              {kpis.openReceivablesCents > 0
+                ? ` · A receber: ${formatBrlFromCents(kpis.openReceivablesCents)}${
                     kpis.overdueReceivablesCount > 0
                       ? ` (${kpis.overdueReceivablesCount} atras.)`
                       : ''
                   }`
-                : 'Financeiro integrado · clique para abrir'}
+                : ''}
             </div>
           </Card>
 
@@ -446,7 +452,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div>
             <h3 className="kz-section-title">Operação Diária (Projetos, Tarefas, Agenda & Social)</h3>
             <p className="text-xs text-[var(--kz-text-muted)]">
-              Indicadores consolidados em tempo real dos módulos operacionais integrados.
+              {scope === 'niche'
+                ? 'Indicadores globais da agência em tempo real dos módulos operacionais integrados.'
+                : 'Indicadores consolidados em tempo real dos módulos operacionais integrados.'}
             </p>
           </div>
         </div>
@@ -510,10 +518,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <Calendar className="w-3.5 h-3.5 text-[var(--kz-success-solid)]" />
             </div>
             <div className="mt-2.5 text-2xl kz-metric text-[var(--kz-text-primary)]">
-              {stage3Summary.upcomingAgendaEvents + upcomingMeetings.length}
+              {stage3Summary.upcomingIntegrated7Days}
             </div>
             <div className="mt-1 text-[11px] text-[var(--kz-text-muted)] font-mono">
-              {stage3Summary.todayAgendaEvents} eventos diretos hoje · próx. 7 dias
+              {stage3Summary.todayIntegratedCount} hoje · próx. 7 dias
+              {stage3Summary.overdueIntegratedCount > 0
+                ? ` · ${stage3Summary.overdueIntegratedCount} atras.`
+                : ''}
             </div>
           </Card>
 

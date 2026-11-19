@@ -1185,7 +1185,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     setIsClearOpen(true);
                   }}
                 >
-                  Zerar Base
+                  Zerar Base do CRM
                 </Button>
               )}
             </div>
@@ -1198,15 +1198,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         isOpen={isClearOpen}
         onClose={() => setIsClearOpen(false)}
         onConfirm={handleConfirmClear}
-        title="Zerar Banco de Dados (Ação Irreversível)"
+        title="Zerar Base do CRM (Ação Irreversível)"
         description={
           <span>
-            Serão apagados do Cloud Firestore e do cache local: <strong>{leads.length} leads</strong>,{' '}
-            <strong>{niches.length} nichos</strong> e{' '}
-            <strong>{importedSheets.length} registros de planilhas</strong>.
+            Serão apagados do Cloud Firestore e do cache local apenas os dados comerciais:{' '}
+            <strong>{leads.length} leads</strong>, <strong>{niches.length} nichos</strong> e{' '}
+            <strong>{importedSheets.length} registros de planilhas</strong>. Clientes, Propostas,
+            Projetos, Tarefas, Financeiro, Materiais e Configurações são preservados.
           </span>
         }
-        confirmLabel="Confirmar Exclusão Total"
+        confirmLabel="Confirmar Limpeza do CRM"
         variant="danger"
         loading={isClearing}
         confirmDisabled={clearConfirmText.trim().toUpperCase() !== 'ZERAR'}

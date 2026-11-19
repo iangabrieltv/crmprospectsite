@@ -80,6 +80,7 @@ export interface AnalyticsHubViewProps {
   resourceFiles: ResourceFile[];
   savedReports: SavedCustomReport[];
   preferences: AnalyticsPreferences;
+  agencyName?: string;
   cloudPermissionBlocked?: boolean;
   onSaveCustomReport: (report: SavedCustomReport) => Promise<void>;
   onDeleteCustomReport: (reportId: string) => Promise<void>;
@@ -121,6 +122,7 @@ export const AnalyticsHubView: React.FC<AnalyticsHubViewProps> = ({
   resourceFiles,
   savedReports,
   preferences,
+  agencyName,
   cloudPermissionBlocked = false,
   onSaveCustomReport,
   onDeleteCustomReport,
@@ -227,7 +229,7 @@ export const AnalyticsHubView: React.FC<AnalyticsHubViewProps> = ({
   const handleExportPdf = () => {
     const report = getReportForCurrentView();
     if (!report) return;
-    const filename = downloadAnalyticsReportPdf(report);
+    const filename = downloadAnalyticsReportPdf(report, agencyName || 'Agência Kaizen');
     showFeedback(`PDF gerencial exportado: ${filename}`);
   };
 
