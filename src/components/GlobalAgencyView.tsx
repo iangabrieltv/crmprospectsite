@@ -875,7 +875,7 @@ export const GlobalAgencyView: React.FC<GlobalAgencyViewProps> = ({
               }}
               className="text-[var(--kz-danger-text)] hover:bg-[var(--kz-danger-bg)] sm:ml-auto"
             >
-              Zerar Base CRM para Padrão Inicial
+              Zerar Base para Padrão Inicial
             </Button>
           )}
         </div>
@@ -1156,23 +1156,20 @@ export const GlobalAgencyView: React.FC<GlobalAgencyViewProps> = ({
         isOpen={isResetModalOpen}
         onClose={() => setIsResetModalOpen(false)}
         onConfirm={handleConfirmCleanReset}
-        title="Zerar Base do CRM para Padrão Inicial (Nuvem + Local)"
-        description="Operação irreversível para o CRM sem backup prévio."
-        confirmLabel={isResetting ? 'Zerando...' : 'Confirmar Limpeza do CRM'}
+        title="Zerar Base Completa (Nuvem + Local)"
+        description="Operação irreversível sem backup prévio."
+        confirmLabel={isResetting ? 'Zerando...' : 'Confirmar Exclusão Total'}
         variant="danger"
         loading={isResetting}
         confirmDisabled={resetConfirmText.trim().toUpperCase() !== 'ZERAR'}
       >
         <div className="bg-[var(--kz-danger-bg)] border border-[var(--kz-danger-border)] rounded-xl p-3 text-xs text-[var(--kz-danger-text)] space-y-1">
-          <p className="font-semibold">Serão excluídos do Firestore (apenas módulos CRM):</p>
+          <p className="font-semibold">Serão excluídos do Firestore:</p>
           <p>• {leads.length} leads (coleção <code className="font-mono">leads</code>)</p>
           <p>• {niches.length} nichos (coleção <code className="font-mono">niches</code>)</p>
           <p>
             • {importedSheets.length} planilhas (coleção{' '}
             <code className="font-mono">importedSheets</code>)
-          </p>
-          <p className="pt-1 text-[11px]">
-            Clientes, Propostas, Projetos, Tarefas, Financeiro, Materiais e Configurações são preservados.
           </p>
         </div>
 

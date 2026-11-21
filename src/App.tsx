@@ -4654,7 +4654,6 @@ export default function App() {
               resourceFiles={resourceFiles}
               savedReports={savedCustomReports}
               preferences={analyticsSettings}
-              agencyName={systemSettings.adminProfile.agencyName}
               cloudPermissionBlocked={analyticsCloudBlocked}
               onSaveCustomReport={handleSaveCustomReport}
               onDeleteCustomReport={handleDeleteCustomReport}

@@ -19,8 +19,6 @@
 | **Etapa 5** | Eficiência & Recursos: **Central de Materiais, Documentos, Scripts e Biblioteca de Modelos** (`/materiais` e `/modelos`) | **CONCLUÍDA (Desenvolvimento)** |
 | **Etapa 6** | **Relatórios, Produtividade e Inteligência de Gestão** (`Relatórios e Produtividade`): 9 subáreas analíticas, Inteligência de Gestão, Construtor Personalizado, PDF/CSV e Preferências | **CONCLUÍDA (Desenvolvimento)** |
 | **Etapa 7** | **Configurações do Sistema, Assistente IA, Notificações e Automações** conectados ao workspace | **CONCLUÍDA (Desenvolvimento)** |
-| **Etapa 8** | **Integração Geral, Auditoria Final e Validação Completa** cross-módulo, segurança, dados e testes E2E | **CONCLUÍDA (Desenvolvimento — Aguardando Autorização para Deploy)** |
-| **Etapa 1.1 (Estabilização)** | **Aperfeiçoamento do Mecanismo de Backup** (`listDocuments()`, `GeoPoint` oficial SDK, prevenção de colisão NDJSON, validação completa + testes em mock) | **CONCLUÍDA EM DESENVOLVIMENTO (Backup real ainda não executado)** |
 
 ---
 
@@ -89,19 +87,6 @@
 - **Assistente IA (`ai_assistant` -> `AiAssistantView`):** conectado exclusivamente às rotas protegidas `/api/gemini/status` e `/api/gemini/assistant-chat` no backend Express, com histórico de conversas em `aiConversations`, sugestões inteligentes determinísticas (`computeSmartAiSuggestions`) mesmo sem `GEMINI_API_KEY`, e ações assistidas (`create_task`, `whatsapp_draft`, `meeting_brief`, `prioritize_note`) executadas **somente** após confirmação explícita em prévia editável.
 - **Notificações (`notifications` -> `NotificationsView` + `Header`):** motor deduplicado (`evaluateWorkspaceNotifications`) conectado a leads, propostas, agenda, tarefas, projetos e vencimentos financeiros com filtros, leitura persistida, dispensa e links diretos de módulo.
 - **Automações (`automations` -> `AutomationsView`):** 11 regras comerciais, operacionais e financeiras (`manual_ou_ao_abrir`) com histórico auditável em `automationLogs`, sem cron oculto, sem auto-baixa financeira, sem exclusões e sem envios automáticos externos.
-
-### Etapa 8 — Integração Geral, Auditoria Final e Validação Completa *(Concluída em Desenvolvimento)*
-- **Auditoria Completa dos 16 Módulos:** verificação direta de código, serviços, persistência e segurança em toda a aplicação (`docs/RELATORIO_ETAPA_8.md`).
-- **Ajustes Cirúrgicos de Consistência:**
-  - `DashboardView`: separação explícita de **`Receita mensal (realizada)`** em relação ao `MRR contratado` (sem substituir zero realizado por MRR) e alinhamento do indicador **`Compromissos (Agenda Integrada)`** ao motor canônico `buildIntegratedAgendaItems` (próximos 7 dias + indicação clara de escopo global no bloco operacional).
-  - `Header`, `SettingsView` e `GlobalAgencyView`: esclarecimento honesto dos botões e modais de reset para **`Zerar Base do CRM`**, informando que Clientes, Propostas, Projetos, Tarefas, Financeiro, Materiais e Configurações são preservados.
-  - `AnalyticsHubView` + `App.tsx`: propagação de `agencyName` de `systemSettings.adminProfile` para os relatórios PDF executivos.
-- **Validação E2E Cross-Módulo (`tests/kaizenEtapa8.test.ts`):** validação dos 6 fluxos ponta a ponta (Lead -> Cliente -> Proposta/PDF -> Projeto/Tarefas/Agenda -> Financeiro/Dashboard/Analytics -> Materiais/Segurança -> Notificações/IA Guardrails), com **98/98 testes aprovados**, `tsc --noEmit` limpo, `vite build` aprovado e servidor dev validado na porta `3000`.
-- **Pendências externas registradas para pré-produção:** publicação remota de `firestore.rules` e `storage.rules`, configuração de `GEMINI_API_KEY` em produção/servidor, execução local da suíte `npm run test:rules` em máquina com Java JRE e criação de `package-lock.json` para auditoria `npm audit`.
-
-### Etapa 1.1 (Estabilização) — Aperfeiçoamento e Validação do Mecanismo de Backup *(Concluída em Desenvolvimento)*
-- Evolução do motor somente-leitura (`src/services/adminBackupService.ts` e `scripts/backup-firestore.ts`, manifesto `3.2-admin-recursive` retrocompatível com `3.1-admin-recursive`): descoberta via `get()` + `listDocuments()` (cobrindo documentos sem campos próprios/*phantom containers*), inventário separado de coleções raiz/externas, verificação estrita de `GeoPoint`/`Timestamp`/`DocumentReference` via SDK oficial, nomes `.ndjson` determinísticos sem colisão e validação integral em disco de manifesto + `.ndjson` + SHA-256 (`docs/RELATORIO_ETAPA_1_1_BACKUP_ENGINE.md`).
-- Validado com mocks e fixtures locais em `tests/adminBackup.test.ts` (**6/6 testes de backup**, **101/101 no `npm test`**). **Nenhum backup real do Firestore foi executado nesta etapa** (aguarda execução em ambiente com credenciais administrativas de leitura).
 
 ---
 
